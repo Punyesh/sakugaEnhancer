@@ -1,0 +1,34 @@
+# Sakuga Enhancer
+
+A bookmarklet for [sakugabooru.com](https://www.sakugabooru.com) — better search, an animator stats view, and a show/episode browser. Runs entirely in your browser, no server or extension.
+
+## Install
+
+Open **`install.html`** and drag the amber button to your bookmarks bar. Go to sakugabooru.com, click it.
+
+(Or enable GitHub Pages on this repo and use the hosted link instead of the local file.)
+
+## Features
+
+- **Search** — tag-chip search with sort order, hover-to-preview clips, a tag/animator info dock, and a collapsible filter grid.
+- **📊 Animator Stats** (toggle inside Search) — cut count, avg score, activity-by-year chart, and top co-tags for whichever animator is in focus.
+- **Shows** — search a title, browse its episodes (parsed from post source text), with back/forward navigation.
+- Search and Stats stay in sync — search an animator's tag or look them up directly, either way the other view follows.
+
+## Files
+
+- `sakuga-enhancer.js` — the app itself. Edit this for changes.
+- `build.js` — turns it into a `javascript:` bookmarklet URI (`bookmarklet.txt`).
+- `build-install.js` — generates `install.html` from that.
+- `install.html` — what you actually drag to your bookmarks bar.
+
+Rebuild after any edit:
+```
+node build.js && node build-install.js
+```
+
+## Notes
+
+- This fork's `/tag.json` API doesn't honor `name_pattern` (substring search) or `limit=0` ("all tags") despite the docs — tag lookups instead paginate the full dictionary once and cache it in `localStorage` for 6 hours.
+- Sakugabooru loads Prototype.js, which overwrites `Array.prototype.filter/map/every/some/find` globally. This code avoids all of them in favor of plain loops.
+- Episode grouping is a best-effort text parse of the `source` field, not structured data — accurate where tagging followed the "Title #12" convention, rougher where it didn't.
