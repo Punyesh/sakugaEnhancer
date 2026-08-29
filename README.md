@@ -4,14 +4,14 @@ A bookmarklet for [sakugabooru.com](https://www.sakugabooru.com) — better sear
 
 ## Install
 
-**https://punyesh.github.io/sakugaEnhancer/install.html**
+**[punyesh.github.io/sakugaEnhancer/install.html](https://punyesh.github.io/sakugaEnhancer/install.html)**
 
 Open that page and drag the amber button to your bookmarks bar. Go to sakugabooru.com, click it.
 
 <details>
 <summary>Local alternative (if the link above isn't live)</summary>
 
-Open `install.html` directly from this repo instead — same button, same result.
+Open `install.html` directly from this repo instead — same button, same result. (Note: viewing it on github.com itself shows the raw code, not a working page — you need GitHub Pages enabled, or the file downloaded/opened locally.)
 
 </details>
 
