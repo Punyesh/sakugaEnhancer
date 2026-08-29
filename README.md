@@ -4,7 +4,7 @@ A bookmarklet for [sakugabooru.com](https://www.sakugabooru.com) — better sear
 
 ## Install
 
-**https://github.com/Punyesh/sakugaEnhancer/blob/main/install.html**
+**https://github.com/Punyesh/sakugaEnhancer/install.html**
 
 Open that page and drag the amber button to your bookmarks bar. Go to sakugabooru.com, click it.
 
