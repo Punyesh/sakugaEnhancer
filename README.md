@@ -6,7 +6,11 @@ A bookmarklet for [sakugabooru.com](https://www.sakugabooru.com) — better sear
 
 **[punyesh.github.io/sakugaEnhancer/install.html](https://punyesh.github.io/sakugaEnhancer/install.html)**
 
-Open that page and drag the amber button to your bookmarks bar. Go to sakugabooru.com, click it.
+Open that page — there are two buttons, drag whichever matches your browser to your bookmarks bar:
+- **Chrome / Edge / Safari** — the full script, self-contained.
+- **Firefox** — a short loader that fetches the script from this repo's Pages URL at click-time, since Firefox has trouble saving very long bookmarklet links.
+
+Go to sakugabooru.com, click your bookmark.
 
 <details>
 <summary>Local alternative (if the link above isn't live)</summary>
