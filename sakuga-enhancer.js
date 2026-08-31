@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF12 (ffmpeg.wasm trimming) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF13 (SharedArrayBuffer shim) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -626,6 +626,15 @@
   var ffmpegLoadPromise = null;
 
   function loadFfmpegScript() {
+    // sakugabooru.com doesn't send the cross-origin-isolation headers that
+    // real SharedArrayBuffer requires, so the browser disables it entirely —
+    // but ffmpeg's single-threaded core still references it even though it
+    // doesn't actually need real shared memory here. A harmless alias to
+    // plain ArrayBuffer avoids the crash without pretending to add real
+    // threading (documented workaround for this exact ffmpeg.wasm situation).
+    if (typeof window.SharedArrayBuffer === 'undefined') {
+      window.SharedArrayBuffer = ArrayBuffer;
+    }
     if (window.FFmpeg) return Promise.resolve();
     return new Promise(function (resolve, reject) {
       var s = document.createElement('script');
