@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF42 (fast/accurate trim toggle + timing) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF43 (crf 15 for accurate trim) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -774,7 +774,7 @@
               // Re-encoding is the only way to land on the exact requested frame —
               // slower and a generation of quality loss, but genuinely frame-accurate.
               args = ['-i', inputName, '-ss', String(inTime), '-to', String(outTime),
-                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-c:a', 'aac', outputName];
+                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-c:a', 'aac', outputName];
             } else {
               statusEl.textContent = 'trimming (fast mode)…';
               // Fast stream-copy: no decoding, just remuxing existing compressed data —
