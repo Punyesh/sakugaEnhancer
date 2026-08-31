@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF26 (show pagination) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF27 (show pagination + order) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -150,6 +150,19 @@
     '.sk-nav-btn:disabled{opacity:.35;cursor:default;}',
     '.sk-nav-crumb{flex:1;text-align:center;font-size:11px;color:' + C.dim + ';font-family:"Courier New",monospace;',
     'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-page-jump{display:flex;align-items:center;gap:4px;margin-bottom:10px;}',
+    '.sk-page-input{width:58px;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
+    'padding:5px 7px;border-radius:14px;font-size:11px;text-align:center;font-family:"Courier New",monospace;outline:none;}',
+    '.sk-page-input:focus{border-color:' + C.amber + ';}',
+    '.sk-page-go{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
+    'padding:5px 9px;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit;}',
+    '.sk-page-go:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
+    '.sk-page-total{font-size:11px;color:' + C.dim + ';}',
+    '.sk-show-order-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;}',
+    '.sk-show-order-label{font-size:11px;color:' + C.dim + ';white-space:nowrap;}',
+    '.sk-show-order-select{flex:1;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
+    'padding:5px 7px;border-radius:14px;font-size:11px;outline:none;font-family:inherit;}',
+    '.sk-show-order-select:focus{border-color:' + C.amber + ';}',
     '.sk-related-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}',
     '.sk-chip.clickable{cursor:pointer;}',
     '.sk-chip.clickable:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
@@ -1360,18 +1373,30 @@
     };
   }
 
-  function fetchShowPage(showTag, page) {
-    return getJSON('/post.json?limit=' + SHOW_PAGE_SIZE + '&page=' + page + '&tags=' + encodeURIComponent(showTag) + '+order:date')
+  function fetchShowPage(showTag, page, totalCount, orderMode) {
+    var mode = orderMode === 'asc' ? 'asc' : 'desc';
+    var totalPages = totalCount ? Math.max(1, Math.ceil(totalCount / SHOW_PAGE_SIZE)) : null;
+    var apiPage = page;
+
+    // Sakugabooru's existing order:date endpoint is reliable and returns newest first.
+    // For "oldest first", turn logical page 1 into the last API page, logical page 2
+    // into the second-to-last API page, etc., then reverse the posts within that page.
+    if (mode === 'asc' && totalPages) apiPage = totalPages - page + 1;
+
+    return getJSON('/post.json?limit=' + SHOW_PAGE_SIZE + '&page=' + apiPage + '&tags=' + encodeURIComponent(showTag) + '+order:date')
       .then(function (posts) {
+        if (mode === 'asc') posts = posts.slice().reverse();
         return buildShowPageData(posts);
       });
   }
 
-  function loadShowPage(showTag, entry, page) {
-    if (entry.pages[page]) return Promise.resolve(entry.pages[page]);
+  function loadShowPage(showTag, entry, page, orderMode) {
+    var mode = orderMode === 'asc' ? 'asc' : 'desc';
+    if (!entry.pages[mode]) entry.pages[mode] = {};
+    if (entry.pages[mode][page]) return Promise.resolve(entry.pages[mode][page]);
 
-    return fetchShowPage(showTag, page).then(function (pageData) {
-      entry.pages[page] = pageData;
+    return fetchShowPage(showTag, page, entry.totalCount, mode).then(function (pageData) {
+      entry.pages[mode][page] = pageData;
       return pageData;
     });
   }
@@ -1415,7 +1440,8 @@
     var cur = navStack[navIndex];
     if (cur.type === 'episodes') {
       var page = cur.page || 1;
-      crumb.textContent = cur.showTag + ' · page ' + page;
+      var orderLabel = cur.order === 'asc' ? 'oldest first' : 'newest first';
+      crumb.textContent = cur.showTag + ' · page ' + page + (cur.entry && cur.entry.totalCount ? ' of ' + Math.max(1, Math.ceil(cur.entry.totalCount / SHOW_PAGE_SIZE)) : '') + ' · ' + orderLabel;
     } else {
       crumb.textContent = '"' + cur.query + '"';
     }
@@ -1430,7 +1456,7 @@
     if (!cur) { content.innerHTML = ''; return; }
     input.value = cur.type === 'episodes' ? cur.showTag : cur.query;
     if (cur.type === 'results') paintShowResults(content, cur.showsList);
-    else paintShowDetail(content, cur.showTag, cur.entry, cur.page || 1);
+    else paintShowDetail(content, cur.showTag, cur.entry, cur.page || 1, cur.order || 'desc');
   }
 
   function searchShowTags(q) {
@@ -1483,8 +1509,8 @@
       item.innerHTML = '<span class="name">' + esc(t.name) + '</span><span class="cnt">' + t.count + ' posts</span>';
       item.onclick = function () {
         content.innerHTML = '<div class="sk-loading">loading ' + esc(t.name) + '…</div>';
-        getShowEntry(t.name).then(function (entry) {
-          pushNav({ type: 'episodes', showTag: t.name, entry: entry, page: 1 });
+        getShowEntry(t.name, t.count).then(function (entry) {
+          pushNav({ type: 'episodes', showTag: t.name, entry: entry, page: 1, order: 'desc' });
         }).catch(function (err) {
           content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
         });
@@ -1493,32 +1519,37 @@
     });
   }
 
-  function getShowEntry(showTag) {
+  function getShowEntry(showTag, totalCount) {
     if (showsCache[showTag]) return Promise.resolve(showsCache[showTag]);
 
     var relatedPromise = getJSON('/tag/related.json?tags=' + encodeURIComponent(showTag) + '&type=copyright')
       .then(function (r) { return normalizeRelated(r, showTag); })
       .catch(function () { return []; });
 
-    return Promise.all([relatedPromise, loadShowPage(showTag, { pages: {} }, 1)]).then(function (res) {
-      var entry = {
-        related: res[0],
-        pages: { 1: res[1] }
-      };
+    var entry = {
+      related: [],
+      totalCount: typeof totalCount === 'number' ? totalCount : null,
+      pages: { desc: {}, asc: {} }
+    };
+
+    return Promise.all([relatedPromise, loadShowPage(showTag, entry, 1, 'desc')]).then(function (res) {
+      entry.related = res[0];
       showsCache[showTag] = entry;
       return entry;
     });
   }
 
 
-  function paintShowDetail(content, showTag, entry, page) {
+  function paintShowDetail(content, showTag, entry, page, orderMode) {
     var pageNum = page || 1;
-    var pageData = entry.pages[pageNum];
+    var mode = orderMode === 'asc' ? 'asc' : 'desc';
+    if (!entry.pages[mode]) entry.pages[mode] = {};
+    var pageData = entry.pages[mode][pageNum];
 
     if (!pageData) {
       content.innerHTML = '<div class="sk-loading">loading page ' + pageNum + '…</div>';
-      loadShowPage(showTag, entry, pageNum).then(function () {
-        paintShowDetail(content, showTag, entry, pageNum);
+      loadShowPage(showTag, entry, pageNum, mode).then(function () {
+        paintShowDetail(content, showTag, entry, pageNum, mode);
       }).catch(function (err) {
         content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
       });
@@ -1533,57 +1564,96 @@
     var firstPost = ((pageNum - 1) * SHOW_PAGE_SIZE) + 1;
     var lastPost = firstPost + pageData.totalPosts - 1;
 
+    var totalPages = entry.totalCount ? Math.max(1, Math.ceil(entry.totalCount / SHOW_PAGE_SIZE)) : null;
+
     content.innerHTML =
       '<div class="sk-show-head"><span class="title">' + esc(showTag) + '</span></div>' +
       '<div class="sk-show-nav sk-show-page-nav" id="sk-show-page-nav">' +
         '<button class="sk-nav-btn" id="sk-show-page-prev" type="button"' +
           (pageNum <= 1 ? ' disabled' : '') + '>← Previous</button>' +
-        '<span class="sk-nav-crumb">Page ' + pageNum + ' · posts ' + firstPost + '–' + lastPost + '</span>' +
+        '<span class="sk-nav-crumb">Page ' + pageNum + (totalPages ? ' of ' + totalPages : '') + ' · posts ' + firstPost + '–' + lastPost + '</span>' +
         '<button class="sk-nav-btn" id="sk-show-page-next" type="button"' +
-          (!pageData.hasNext ? ' disabled' : '') + '>Next →</button>' +
+          ((totalPages && pageNum >= totalPages) || (!totalPages && !pageData.hasNext) ? ' disabled' : '') + '>Next →</button>' +
+      '</div>' +
+      '<div class="sk-page-jump">' +
+        '<span class="sk-page-total">Jump to page</span>' +
+        '<input class="sk-page-input" id="sk-show-page-input" type="number" min="1"' +
+          (totalPages ? ' max="' + totalPages + '"' : '') +
+          ' value="' + pageNum + '">' +
+        '<button class="sk-page-go" id="sk-show-page-go" type="button">Go</button>' +
+        (totalPages ? '<span class="sk-page-total">/ ' + totalPages + '</span>' : '') +
+      '</div>' +
+      '<div class="sk-show-order-row">' +
+        '<span class="sk-show-order-label">Order</span>' +
+        '<select class="sk-show-order-select" id="sk-show-order-select">' +
+          '<option value="desc"' + (mode === 'desc' ? ' selected' : '') + '>Newest → Oldest</option>' +
+          '<option value="asc"' + (mode === 'asc' ? ' selected' : '') + '>Oldest → Newest</option>' +
+        '</select>' +
       '</div>' +
       (entry.related.length
         ? '<div class="sk-related-row" id="sk-related-row"></div>'
         : '') +
       '<div class="sk-caption">Showing ' + pageData.totalPosts + ' posts from page ' + pageNum +
-        ' (' + firstPost + '–' + lastPost + ') of the ' + esc(showTag) +
-        ' results, newest first. Episode grouping is parsed from each post\'s source text using the ' +
+        ' (' + firstPost + '–' + lastPost + ') of ' + (entry.totalCount ? entry.totalCount : '?') + ' ' + esc(showTag) +
+        ' results, ' + (mode === 'asc' ? 'oldest first' : 'newest first') + '. Episode grouping is parsed from each post\'s source text using the ' +
         '"Title #12" convention; unrecognized source text is grouped into "Other / uncategorized".</div>' +
       '<div class="sk-ep-grid" id="sk-ep-grid"></div>';
 
     var prevBtn = content.querySelector('#sk-show-page-prev');
     var nextBtn = content.querySelector('#sk-show-page-next');
+    var pageInput = content.querySelector('#sk-show-page-input');
+    var pageGo = content.querySelector('#sk-show-page-go');
+    var orderSelect = content.querySelector('#sk-show-order-select');
 
-    prevBtn.onclick = function () {
-      if (pageNum <= 1) return;
-      var targetPage = pageNum - 1;
-      var cur = navStack[navIndex];
-      if (cur && cur.type === 'episodes') {
-        cur.page = targetPage;
-        renderNavCurrent();
-      } else {
-        paintShowDetail(content, showTag, entry, targetPage);
-      }
-    };
-
-    nextBtn.onclick = function () {
-      if (!pageData.hasNext) return;
-      var targetPage = pageNum + 1;
-      nextBtn.disabled = true;
-      nextBtn.textContent = 'Loading…';
-      loadShowPage(showTag, entry, targetPage).then(function () {
+    function goToPage(targetPage) {
+      targetPage = parseInt(targetPage, 10);
+      if (!isFinite(targetPage)) return;
+      if (targetPage < 1) targetPage = 1;
+      if (totalPages && targetPage > totalPages) targetPage = totalPages;
+      if (targetPage === pageNum) return;
+      if (pageInput) pageInput.value = targetPage;
+      content.innerHTML = '<div class="sk-loading">loading page ' + targetPage + '…</div>';
+      loadShowPage(showTag, entry, targetPage, mode).then(function () {
         var cur = navStack[navIndex];
         if (cur && cur.type === 'episodes') {
           cur.page = targetPage;
+          cur.order = mode;
           renderNavCurrent();
         } else {
-          paintShowDetail(content, showTag, entry, targetPage);
+          paintShowDetail(content, showTag, entry, targetPage, mode);
         }
       }).catch(function (err) {
-        nextBtn.disabled = false;
-        nextBtn.textContent = 'Next →';
-        content.querySelector('.sk-caption').textContent = 'error loading page ' + targetPage + ': ' + err.message;
+        content.innerHTML = '<div class="sk-empty">error loading page ' + targetPage + ': ' + esc(err.message) + '</div>';
       });
+    }
+
+    orderSelect.onchange = function () {
+      var nextMode = orderSelect.value === 'asc' ? 'asc' : 'desc';
+      var cur = navStack[navIndex];
+      if (cur && cur.type === 'episodes') {
+        cur.order = nextMode;
+        cur.page = 1;
+        renderNavCurrent();
+      } else {
+        paintShowDetail(content, showTag, entry, 1, nextMode);
+      }
+    };
+
+    pageGo.onclick = function () { goToPage(pageInput.value); };
+    pageInput.onkeydown = function (e) {
+      if (e.key === 'Enter') goToPage(pageInput.value);
+    };
+
+    prevBtn.onclick = function () {
+      if (pageNum <= 1) return;
+      goToPage(pageNum - 1);
+    };
+
+    nextBtn.onclick = function () {
+      if ((totalPages && pageNum >= totalPages) || (!totalPages && !pageData.hasNext)) return;
+      nextBtn.disabled = true;
+      nextBtn.textContent = 'Loading…';
+      goToPage(pageNum + 1);
     };
 
     if (entry.related.length) {
@@ -1594,8 +1664,8 @@
         chip.textContent = r.name + ' (' + r.count + ')';
         chip.onclick = function () {
           content.innerHTML = '<div class="sk-loading">loading ' + esc(r.name) + '…</div>';
-          getShowEntry(r.name).then(function (e2) {
-            pushNav({ type: 'episodes', showTag: r.name, entry: e2, page: 1 });
+          getShowEntry(r.name, r.count).then(function (e2) {
+            pushNav({ type: 'episodes', showTag: r.name, entry: e2, page: 1, order: 'desc' });
           }).catch(function (err) {
             content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
           });
