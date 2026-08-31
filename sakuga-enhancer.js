@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF8 (image lightbox too) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF10 (full frame navigator) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -195,6 +195,15 @@
     '.sk-media-viewpost:hover{text-decoration:underline;}',
     '.sk-media-close{cursor:pointer;color:' + C.dim + ';font-size:22px;line-height:1;padding:0 2px 2px;}',
     '.sk-media-close:hover{color:' + C.red + ';}',
+    '.sk-frame-bar{padding:8px 10px;background:' + C.panel2 + ';border-top:1px solid ' + C.line + ';}',
+    '.sk-frame-row{display:flex;align-items:center;gap:4px;}',
+    '.sk-frame-btn{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
+    'padding:5px 9px;border-radius:5px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap;}',
+    '.sk-frame-btn:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
+    '.sk-frame-count{flex:1;text-align:center;font-size:13px;font-weight:bold;color:' + C.amber + ';',
+    'font-family:"Courier New",monospace;}',
+    '.sk-frame-time{text-align:center;font-size:11px;color:' + C.dim + ';margin-top:5px;',
+    'font-family:"Courier New",monospace;}',
     '.sk-close:hover{color:' + C.red + ';}'
   ].join('');
 
@@ -588,17 +597,20 @@
     backdrop.appendChild(box);
     document.body.appendChild(backdrop); // attach to the real page body so it overlays everything, not just our small panel
 
+    var extraCleanup = [];
     function close() {
       var vid = box.querySelector('video');
       if (vid) vid.pause();
       backdrop.remove();
       document.removeEventListener('keydown', onKey);
+      extraCleanup.forEach(function (fn) { fn(); });
     }
     function onKey(e) { if (e.key === 'Escape') close(); }
     document.addEventListener('keydown', onKey);
     backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
     box.querySelector('#sk-media-close').onclick = close;
-    return box; // caller appends the actual <video> or <img>
+    box._onClose = function (fn) { extraCleanup.push(fn); };
+    return box; // caller appends the actual <video> or <img>; can register box._onClose(fn) for cleanup
   }
 
   function openVideoModal(p) {
@@ -609,6 +621,68 @@
     vid.playsInline = true;
     vid.src = p.file_url;
     box.appendChild(vid);
+
+    // Frame-accurate review is the whole point of sakuga — add frame stepping.
+    // fps comes from the post data if this fork exposes it, else a common
+    // anime-standard fallback; either way, browser seeking is only approximate
+    // (it can't guarantee landing on an exact decoded frame), so treat this as
+    // "close enough for review," not a frame-perfect scrubber.
+    var fps = Number(p.frame_rate || p.framerate) || 24;
+    var MED_STEP = 10;
+    var bigStep = Math.max(1, Math.round(fps)); // ~1 second worth of frames
+
+    var frameBar = document.createElement('div');
+    frameBar.className = 'sk-frame-bar';
+    frameBar.innerHTML =
+      '<div class="sk-frame-row">' +
+        '<button class="sk-frame-btn" id="sk-fb-bigback" title="back ~1s">«</button>' +
+        '<button class="sk-frame-btn" id="sk-fb-medback" title="back ' + MED_STEP + ' frames">‹‹</button>' +
+        '<button class="sk-frame-btn" id="sk-fb-back" title="previous frame ( , )">‹</button>' +
+        '<span class="sk-frame-count" id="sk-frame-count">0 / 0</span>' +
+        '<button class="sk-frame-btn" id="sk-fb-fwd" title="next frame ( . )">›</button>' +
+        '<button class="sk-frame-btn" id="sk-fb-medfwd" title="forward ' + MED_STEP + ' frames">››</button>' +
+        '<button class="sk-frame-btn" id="sk-fb-bigfwd" title="forward ~1s">»</button>' +
+      '</div>' +
+      '<div class="sk-frame-time" id="sk-frame-time">0:00.0 / 0:00.0</div>';
+    box.appendChild(frameBar);
+
+    var countEl = frameBar.querySelector('#sk-frame-count');
+    var timeEl = frameBar.querySelector('#sk-frame-time');
+
+    function formatTime(t) {
+      var m = Math.floor(t / 60);
+      var s = t - m * 60;
+      var sStr = s.toFixed(1);
+      if (s < 10) sStr = '0' + sStr;
+      return m + ':' + sStr;
+    }
+    function updateDisplay() {
+      var total = Math.round((vid.duration || 0) * fps);
+      var cur = Math.round(vid.currentTime * fps);
+      countEl.textContent = cur + ' / ' + total;
+      timeEl.textContent = formatTime(vid.currentTime) + ' / ' + formatTime(vid.duration || 0);
+    }
+    function step(deltaFrames) {
+      vid.pause();
+      var next = vid.currentTime + deltaFrames / fps;
+      vid.currentTime = Math.max(0, Math.min(vid.duration || next, next));
+    }
+    vid.addEventListener('loadedmetadata', updateDisplay);
+    vid.addEventListener('timeupdate', updateDisplay);
+
+    frameBar.querySelector('#sk-fb-back').onclick = function () { step(-1); };
+    frameBar.querySelector('#sk-fb-fwd').onclick = function () { step(1); };
+    frameBar.querySelector('#sk-fb-medback').onclick = function () { step(-MED_STEP); };
+    frameBar.querySelector('#sk-fb-medfwd').onclick = function () { step(MED_STEP); };
+    frameBar.querySelector('#sk-fb-bigback').onclick = function () { step(-bigStep); };
+    frameBar.querySelector('#sk-fb-bigfwd').onclick = function () { step(bigStep); };
+
+    function onFrameKey(e) {
+      if (e.key === ',') step(-1);
+      else if (e.key === '.') step(1);
+    }
+    document.addEventListener('keydown', onFrameKey);
+    box._onClose(function () { document.removeEventListener('keydown', onFrameKey); });
   }
 
   function openImageModal(p) {
