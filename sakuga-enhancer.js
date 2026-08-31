@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF37 (touch-aware: tap-to-lightbox + in-modal tag info) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF38 (reverted mobile-specific changes) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -46,23 +46,6 @@
     '#sk-enh-panel{position:absolute;bottom:64px;right:0;width:460px;max-height:80vh;',
     'background:' + C.panel + ';border:1px solid ' + C.line + ';border-radius:6px;',
     'box-shadow:0 12px 40px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden;}',
-    // Below this width, the panel can't physically fit as a small floating box —
-    // take over the screen instead of clipping/overflowing.
-    '@media (max-width:600px){',
-    '#sk-enh-panel{position:fixed;bottom:0;right:0;left:0;top:0;width:100%;max-height:100%;',
-    'border-radius:0;}',
-    '#sk-enh-root{bottom:12px;right:12px;}',
-    '#sk-enh-toggle{width:56px;height:56px;font-size:22px;}',
-    '.sk-tab{padding:14px 0;font-size:13px;}',
-    '.sk-close{font-size:22px;padding:4px;}',
-    '.sk-frame-btn,.sk-mini-toggle,.sk-nav-btn{padding-top:8px;padding-bottom:8px;}',
-    '.sk-media-backdrop{padding:8px;}',
-    '.sk-frame-row{flex-wrap:wrap;}',
-    '.sk-facet-item input{width:20px;height:20px;}',
-    '.sk-facet-item{padding:7px 2px;}',
-    '.sk-chip span{padding:4px;font-size:13px;}',
-    '.sk-filter-toggle,.sk-facet-all,.sk-facet-none{padding:6px 12px;}',
-    '}',
     '#sk-enh-head{display:flex;align-items:center;justify-content:space-between;',
     'padding:10px 12px;border-bottom:1px solid ' + C.line + ';background:' + C.panel2 + ';}',
     '#sk-enh-head .brand{font-family:"Courier New",monospace;font-size:12px;color:' + C.dim + ';letter-spacing:1px;}',
@@ -340,12 +323,6 @@
     while (j < right.length) { result.push(right[j]); j++; }
     return result;
   }
-  // Real hover doesn't exist on touch devices — checking screen width alone
-  // would misfire for e.g. a small desktop window, so check actual hover/pointer
-  // capability instead. Used to skip hover-only enhancements (preview-on-hover,
-  // hover info dock) that would never fire usefully anyway, and go straight to
-  // the full lightbox on tap instead, which already has everything they'd show.
-  var isTouchDevice = !!(window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches);
 
   function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) {
     return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
@@ -608,32 +585,9 @@
 
   function isVideoFile(url) { return /\.(webm|mp4|mov)(\?|$)/i.test(url || ''); }
 
-  function renderTagBreakdown(container, p) {
-    var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
-    container.innerHTML = '<div class="sk-loading" style="padding:8px 0">loading tag info…</div>';
-    ensureTagTypes().then(function (map) {
-      var artistTags = safeFilter(tags, function (t) { return map[t] === 1; });
-      var otherTags = safeFilter(tags, function (t) { return map[t] !== 1; });
-      container.innerHTML =
-        '<div class="sk-dock-section">' +
-          '<div class="sk-tagblock-label">' + (artistTags.length ? 'Animator' : 'Animator — untagged') + '</div>' +
-          '<div class="sk-chipwrap">' +
-            (artistTags.length
-              ? safeMap(artistTags, function (t) { return '<span class="sk-mini-chip artist">' + esc(t) + '</span>'; }).join('')
-              : '<span class="sk-mini-chip other">not credited on this post</span>') +
-          '</div>' +
-        '</div>' +
-        '<div class="sk-dock-section">' +
-          '<div class="sk-tagblock-label">Tags (' + otherTags.length + ')</div>' +
-          '<div class="sk-chipwrap">' +
-            safeMap(otherTags, function (t) { return '<span class="sk-mini-chip other">' + esc(t) + '</span>'; }).join('') +
-          '</div>' +
-        '</div>';
-    });
-  }
-
   function renderInfoDock(dock, p) {
     dock.style.display = 'block';
+    var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
     // The `source` field is often just descriptive text (e.g. "Attack_on_Titan #12"),
     // not an actual URL — putting non-URL text straight into an href causes the
     // browser to treat it as a same-page fragment link (the "#12" jumps nowhere real).
@@ -651,9 +605,30 @@
           '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
         '</div>' + linkHtml +
       '</div>';
-    dock.innerHTML = head + '<div class="sk-dock-body" id="sk-dock-body-inner"></div>';
+    dock.innerHTML = head +
+      '<div class="sk-dock-body"><div class="sk-loading" style="padding:2px 0">loading tag info…</div></div>';
     dock.classList.add('show');
-    renderTagBreakdown(dock.querySelector('#sk-dock-body-inner'), p);
+
+    ensureTagTypes().then(function (map) {
+      var artistTags = safeFilter(tags, function (t) { return map[t] === 1; });
+      var otherTags = safeFilter(tags, function (t) { return map[t] !== 1; });
+      var body =
+        '<div class="sk-dock-section">' +
+          '<div class="sk-tagblock-label">' + (artistTags.length ? 'Animator' : 'Animator — untagged') + '</div>' +
+          '<div class="sk-chipwrap">' +
+            (artistTags.length
+              ? safeMap(artistTags, function (t) { return '<span class="sk-mini-chip artist">' + esc(t) + '</span>'; }).join('')
+              : '<span class="sk-mini-chip other">not credited on this post</span>') +
+          '</div>' +
+        '</div>' +
+        '<div class="sk-dock-section">' +
+          '<div class="sk-tagblock-label">Tags (' + otherTags.length + ')</div>' +
+          '<div class="sk-chipwrap">' +
+            safeMap(otherTags, function (t) { return '<span class="sk-mini-chip other">' + esc(t) + '</span>'; }).join('') +
+          '</div>' +
+        '</div>';
+      dock.innerHTML = head + '<div class="sk-dock-body">' + body + '</div>';
+    });
   }
 
   function triggerDownload(url, filename) {
@@ -832,29 +807,6 @@
     panel.innerHTML = html;
   }
 
-  function addTagInfoSection(box, p) {
-    // Lives inside the lightbox itself rather than only showing on hover, since
-    // hover doesn't exist on touch devices — this is how mobile gets the same
-    // animator/tag breakdown desktop gets via the hover dock.
-    var row = document.createElement('div');
-    row.className = 'sk-comments-row';
-    row.innerHTML = '<button class="sk-frame-btn" id="sk-taginfo-toggle">🏷 Tags &amp; Animator</button>';
-    box.appendChild(row);
-
-    var panel = document.createElement('div');
-    panel.style.display = 'none';
-    panel.style.padding = '10px';
-    box.appendChild(panel);
-
-    var loaded = false;
-    row.querySelector('#sk-taginfo-toggle').onclick = function () {
-      var showing = panel.style.display !== 'none';
-      panel.style.display = showing ? 'none' : 'block';
-      if (showing || loaded) return;
-      loaded = true;
-      renderTagBreakdown(panel, p);
-    };
-  }
 
   function addCommentsSection(box, p) {
     var row = document.createElement('div');
@@ -1070,7 +1022,6 @@
       });
     };
 
-    addTagInfoSection(box, p);
     addCommentsSection(box, p);
   }
 
@@ -1094,7 +1045,6 @@
       triggerDownload(p.file_url || src, 'sakuga_' + p.id + '.' + (p.file_ext || 'jpg'));
     };
 
-    addTagInfoSection(box, p);
     addCommentsSection(box, p);
   }
 
@@ -1110,7 +1060,7 @@
       '<div class="score">&#9650; ' + (p.score || 0) + '</div>';
 
     var hoverVid = null;
-    if (playable && !isTouchDevice) {
+    if (playable) {
       hoverVid = card.querySelector('video');
       card.addEventListener('mouseenter', function () {
         hoverVid.src = clipUrl;
@@ -1123,13 +1073,11 @@
       });
     }
 
-    if (!isTouchDevice) {
-      card.addEventListener('mouseenter', function () {
-        clearTimeout(card._dockTimer);
-        card._dockTimer = setTimeout(function () { renderInfoDock(dock, p); }, 180);
-      });
-      card.addEventListener('mouseleave', function () { clearTimeout(card._dockTimer); });
-    }
+    card.addEventListener('mouseenter', function () {
+      clearTimeout(card._dockTimer);
+      card._dockTimer = setTimeout(function () { renderInfoDock(dock, p); }, 180);
+    });
+    card.addEventListener('mouseleave', function () { clearTimeout(card._dockTimer); });
     card.title = (p.tags || '').slice(0, 200);
     card.onclick = function () {
       if (playable) {
