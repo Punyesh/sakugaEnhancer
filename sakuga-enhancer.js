@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF5 (browsable Other bucket) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF6 (fixed source link + hover dwell) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -518,9 +518,16 @@
   function renderInfoDock(dock, p) {
     dock.style.display = 'block';
     var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
-    var linkHtml = p.source
+    // The `source` field is often just descriptive text (e.g. "Attack_on_Titan #12"),
+    // not an actual URL — putting non-URL text straight into an href causes the
+    // browser to treat it as a same-page fragment link (the "#12" jumps nowhere real).
+    // Only render it as a clickable link when it's genuinely an absolute URL.
+    var isRealUrl = /^https?:\/\//i.test(p.source || '');
+    var sourceHtml = isRealUrl
       ? '<a href="' + esc(p.source) + '" target="_blank" rel="noopener">source ↗</a>'
-      : '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener">view post ↗</a>';
+      : (p.source ? '<span class="sk-badge" title="' + esc(p.source) + '">' + esc(p.source.slice(0, 22)) +
+          (p.source.length > 22 ? '…' : '') + '</span>' : '');
+    var linkHtml = sourceHtml + ' <a href="/post/show/' + p.id + '" target="_blank" rel="noopener">view post ↗</a>';
     var head =
       '<div class="sk-dock-head">' +
         '<div class="sk-dock-badges">' +
@@ -578,7 +585,11 @@
       });
     }
 
-    card.addEventListener('mouseenter', function () { renderInfoDock(dock, p); });
+    card.addEventListener('mouseenter', function () {
+      clearTimeout(card._dockTimer);
+      card._dockTimer = setTimeout(function () { renderInfoDock(dock, p); }, 180);
+    });
+    card.addEventListener('mouseleave', function () { clearTimeout(card._dockTimer); });
     card.title = (p.tags || '').slice(0, 200);
     card.onclick = function () { window.open('/post/show/' + p.id, '_blank'); };
     return card;
