@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF13 (SharedArrayBuffer shim) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF25 (removed unreliable Share button) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -212,6 +212,14 @@
     '.sk-frame-btn:disabled:hover{border-color:' + C.line + ';color:' + C.text + ';}',
     '.sk-action-status{padding:0 10px 8px;font-size:11px;color:' + C.amber + ';',
     'font-family:"Courier New",monospace;min-height:14px;}',
+    '.sk-comments-row{padding:0 10px 8px;border-top:1px solid ' + C.line + ';padding-top:8px;}',
+    '.sk-comments-panel{max-height:220px;overflow-y:auto;padding:0 10px 10px;}',
+    '.sk-comment{padding:8px 0;border-top:1px solid ' + C.line + ';}',
+    '.sk-comment:first-child{border-top:none;}',
+    '.sk-comment-head{display:flex;justify-content:space-between;font-size:11px;color:' + C.amber + ';',
+    'font-family:"Courier New",monospace;margin-bottom:3px;}',
+    '.sk-comment-head span{color:' + C.dim + ';font-weight:normal;}',
+    '.sk-comment-body{font-size:12px;color:' + C.text + ';line-height:1.5;white-space:pre-wrap;}',
     '.sk-close:hover{color:' + C.red + ';}'
   ].join('');
 
@@ -603,58 +611,93 @@
     triggerDownload(url, filename);
     setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
   }
-  function sharePostLink(p, statusEl) {
-    var postUrl = location.origin + '/post/show/' + p.id;
-    if (navigator.share) {
-      navigator.share({ title: 'Sakuga post #' + p.id, url: postUrl }).catch(function () {});
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(postUrl).then(function () {
-        if (statusEl) statusEl.textContent = 'link copied to clipboard';
-      });
-    } else if (statusEl) {
-      statusEl.textContent = postUrl;
-    }
-  }
 
   // ---------- ffmpeg.wasm (client-side, real trimming) ----------
-  // Loaded from a version-pinned CDN URL so the browser's normal HTTP cache
-  // keeps it after the first use (pinned versions never change content, so
-  // CDNs mark them cacheable essentially forever) — no custom storage needed.
+  // Uses the current 0.12.x API deliberately, not the older 0.11.x one: 0.12.x
+  // is specifically designed to let us fetch the core/wasm files ourselves and
+  // hand them over as same-origin blob: URLs, which avoids the cross-origin
+  // worker-loading problems that come from just pointing at a raw CDN URL from
+  // inside a bookmarklet running on someone else's page. Its single-threaded
+  // "core" package (not "core-mt") also genuinely doesn't reference
+  // SharedArrayBuffer at all, so there's no shim needed — sakugabooru.com
+  // doesn't send the cross-origin-isolation headers real SharedArrayBuffer
+  // needs, and the previous version's crash traced back to faking that
+  // reference rather than avoiding the need for it.
   var FFMPEG_CONSENT_KEY = 'sk-enh-ffmpeg-consent';
-  var FFMPEG_SCRIPT_URL = 'https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+  var FFMPEG_PKG_BASE = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm';
+  var FFMPEG_PKG_URL = FFMPEG_PKG_BASE + '/index.js';
+  var FFMPEG_UTIL_URL = 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+  var FFMPEG_CORE_BASE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
   var ffmpegInstance = null;
   var ffmpegLoadPromise = null;
 
-  function loadFfmpegScript() {
-    // sakugabooru.com doesn't send the cross-origin-isolation headers that
-    // real SharedArrayBuffer requires, so the browser disables it entirely —
-    // but ffmpeg's single-threaded core still references it even though it
-    // doesn't actually need real shared memory here. A harmless alias to
-    // plain ArrayBuffer avoids the crash without pretending to add real
-    // threading (documented workaround for this exact ffmpeg.wasm situation).
-    if (typeof window.SharedArrayBuffer === 'undefined') {
-      window.SharedArrayBuffer = ArrayBuffer;
-    }
-    if (window.FFmpeg) return Promise.resolve();
+  function withTimeout(promise, ms, message) {
     return new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = FFMPEG_SCRIPT_URL;
-      s.onload = function () { resolve(); };
-      s.onerror = function () { reject(new Error('failed to load the video tool — check your connection or an ad-blocker')); };
-      document.head.appendChild(s);
+      var timer = setTimeout(function () { reject(new Error(message)); }, ms);
+      promise.then(
+        function (v) { clearTimeout(timer); resolve(v); },
+        function (e) { clearTimeout(timer); reject(e); }
+      );
+    });
+  }
+
+  // worker.js (the "class worker" ffmpeg's main thread talks to) imports two
+  // sibling modules by relative path — './const.js' and './errors.js' — which
+  // can't resolve once worker.js itself is loaded from a blob: URL (blobs have
+  // no real path for relative imports to resolve against). So: fetch all three
+  // as text ourselves, blob the two dependencies first, then patch worker.js's
+  // own source text to point at those blob URLs before blobbing it too. This
+  // is a manual version of the workaround ffmpeg.wasm's own maintainers
+  // describe (see their GitHub issue #767) for the non-bundled single-file case.
+  function buildPatchedWorkerBlobURL() {
+    console.log('[sakuga-enhancer] ffmpeg: fetching worker.js + its dependencies…');
+    return Promise.all([
+      fetch(FFMPEG_PKG_BASE + '/worker.js').then(function (r) { return r.text(); }),
+      fetch(FFMPEG_PKG_BASE + '/const.js').then(function (r) { return r.text(); }),
+      fetch(FFMPEG_PKG_BASE + '/errors.js').then(function (r) { return r.text(); })
+    ]).then(function (texts) {
+      var workerSrc = texts[0], constSrc = texts[1], errorsSrc = texts[2];
+      var constBlobUrl = URL.createObjectURL(new Blob([constSrc], { type: 'text/javascript' }));
+      var errorsBlobUrl = URL.createObjectURL(new Blob([errorsSrc], { type: 'text/javascript' }));
+      var patched = workerSrc.split('./const.js').join(constBlobUrl).split('./errors.js').join(errorsBlobUrl);
+      console.log('[sakuga-enhancer] ffmpeg: patched worker.js imports, sizes —',
+        'worker:', workerSrc.length, 'const:', constSrc.length, 'errors:', errorsSrc.length);
+      return URL.createObjectURL(new Blob([patched], { type: 'text/javascript' }));
     });
   }
 
   function ensureFfmpegLoaded(statusEl) {
     if (ffmpegInstance) return Promise.resolve(ffmpegInstance);
     if (ffmpegLoadPromise) return ffmpegLoadPromise;
-    ffmpegLoadPromise = loadFfmpegScript()
-      .then(function () {
-        statusEl.textContent = 'loading video tool… (first time only, your browser caches it after this)';
-        var ffmpeg = window.FFmpeg.createFFmpeg({ log: false });
-        return ffmpeg.load().then(function () { ffmpegInstance = ffmpeg; return ffmpeg; });
-      })
-      .catch(function (err) { ffmpegLoadPromise = null; throw err; });
+    ffmpegLoadPromise = (function () {
+      statusEl.textContent = 'loading video tool… (first time only, your browser caches it after this)';
+      console.log('[sakuga-enhancer] ffmpeg: importing wrapper + util modules…');
+      return Promise.all([import(FFMPEG_PKG_URL), import(FFMPEG_UTIL_URL)]).then(function (mods) {
+        console.log('[sakuga-enhancer] ffmpeg: modules imported, fetching core/wasm/worker…');
+        var FFmpeg = mods[0].FFmpeg;
+        var toBlobURL = mods[1].toBlobURL;
+        return Promise.all([
+          toBlobURL(FFMPEG_CORE_BASE + '/ffmpeg-core.js', 'text/javascript'),
+          toBlobURL(FFMPEG_CORE_BASE + '/ffmpeg-core.wasm', 'application/wasm'),
+          buildPatchedWorkerBlobURL()
+        ]).then(function (urls) {
+          console.log('[sakuga-enhancer] ffmpeg: all files ready, calling ffmpeg.load()…');
+          var ffmpeg = new FFmpeg();
+          try {
+            ffmpeg.on('log', function (e) { console.log('[ffmpeg]', e.message); });
+          } catch (e) { /* .on not available on this build — non-fatal */ }
+          var loadPromise = ffmpeg.load({ coreURL: urls[0], wasmURL: urls[1], classWorkerURL: urls[2] });
+          return withTimeout(loadPromise, 20000,
+            "video tool took too long to start (over 20s) — its worker likely failed silently. " +
+            "Check the console for [sakuga-enhancer]/[ffmpeg] messages to see where it stopped."
+          ).then(function () {
+            console.log('[sakuga-enhancer] ffmpeg: loaded successfully.');
+            ffmpegInstance = ffmpeg;
+            return ffmpeg;
+          });
+        });
+      });
+    })().catch(function (err) { ffmpegLoadPromise = null; throw err; });
     return ffmpegLoadPromise;
   }
 
@@ -688,18 +731,73 @@
           var ext = p.file_ext || 'webm';
           var inputName = 'input.' + ext;
           var outputName = 'output.' + ext;
-          ffmpeg.FS('writeFile', inputName, new Uint8Array(buf));
-          statusEl.textContent = 'trimming…';
-          return ffmpeg.run('-ss', String(inTime), '-to', String(outTime), '-i', inputName, '-c', 'copy', outputName)
-            .then(function () {
-              var data = ffmpeg.FS('readFile', outputName);
-              ffmpeg.FS('unlink', inputName);
-              ffmpeg.FS('unlink', outputName);
-              statusEl.textContent = '';
-              return { blob: new Blob([data.buffer], { type: 'video/' + ext }), ext: ext };
-            });
+          return ffmpeg.writeFile(inputName, new Uint8Array(buf)).then(function () {
+            statusEl.textContent = 'trimming…';
+            return ffmpeg.exec(['-ss', String(inTime), '-to', String(outTime), '-i', inputName, '-c', 'copy', outputName]);
+          }).then(function () {
+            return ffmpeg.readFile(outputName);
+          }).then(function (data) {
+            statusEl.textContent = '';
+            return { blob: new Blob([data.buffer], { type: 'video/' + ext }), ext: ext };
+          });
         });
       });
+  }
+
+  function formatCommentDate(raw) {
+    if (raw === null || raw === undefined || raw === '') return '';
+    var d;
+    if (typeof raw === 'number') {
+      d = new Date(raw * 1000); // most likely: unix seconds, matching post.json's created_at
+      if (isNaN(d.getTime())) d = new Date(raw); // fallback: maybe already milliseconds
+    } else {
+      d = new Date(raw); // fallback: maybe an ISO date string instead of a number
+    }
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+  }
+
+  function renderComments(panel, comments) {
+    if (!comments || !comments.length) {
+      panel.innerHTML = '<div class="sk-empty" style="padding:10px 0">no comments yet</div>';
+      return;
+    }
+    var html = '';
+    comments.forEach(function (c) {
+      var name = esc(c.creator || (c.creator_id ? 'user #' + c.creator_id : 'anonymous'));
+      var body = esc(c.body || c.comment || '');
+      var when = formatCommentDate(c.created_at);
+      html += '<div class="sk-comment">' +
+        '<div class="sk-comment-head"><b>' + name + '</b><span>' + when + '</span></div>' +
+        '<div class="sk-comment-body">' + body.replace(/\n/g, '<br>') + '</div>' +
+      '</div>';
+    });
+    panel.innerHTML = html;
+  }
+
+  function addCommentsSection(box, p) {
+    var row = document.createElement('div');
+    row.className = 'sk-comments-row';
+    row.innerHTML = '<button class="sk-frame-btn" id="sk-comments-toggle">💬 Comments</button>';
+    box.appendChild(row);
+
+    var panel = document.createElement('div');
+    panel.className = 'sk-comments-panel';
+    panel.style.display = 'none';
+    box.appendChild(panel);
+
+    var loaded = false;
+    row.querySelector('#sk-comments-toggle').onclick = function () {
+      var showing = panel.style.display !== 'none';
+      panel.style.display = showing ? 'none' : 'block';
+      if (showing || loaded) return;
+      loaded = true;
+      panel.innerHTML = '<div class="sk-loading" style="padding:10px 0">loading comments…</div>';
+      getJSON('/comment.json?post_id=' + p.id).then(function (comments) {
+        renderComments(panel, Array.isArray(comments) ? comments : null);
+      }).catch(function (err) {
+        panel.innerHTML = '<div class="sk-empty" style="padding:10px 0">couldn\'t load comments — ' + esc(err.message) + '</div>';
+      });
+    };
   }
 
   function buildMediaShell(p) {
@@ -809,22 +907,29 @@
     // ffmpeg.wasm (loaded on first use, see below) — a real stream-copy cut,
     // fast and lossless since it's not re-encoding, just remuxing.
     var inTime = null, outTime = null;
+
+    var trimCaption = document.createElement('div');
+    trimCaption.className = 'sk-caption';
+    trimCaption.style.padding = '8px 10px 0';
+    trimCaption.textContent = 'optional: use the frame controls above to find a start/end point, mark them below, ' +
+      'then Download/Share Trim will cut exactly that range.';
+    box.appendChild(trimCaption);
+
     var trimRow = document.createElement('div');
     trimRow.className = 'sk-trim-row';
     trimRow.innerHTML =
-      '<button class="sk-frame-btn" id="sk-mark-in" title="mark current position as trim start">Mark In</button>' +
+      '<button class="sk-frame-btn" id="sk-mark-in" title="set the trim start to the current playhead position">Mark In</button>' +
       '<span class="sk-trim-label" id="sk-trim-in">in: —</span>' +
-      '<button class="sk-frame-btn" id="sk-mark-out" title="mark current position as trim end">Mark Out</button>' +
+      '<button class="sk-frame-btn" id="sk-mark-out" title="set the trim end to the current playhead position">Mark Out</button>' +
       '<span class="sk-trim-label" id="sk-trim-out">out: —</span>' +
-      '<button class="sk-frame-btn" id="sk-trim-clear" title="clear trim range">✕</button>';
+      '<button class="sk-frame-btn" id="sk-trim-clear" title="clear the marked range — buttons below go back to acting on the full clip">✕</button>';
     box.appendChild(trimRow);
 
     var actionRow = document.createElement('div');
     actionRow.className = 'sk-action-row';
     actionRow.innerHTML =
-      '<button class="sk-frame-btn" id="sk-dl-full">⬇ Full clip</button>' +
-      '<button class="sk-frame-btn" id="sk-dl-trim" disabled>⬇ Trim</button>' +
-      '<button class="sk-frame-btn" id="sk-share-btn">🔗 Share</button>';
+      '<button class="sk-frame-btn" id="sk-dl-full" title="downloads the original file, unmodified">⬇ Download Full</button>' +
+      '<button class="sk-frame-btn" id="sk-dl-trim" disabled title="mark a range above first — trims to it and downloads the result (takes a moment)">⬇ Download Trim</button>';
     box.appendChild(actionRow);
 
     var statusEl = document.createElement('div');
@@ -834,11 +939,15 @@
     var inLabel = trimRow.querySelector('#sk-trim-in');
     var outLabel = trimRow.querySelector('#sk-trim-out');
     var dlTrimBtn = actionRow.querySelector('#sk-dl-trim');
-    var shareBtn = actionRow.querySelector('#sk-share-btn');
 
     function updateTrimBtn() {
-      dlTrimBtn.disabled = !(inTime !== null && outTime !== null && outTime > inTime);
+      var hasTrim = inTime !== null && outTime !== null && outTime > inTime;
+      dlTrimBtn.disabled = !hasTrim;
+      dlTrimBtn.title = hasTrim
+        ? 'trims to your marked range and downloads the result (takes a moment)'
+        : 'mark a range above first — trims to it and downloads the result (takes a moment)';
     }
+    updateTrimBtn(); // set initial button state (no trim range yet)
 
     trimRow.querySelector('#sk-mark-in').onclick = function () {
       inTime = vid.currentTime;
@@ -879,28 +988,7 @@
       });
     };
 
-    shareBtn.onclick = function () {
-      var hasTrim = inTime !== null && outTime !== null && outTime > inTime;
-      if (hasTrim && navigator.canShare) {
-        shareBtn.disabled = true;
-        performTrim(p, inTime, outTime, statusEl).then(function (res) {
-          shareBtn.disabled = false;
-          var file = new File([res.blob], 'sakuga_' + p.id + '_trim.' + res.ext, { type: res.blob.type });
-          if (navigator.canShare({ files: [file] })) {
-            statusEl.textContent = '';
-            navigator.share({ files: [file], title: 'Sakuga clip #' + p.id }).catch(function () {});
-          } else {
-            statusEl.textContent = "your browser can't share clipped files directly — downloading instead";
-            triggerBlobDownload(res.blob, 'sakuga_' + p.id + '_trim.' + res.ext);
-          }
-        }).catch(function (err) {
-          shareBtn.disabled = false;
-          if (err.message !== 'cancelled') statusEl.textContent = 'trim failed: ' + err.message;
-        });
-      } else {
-        sharePostLink(p, statusEl);
-      }
-    };
+    addCommentsSection(box, p);
   }
 
   function openImageModal(p) {
@@ -913,8 +1001,7 @@
     var actionRow = document.createElement('div');
     actionRow.className = 'sk-action-row';
     actionRow.innerHTML =
-      '<button class="sk-frame-btn" id="sk-img-dl">⬇ Download</button>' +
-      '<button class="sk-frame-btn" id="sk-img-share">🔗 Share</button>';
+      '<button class="sk-frame-btn" id="sk-img-dl">⬇ Download</button>';
     box.appendChild(actionRow);
     var statusEl = document.createElement('div');
     statusEl.className = 'sk-action-status';
@@ -923,7 +1010,8 @@
     actionRow.querySelector('#sk-img-dl').onclick = function () {
       triggerDownload(p.file_url || src, 'sakuga_' + p.id + '.' + (p.file_ext || 'jpg'));
     };
-    actionRow.querySelector('#sk-img-share').onclick = function () { sharePostLink(p, statusEl); };
+
+    addCommentsSection(box, p);
   }
 
   function buildCard(p, dock) {
