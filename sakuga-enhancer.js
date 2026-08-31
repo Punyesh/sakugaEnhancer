@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF34 (hide number input spinner) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF35 (scrollable media box + themed scrollbars) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -191,11 +191,11 @@
     '.sk-close{cursor:pointer;color:' + C.dim + ';font-size:16px;line-height:1;}',
     '.sk-media-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2147483600;',
     'display:flex;align-items:center;justify-content:center;padding:24px;}',
-    '.sk-media-box{max-width:760px;width:100%;background:' + C.panel + ';border:1px solid ' + C.line + ';',
-    'border-radius:8px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);}',
+    '.sk-media-box{max-width:760px;width:100%;max-height:90vh;background:' + C.panel + ';border:1px solid ' + C.line + ';',
+    'border-radius:8px;overflow-y:auto;overflow-x:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);}',
     '.sk-media-box video,.sk-media-box img{width:100%;max-height:72vh;display:block;background:#000;',
     'object-fit:contain;}',
-    '.sk-media-top{display:flex;align-items:center;gap:8px;padding:8px 10px;background:' + C.panel2 + ';}',
+    '.sk-media-top{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:8px;padding:8px 10px;background:' + C.panel2 + ';}',
     '.sk-media-viewpost{margin-left:auto;color:' + C.amber + ';font-size:12px;text-decoration:none;',
     'font-family:"Courier New",monospace;}',
     '.sk-media-viewpost:hover{text-decoration:underline;}',
@@ -228,7 +228,24 @@
     'font-family:"Courier New",monospace;margin-bottom:3px;}',
     '.sk-comment-head span{color:' + C.dim + ';font-weight:normal;}',
     '.sk-comment-body{font-size:12px;color:' + C.text + ';line-height:1.5;white-space:pre-wrap;}',
-    '.sk-close:hover{color:' + C.red + ';}'
+    '.sk-close:hover{color:' + C.red + ';}',
+    // Themed scrollbars for our own scrollable panels — scoped to these specific
+    // classes only, since these styles are injected globally into the host page
+    // and a broader selector would restyle sakugabooru's own scrollbars too.
+    '.sk-body,.sk-comments-panel,.sk-facet-grid,.sk-chipwrap,.sk-media-box{',
+    'scrollbar-width:thin;scrollbar-color:' + C.amberDim + ' ' + C.bg + ';}',
+    '.sk-body::-webkit-scrollbar,.sk-comments-panel::-webkit-scrollbar,',
+    '.sk-facet-grid::-webkit-scrollbar,.sk-chipwrap::-webkit-scrollbar,',
+    '.sk-media-box::-webkit-scrollbar{width:8px;}',
+    '.sk-body::-webkit-scrollbar-track,.sk-comments-panel::-webkit-scrollbar-track,',
+    '.sk-facet-grid::-webkit-scrollbar-track,.sk-chipwrap::-webkit-scrollbar-track,',
+    '.sk-media-box::-webkit-scrollbar-track{background:' + C.bg + ';}',
+    '.sk-body::-webkit-scrollbar-thumb,.sk-comments-panel::-webkit-scrollbar-thumb,',
+    '.sk-facet-grid::-webkit-scrollbar-thumb,.sk-chipwrap::-webkit-scrollbar-thumb,',
+    '.sk-media-box::-webkit-scrollbar-thumb{background:' + C.amberDim + ';border-radius:4px;}',
+    '.sk-body::-webkit-scrollbar-thumb:hover,.sk-comments-panel::-webkit-scrollbar-thumb:hover,',
+    '.sk-facet-grid::-webkit-scrollbar-thumb:hover,.sk-chipwrap::-webkit-scrollbar-thumb:hover,',
+    '.sk-media-box::-webkit-scrollbar-thumb:hover{background:' + C.amber + ';}'
   ].join('');
 
   var styleTag = document.createElement('style');
