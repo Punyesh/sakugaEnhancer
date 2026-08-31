@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF10 (full frame navigator) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF12 (ffmpeg.wasm trimming) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -204,6 +204,14 @@
     'font-family:"Courier New",monospace;}',
     '.sk-frame-time{text-align:center;font-size:11px;color:' + C.dim + ';margin-top:5px;',
     'font-family:"Courier New",monospace;}',
+    '.sk-trim-row{display:flex;align-items:center;gap:6px;padding:8px 10px 0;flex-wrap:wrap;}',
+    '.sk-trim-label{font-size:10px;color:' + C.dim + ';font-family:"Courier New",monospace;}',
+    '.sk-action-row{display:flex;gap:6px;padding:8px 10px;}',
+    '.sk-action-row .sk-frame-btn{flex:1;}',
+    '.sk-frame-btn:disabled{opacity:.35;cursor:default;}',
+    '.sk-frame-btn:disabled:hover{border-color:' + C.line + ';color:' + C.text + ';}',
+    '.sk-action-status{padding:0 10px 8px;font-size:11px;color:' + C.amber + ';',
+    'font-family:"Courier New",monospace;min-height:14px;}',
     '.sk-close:hover{color:' + C.red + ';}'
   ].join('');
 
@@ -582,6 +590,109 @@
     });
   }
 
+  function triggerDownload(url, filename) {
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+  function triggerBlobDownload(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    triggerDownload(url, filename);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+  function sharePostLink(p, statusEl) {
+    var postUrl = location.origin + '/post/show/' + p.id;
+    if (navigator.share) {
+      navigator.share({ title: 'Sakuga post #' + p.id, url: postUrl }).catch(function () {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(postUrl).then(function () {
+        if (statusEl) statusEl.textContent = 'link copied to clipboard';
+      });
+    } else if (statusEl) {
+      statusEl.textContent = postUrl;
+    }
+  }
+
+  // ---------- ffmpeg.wasm (client-side, real trimming) ----------
+  // Loaded from a version-pinned CDN URL so the browser's normal HTTP cache
+  // keeps it after the first use (pinned versions never change content, so
+  // CDNs mark them cacheable essentially forever) — no custom storage needed.
+  var FFMPEG_CONSENT_KEY = 'sk-enh-ffmpeg-consent';
+  var FFMPEG_SCRIPT_URL = 'https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+  var ffmpegInstance = null;
+  var ffmpegLoadPromise = null;
+
+  function loadFfmpegScript() {
+    if (window.FFmpeg) return Promise.resolve();
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = FFMPEG_SCRIPT_URL;
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error('failed to load the video tool — check your connection or an ad-blocker')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function ensureFfmpegLoaded(statusEl) {
+    if (ffmpegInstance) return Promise.resolve(ffmpegInstance);
+    if (ffmpegLoadPromise) return ffmpegLoadPromise;
+    ffmpegLoadPromise = loadFfmpegScript()
+      .then(function () {
+        statusEl.textContent = 'loading video tool… (first time only, your browser caches it after this)';
+        var ffmpeg = window.FFmpeg.createFFmpeg({ log: false });
+        return ffmpeg.load().then(function () { ffmpegInstance = ffmpeg; return ffmpeg; });
+      })
+      .catch(function (err) { ffmpegLoadPromise = null; throw err; });
+    return ffmpegLoadPromise;
+  }
+
+  function getFfmpegConsent(statusEl) {
+    if (localStorage.getItem(FFMPEG_CONSENT_KEY) === '1') return Promise.resolve();
+    return new Promise(function (resolve, reject) {
+      statusEl.innerHTML =
+        'trimming needs a one-time ~25–30MB download (your browser caches it afterward, so this only happens once) — ' +
+        '<a href="#" id="sk-ffmpeg-yes" style="color:' + C.amber + '">continue</a> · ' +
+        '<a href="#" id="sk-ffmpeg-no" style="color:' + C.dim + '">cancel</a>';
+      statusEl.querySelector('#sk-ffmpeg-yes').onclick = function (e) {
+        e.preventDefault();
+        localStorage.setItem(FFMPEG_CONSENT_KEY, '1');
+        statusEl.textContent = '';
+        resolve();
+      };
+      statusEl.querySelector('#sk-ffmpeg-no').onclick = function (e) {
+        e.preventDefault();
+        statusEl.textContent = '';
+        reject(new Error('cancelled'));
+      };
+    });
+  }
+
+  function performTrim(p, inTime, outTime, statusEl) {
+    return getFfmpegConsent(statusEl)
+      .then(function () { return ensureFfmpegLoaded(statusEl); })
+      .then(function (ffmpeg) {
+        statusEl.textContent = 'reading clip…';
+        return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
+          var ext = p.file_ext || 'webm';
+          var inputName = 'input.' + ext;
+          var outputName = 'output.' + ext;
+          ffmpeg.FS('writeFile', inputName, new Uint8Array(buf));
+          statusEl.textContent = 'trimming…';
+          return ffmpeg.run('-ss', String(inTime), '-to', String(outTime), '-i', inputName, '-c', 'copy', outputName)
+            .then(function () {
+              var data = ffmpeg.FS('readFile', outputName);
+              ffmpeg.FS('unlink', inputName);
+              ffmpeg.FS('unlink', outputName);
+              statusEl.textContent = '';
+              return { blob: new Blob([data.buffer], { type: 'video/' + ext }), ext: ext };
+            });
+        });
+      });
+  }
+
   function buildMediaShell(p) {
     var backdrop = document.createElement('div');
     backdrop.className = 'sk-media-backdrop';
@@ -683,13 +794,127 @@
     }
     document.addEventListener('keydown', onFrameKey);
     box._onClose(function () { document.removeEventListener('keydown', onFrameKey); });
+
+    // ---- trim range + download/share ----
+    // There's no server here, so trimming runs entirely client-side via
+    // ffmpeg.wasm (loaded on first use, see below) — a real stream-copy cut,
+    // fast and lossless since it's not re-encoding, just remuxing.
+    var inTime = null, outTime = null;
+    var trimRow = document.createElement('div');
+    trimRow.className = 'sk-trim-row';
+    trimRow.innerHTML =
+      '<button class="sk-frame-btn" id="sk-mark-in" title="mark current position as trim start">Mark In</button>' +
+      '<span class="sk-trim-label" id="sk-trim-in">in: —</span>' +
+      '<button class="sk-frame-btn" id="sk-mark-out" title="mark current position as trim end">Mark Out</button>' +
+      '<span class="sk-trim-label" id="sk-trim-out">out: —</span>' +
+      '<button class="sk-frame-btn" id="sk-trim-clear" title="clear trim range">✕</button>';
+    box.appendChild(trimRow);
+
+    var actionRow = document.createElement('div');
+    actionRow.className = 'sk-action-row';
+    actionRow.innerHTML =
+      '<button class="sk-frame-btn" id="sk-dl-full">⬇ Full clip</button>' +
+      '<button class="sk-frame-btn" id="sk-dl-trim" disabled>⬇ Trim</button>' +
+      '<button class="sk-frame-btn" id="sk-share-btn">🔗 Share</button>';
+    box.appendChild(actionRow);
+
+    var statusEl = document.createElement('div');
+    statusEl.className = 'sk-action-status';
+    box.appendChild(statusEl);
+
+    var inLabel = trimRow.querySelector('#sk-trim-in');
+    var outLabel = trimRow.querySelector('#sk-trim-out');
+    var dlTrimBtn = actionRow.querySelector('#sk-dl-trim');
+    var shareBtn = actionRow.querySelector('#sk-share-btn');
+
+    function updateTrimBtn() {
+      dlTrimBtn.disabled = !(inTime !== null && outTime !== null && outTime > inTime);
+    }
+
+    trimRow.querySelector('#sk-mark-in').onclick = function () {
+      inTime = vid.currentTime;
+      inLabel.textContent = 'in: ' + formatTime(inTime);
+      updateTrimBtn();
+    };
+    trimRow.querySelector('#sk-mark-out').onclick = function () {
+      outTime = vid.currentTime;
+      outLabel.textContent = 'out: ' + formatTime(outTime);
+      updateTrimBtn();
+    };
+    trimRow.querySelector('#sk-trim-clear').onclick = function () {
+      inTime = null; outTime = null;
+      inLabel.textContent = 'in: —';
+      outLabel.textContent = 'out: —';
+      updateTrimBtn();
+    };
+
+    box._onClose(function () {
+      // ffmpeg.wasm 0.11.x has no clean mid-job cancel; if a trim is running when the
+      // modal closes it'll just finish silently in the background rather than error out.
+    });
+
+    actionRow.querySelector('#sk-dl-full').onclick = function () {
+      triggerDownload(p.file_url, 'sakuga_' + p.id + '.' + (p.file_ext || 'webm'));
+    };
+
+    dlTrimBtn.onclick = function () {
+      if (dlTrimBtn.disabled) return;
+      dlTrimBtn.disabled = true;
+      performTrim(p, inTime, outTime, statusEl).then(function (res) {
+        triggerBlobDownload(res.blob, 'sakuga_' + p.id + '_trim.' + res.ext);
+        statusEl.textContent = 'trimmed clip downloaded';
+        updateTrimBtn();
+      }).catch(function (err) {
+        if (err.message !== 'cancelled') statusEl.textContent = 'trim failed: ' + err.message;
+        updateTrimBtn();
+      });
+    };
+
+    shareBtn.onclick = function () {
+      var hasTrim = inTime !== null && outTime !== null && outTime > inTime;
+      if (hasTrim && navigator.canShare) {
+        shareBtn.disabled = true;
+        performTrim(p, inTime, outTime, statusEl).then(function (res) {
+          shareBtn.disabled = false;
+          var file = new File([res.blob], 'sakuga_' + p.id + '_trim.' + res.ext, { type: res.blob.type });
+          if (navigator.canShare({ files: [file] })) {
+            statusEl.textContent = '';
+            navigator.share({ files: [file], title: 'Sakuga clip #' + p.id }).catch(function () {});
+          } else {
+            statusEl.textContent = "your browser can't share clipped files directly — downloading instead";
+            triggerBlobDownload(res.blob, 'sakuga_' + p.id + '_trim.' + res.ext);
+          }
+        }).catch(function (err) {
+          shareBtn.disabled = false;
+          if (err.message !== 'cancelled') statusEl.textContent = 'trim failed: ' + err.message;
+        });
+      } else {
+        sharePostLink(p, statusEl);
+      }
+    };
   }
 
   function openImageModal(p) {
     var box = buildMediaShell(p);
     var img = document.createElement('img');
-    img.src = p.sample_url || p.jpeg_url || p.file_url || p.preview_url;
+    var src = p.sample_url || p.jpeg_url || p.file_url || p.preview_url;
+    img.src = src;
     box.appendChild(img);
+
+    var actionRow = document.createElement('div');
+    actionRow.className = 'sk-action-row';
+    actionRow.innerHTML =
+      '<button class="sk-frame-btn" id="sk-img-dl">⬇ Download</button>' +
+      '<button class="sk-frame-btn" id="sk-img-share">🔗 Share</button>';
+    box.appendChild(actionRow);
+    var statusEl = document.createElement('div');
+    statusEl.className = 'sk-action-status';
+    box.appendChild(statusEl);
+
+    actionRow.querySelector('#sk-img-dl').onclick = function () {
+      triggerDownload(p.file_url || src, 'sakuga_' + p.id + '.' + (p.file_ext || 'jpg'));
+    };
+    actionRow.querySelector('#sk-img-share').onclick = function () { sharePostLink(p, statusEl); };
   }
 
   function buildCard(p, dock) {
