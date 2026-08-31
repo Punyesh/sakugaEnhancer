@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF38 (reverted mobile-specific changes) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF40 (shorter chart label) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -1382,7 +1382,7 @@
         '<div><div class="sk-stat-big">' + total + '</div><div class="sk-stat-label">cuts found</div></div>' +
         '<div><div class="sk-stat-big">' + avgScore + '</div><div class="sk-stat-label">avg score</div></div>' +
       '</div>' +
-      '<div class="sk-meta">activity by year</div>' +
+      '<div class="sk-meta" title="Based on when each post was added/tagged on sakugabooru, not when the original episode aired — a 2005 cut uploaded in 2021 shows up as 2021 here.">upload year ⓘ</div>' +
       '<div class="sk-filmstrip" id="sk-strip"></div>' +
       '<div style="height:18px"></div>' +
       '<div class="sk-meta">most frequent co-tags &mdash; use Search\'s filter grid to narrow by these</div>' +
