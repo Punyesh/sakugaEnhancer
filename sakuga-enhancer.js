@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF3 (speed + merged stats + shows nav) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF5 (browsable Other bucket) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -606,6 +606,14 @@
     } else {
       var grid = document.createElement('div');
       grid.className = 'sk-grid';
+      if (cache.sampledOnly) {
+        var note = document.createElement('div');
+        note.className = 'sk-caption';
+        note.style.gridColumn = '1/-1';
+        note.textContent = 'showing ' + visible.length + ' sampled post(s) with non-standard source text — ' +
+          'not a complete search, just what turned up while sampling this show.';
+        grid.appendChild(note);
+      }
       visible.forEach(function (p) { grid.appendChild(buildCard(p, dock)); });
       results.innerHTML = '';
       results.appendChild(grid);
@@ -838,8 +846,9 @@
     if (/\b(opening|op\d*)\b/i.test(s)) return { key: 'op', label: 'Opening', sortNum: 1e6 + 3, token: 'OP' };
     if (/\b(ending|ed\d*)\b/i.test(s)) return { key: 'ed', label: 'Ending', sortNum: 1e6 + 4, token: 'ED' };
     if (/\b(pv|trailer)\b/i.test(s)) return { key: 'pv', label: 'PV / Trailer', sortNum: 1e6 + 5, token: 'PV' };
-    var short = s.length > 28 ? s.slice(0, 28) + '…' : s;
-    return { key: 'src:' + s.toLowerCase(), label: short, sortNum: 1e6 + 6, token: s };
+    // Anything else (individual Twitter/X credit links, one-off free text, etc.) isn't a
+    // real episode marker — group it all into one bucket instead of one card per unique URL.
+    return { key: 'other', label: 'Other / uncategorized', sortNum: 1e6 + 6, token: null };
   }
 
   function normalizeRelated(resp, showTag) {
@@ -988,8 +997,9 @@
       var groups = {};
       posts.forEach(function (p) {
         var g = parseEpisodeKey(p.source);
-        if (!groups[g.key]) groups[g.key] = { label: g.label, sortNum: g.sortNum, token: g.token, count: 0 };
+        if (!groups[g.key]) groups[g.key] = { label: g.label, sortNum: g.sortNum, token: g.token, count: 0, posts: [] };
         groups[g.key].count++;
+        groups[g.key].posts.push(p);
       });
       var episodes = safeSort(safeMap(Object.keys(groups), function (k) { return groups[k]; }),
         function (a, b) { return a.sortNum - b.sortNum; });
@@ -1011,7 +1021,9 @@
         : '') +
       '<div class="sk-caption">episode grouping is parsed from each post\'s source text (the ' +
         '"Title #12" convention), sampled from the ' + entry.totalSampled + ' most recent tagged posts — ' +
-        'not a guaranteed structured field, so it can be rough where tagging was inconsistent.</div>' +
+        'not a guaranteed structured field, so it can be rough where tagging was inconsistent — ' +
+        'anything that isn\'t a recognizable episode/OP/ED/movie marker (like individual social-media ' +
+        'credit links) gets grouped into one "Other" bucket rather than cluttering this list.</div>' +
       '<div class="sk-ep-grid" id="sk-ep-grid"></div>';
 
     if (entry.related.length) {
@@ -1036,14 +1048,34 @@
     entry.episodes.forEach(function (ep) {
       var btn = document.createElement('div');
       btn.className = 'sk-ep-btn';
-      btn.innerHTML = '<span class="num">' + esc(ep.label) + '</span><span class="cnt">' + ep.count + ' sampled</span>';
+      btn.innerHTML = '<span class="num">' + esc(ep.label) + '</span><span class="cnt">' +
+        (ep.token ? ep.count + ' sampled' : ep.count + ' sampled · browse only') + '</span>';
       btn.onclick = function () {
-        searchState.tags = ep.token ? [showTag, 'source:' + ep.token] : [showTag];
         searchState.order = 'date';
         searchViewMode = 'results';
         sync.artistTag = null; // avoid Search's auto-sync overwriting this specific episode query
-        switchToTab('search');
-        runSearch();
+        if (ep.token) {
+          // A real episode/OP/ED/movie marker — run an actual server search so we get
+          // every matching post, not just whatever happened to be in our sample.
+          searchState.tags = [showTag, 'source:' + ep.token];
+          switchToTab('search');
+          runSearch();
+        } else {
+          // No single query can isolate this bucket (e.g. individual social-media credit
+          // links each with a different URL) — show exactly the posts we already sampled
+          // instead of pretending we can search for them.
+          var freq = {};
+          ep.posts.forEach(function (p) {
+            (p.tags || '').split(/\s+/).forEach(function (t) {
+              if (!t || t === showTag) return;
+              freq[t] = (freq[t] || 0) + 1;
+            });
+          });
+          var facetTags = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 24);
+          searchState.tags = [showTag];
+          searchCache = { tags: [showTag], order: 'date', posts: ep.posts, excluded: {}, facetTags: facetTags, sampledOnly: true };
+          switchToTab('search');
+        }
       };
       grid.appendChild(btn);
     });
