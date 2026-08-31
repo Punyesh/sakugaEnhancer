@@ -4,6 +4,15 @@ const path = require('path');
 const bookmarklet = fs.readFileSync(path.join(__dirname, 'bookmarklet.txt'), 'utf8');
 const escapedHref = bookmarklet.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
+// Hosted via GitHub Pages — the Firefox loader bookmarklet stays tiny by
+// fetching the real script from here at click-time, instead of embedding
+// the whole ~80KB script in the bookmark's own URL (which Firefox has
+// historically choked on for saved bookmarks).
+const HOSTED_JS_URL = 'https://punyesh.github.io/sakugaEnhancer/sakuga-enhancer.js';
+const loaderSrc = "javascript:(function(){var s=document.createElement('script');" +
+  "s.src='" + HOSTED_JS_URL + "?t='+Date.now();document.body.appendChild(s);})();";
+const loaderHref = loaderSrc.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+
 const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -41,12 +50,21 @@ const html = `<!doctype html>
   h1 { font-size: 30px; margin: 0 0 8px; line-height: 1.15; }
   p.lede { color: var(--dim); font-size: 15px; line-height: 1.6; }
   .bm-wrap {
-    margin: 34px 0;
+    margin: 34px 0 14px;
     padding: 24px;
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 8px;
     text-align: center;
+  }
+  .bm-wrap.alt { margin-top: 0; }
+  .bm-label {
+    font-family: "Courier New", monospace;
+    color: var(--amber);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
   }
   .bm-link {
     display: inline-block;
@@ -65,6 +83,7 @@ const html = `<!doctype html>
   ol b { color: var(--amber); }
   .tag { font-family: "Courier New", monospace; background: var(--panel); border: 1px solid var(--line); padding: 1px 6px; border-radius: 4px; }
   footer { margin-top: 40px; color: var(--dim); font-size: 12px; border-top: 1px solid var(--line); padding-top: 16px; }
+  footer p + p { margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -78,25 +97,43 @@ const html = `<!doctype html>
   </p>
 
   <div class="bm-wrap">
+    <div class="bm-label">Chrome / Edge / Safari</div>
     <a class="bm-link" href="${escapedHref}" onclick="alert('Drag this to your bookmarks bar — clicking it here won\\'t do anything since you\\'re not on sakugabooru.com.'); return false;">
       🎞 Sakuga Enhancer
     </a>
     <div class="bm-hint">drag this button to your bookmarks bar</div>
   </div>
 
+  <div class="bm-wrap alt">
+    <div class="bm-label">Firefox (shorter link)</div>
+    <a class="bm-link" href="${loaderHref}" onclick="alert('Drag this to your bookmarks bar — clicking it here won\\'t do anything since you\\'re not on sakugabooru.com.'); return false;">
+      🦊 Sakuga Enhancer
+    </a>
+    <div class="bm-hint">drag this one instead — Firefox has trouble saving the very long link above</div>
+  </div>
+
   <ol>
     <li>Make sure your browser's bookmarks bar is visible (<b>Ctrl/Cmd+Shift+B</b> in most browsers).</li>
-    <li>Drag the amber button above onto the bookmarks bar.</li>
+    <li>Drag the button above matching your browser onto the bookmarks bar.</li>
     <li>Go to <span class="tag">sakugabooru.com</span>.</li>
     <li>Click the <b>Sakuga Enhancer</b> bookmark. A small panel appears bottom-right.</li>
-    <li>Use <b>Search</b> to build a tag query, <b>Shows</b> to browse a title's episodes, or <b>Animator Stats</b> to look up a specific animator's tag (e.g. <span class="tag">yutaka_nakamura</span>) for cut counts, top co-tags, and a per-year activity chart.</li>
+    <li>Use <b>Search</b> to build a tag query — the built-in <b>📊 Animator Stats</b> toggle switches to cut counts, top co-tags, and a per-year activity chart for whichever animator is in focus. Use <b>Shows</b> to browse a title season-by-season down to individual episodes, with back/forward navigation.</li>
     <li>Click the bookmark again any time to show/hide the panel.</li>
   </ol>
 
   <footer>
-    Stats lookups page through up to 500 of an animator's posts, with a short pause between
-    requests, to stay light on the site's infrastructure. Uses only sakugabooru's public
-    <span class="tag">/post.json</span> and <span class="tag">/artist.json</span> endpoints.
+    <p>
+      Stats lookups page through up to 500 of an animator's posts, with a short pause between
+      requests, to stay light on the site's infrastructure. Uses only sakugabooru's public
+      <span class="tag">/post.json</span> and <span class="tag">/artist.json</span> endpoints.
+    </p>
+    <p>
+      The Firefox bookmark works by fetching the actual script from
+      <span class="tag">${HOSTED_JS_URL}</span> each time you click it, rather than storing the
+      whole thing in the bookmark itself. If sakugabooru.com's security policy ever blocks loading
+      scripts from other sites, this version may fail silently — if so, use the Chrome/Edge/Safari
+      button above instead, which doesn't depend on any external file.
+    </p>
   </footer>
 </main>
 </body>
