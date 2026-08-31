@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF41 (frame-accurate trim via re-encode, not stream-copy) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF42 (fast/accurate trim toggle + timing) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -755,33 +755,41 @@
     });
   }
 
-  function performTrim(p, inTime, outTime, statusEl) {
+  function performTrim(p, inTime, outTime, statusEl, accurate) {
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
       .then(function (ffmpeg) {
         statusEl.textContent = 'reading clip…';
         return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
           var inputName = 'input.' + (p.file_ext || 'webm');
-          var outputName = 'output.mp4';
+          var outputName = accurate ? 'output.mp4' : 'output.' + (p.file_ext || 'webm');
+          var startedAt = Date.now();
           return ffmpeg.writeFile(inputName, new Uint8Array(buf)).then(function () {
-            statusEl.textContent = 'trimming (re-encoding for frame accuracy)…';
-            // `-ss`/`-to` placed AFTER `-i`, with real encoders instead of `-c copy`:
-            // stream-copy can only cut on keyframe boundaries since it never decodes
-            // the video, so the actual start/end can drift from what was marked.
-            // Re-encoding is the only way to land on the exact requested frame —
-            // slower and a generation of quality loss, but genuinely frame-accurate.
-            return ffmpeg.exec([
-              '-i', inputName,
-              '-ss', String(inTime), '-to', String(outTime),
-              '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18',
-              '-c:a', 'aac',
-              outputName
-            ]);
+            var args;
+            if (accurate) {
+              statusEl.textContent = 'trimming (re-encoding for frame accuracy — slower)…';
+              // `-ss`/`-to` placed AFTER `-i`, with real encoders instead of `-c copy`:
+              // stream-copy can only cut on keyframe boundaries since it never decodes
+              // the video, so the actual start/end can drift from what was marked.
+              // Re-encoding is the only way to land on the exact requested frame —
+              // slower and a generation of quality loss, but genuinely frame-accurate.
+              args = ['-i', inputName, '-ss', String(inTime), '-to', String(outTime),
+                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-c:a', 'aac', outputName];
+            } else {
+              statusEl.textContent = 'trimming (fast mode)…';
+              // Fast stream-copy: no decoding, just remuxing existing compressed data —
+              // much quicker, but can only cut on the nearest keyframe, so the actual
+              // start/end may land a little before/after what was marked.
+              args = ['-ss', String(inTime), '-to', String(outTime), '-i', inputName, '-c', 'copy', outputName];
+            }
+            return ffmpeg.exec(args);
           }).then(function () {
             return ffmpeg.readFile(outputName);
           }).then(function (data) {
-            statusEl.textContent = '';
-            return { blob: new Blob([data.buffer], { type: 'video/mp4' }), ext: 'mp4' };
+            var seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+            statusEl.textContent = 'done in ' + seconds + 's';
+            var ext = accurate ? 'mp4' : (p.file_ext || 'webm');
+            return { blob: new Blob([data.buffer], { type: 'video/' + ext }), ext: ext };
           });
         });
       });
@@ -970,6 +978,15 @@
       '<button class="sk-frame-btn" id="sk-trim-clear" title="clear the marked range — buttons below go back to acting on the full clip">✕</button>';
     box.appendChild(trimRow);
 
+    var accuracyRow = document.createElement('div');
+    accuracyRow.className = 'sk-trim-row';
+    accuracyRow.innerHTML =
+      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:' + C.dim + ';cursor:pointer">' +
+        '<input type="checkbox" id="sk-accurate-trim" style="accent-color:' + C.amber + '">' +
+        'frame-accurate (re-encodes — slower, but exact; unchecked is a fast copy that may drift a few frames)' +
+      '</label>';
+    box.appendChild(accuracyRow);
+
     var actionRow = document.createElement('div');
     actionRow.className = 'sk-action-row';
     actionRow.innerHTML =
@@ -984,6 +1001,7 @@
     var inLabel = trimRow.querySelector('#sk-trim-in');
     var outLabel = trimRow.querySelector('#sk-trim-out');
     var dlTrimBtn = actionRow.querySelector('#sk-dl-trim');
+    var accurateCheckbox = accuracyRow.querySelector('#sk-accurate-trim');
 
     function updateTrimBtn() {
       var hasTrim = inTime !== null && outTime !== null && outTime > inTime;
@@ -1023,9 +1041,8 @@
     dlTrimBtn.onclick = function () {
       if (dlTrimBtn.disabled) return;
       dlTrimBtn.disabled = true;
-      performTrim(p, inTime, outTime, statusEl).then(function (res) {
+      performTrim(p, inTime, outTime, statusEl, accurateCheckbox.checked).then(function (res) {
         triggerBlobDownload(res.blob, 'sakuga_' + p.id + '_trim.' + res.ext);
-        statusEl.textContent = 'trimmed clip downloaded';
         updateTrimBtn();
       }).catch(function (err) {
         if (err.message !== 'cancelled') statusEl.textContent = 'trim failed: ' + err.message;
