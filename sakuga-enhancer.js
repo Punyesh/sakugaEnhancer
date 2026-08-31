@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF27 (show pagination + order) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF33 (hide tag search controls in Stats mode) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -139,7 +139,10 @@
     '.sk-show-pick:hover{border-color:' + C.amber + ';background:' + C.panel2 + ';}',
     '.sk-show-pick .name{font-family:"Courier New",monospace;font-size:12px;}',
     '.sk-show-pick .cnt{color:' + C.dim + ';font-size:11px;}',
-    '.sk-show-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}',
+    '.sk-show-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}',
+    '.sk-mini-toggle{background:transparent;border:1px solid ' + C.line + ';color:' + C.dim + ';',
+    'padding:3px 9px;border-radius:12px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap;}',
+    '.sk-mini-toggle:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
     '.sk-show-head .title{font-size:15px;color:' + C.amber + ';font-family:"Courier New",monospace;}',
     '.sk-show-head a{font-size:11px;color:' + C.dim + ';text-decoration:none;}',
     '.sk-show-head a:hover{color:' + C.amber + ';}',
@@ -150,19 +153,6 @@
     '.sk-nav-btn:disabled{opacity:.35;cursor:default;}',
     '.sk-nav-crumb{flex:1;text-align:center;font-size:11px;color:' + C.dim + ';font-family:"Courier New",monospace;',
     'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
-    '.sk-page-jump{display:flex;align-items:center;gap:4px;margin-bottom:10px;}',
-    '.sk-page-input{width:58px;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
-    'padding:5px 7px;border-radius:14px;font-size:11px;text-align:center;font-family:"Courier New",monospace;outline:none;}',
-    '.sk-page-input:focus{border-color:' + C.amber + ';}',
-    '.sk-page-go{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
-    'padding:5px 9px;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit;}',
-    '.sk-page-go:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-page-total{font-size:11px;color:' + C.dim + ';}',
-    '.sk-show-order-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;}',
-    '.sk-show-order-label{font-size:11px;color:' + C.dim + ';white-space:nowrap;}',
-    '.sk-show-order-select{flex:1;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
-    'padding:5px 7px;border-radius:14px;font-size:11px;outline:none;font-family:inherit;}',
-    '.sk-show-order-select:focus{border-color:' + C.amber + ';}',
     '.sk-related-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}',
     '.sk-chip.clickable{cursor:pointer;}',
     '.sk-chip.clickable:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
@@ -225,6 +215,8 @@
     '.sk-frame-btn:disabled:hover{border-color:' + C.line + ';color:' + C.text + ';}',
     '.sk-action-status{padding:0 10px 8px;font-size:11px;color:' + C.amber + ';',
     'font-family:"Courier New",monospace;min-height:14px;}',
+    '.sk-load-more-wrap{text-align:center;margin-top:10px;}',
+    '.sk-load-more-wrap .sk-frame-btn{display:inline-block;padding:8px 16px;}',
     '.sk-comments-row{padding:0 10px 8px;border-top:1px solid ' + C.line + ';padding-top:8px;}',
     '.sk-comments-panel{max-height:220px;overflow-y:auto;padding:0 10px 10px;}',
     '.sk-comment{padding:8px 0;border-top:1px solid ' + C.line + ';}',
@@ -319,6 +311,7 @@
   // Keeps the two tabs in lockstep so switching tabs never requires re-searching.
   var sync = { artistTag: null }; // canonical animator tag currently "in focus"
   var searchCache = null; // { tags, order, posts, excluded, facetTags }
+  var searchOrigin = null; // e.g. {type:'shows'} — set right before a Shows-originated search, consumed by runSearch
   var statsCache = null;  // { tagName, allPosts }
 
   // ===================== SEARCH TAB =====================
@@ -331,17 +324,19 @@
 
   function renderSearch() {
     body.innerHTML =
-      '<div class="sk-row">' +
-        '<input class="sk-input" id="sk-tag-input" placeholder="add tag, enter to confirm">' +
-        '<select class="sk-select" id="sk-order">' +
-          '<option value="score">top score</option>' +
-          '<option value="date">newest</option>' +
-          '<option value="random">random</option>' +
-        '</select>' +
-      '</div>' +
-      '<div class="sk-chips" id="sk-chips"></div>' +
-      '<div class="sk-row">' +
-        '<button class="sk-btn" id="sk-go" style="flex:1">Search</button>' +
+      '<div id="sk-tag-controls">' +
+        '<div class="sk-row">' +
+          '<input class="sk-input" id="sk-tag-input" placeholder="add tag, enter to confirm">' +
+          '<select class="sk-select" id="sk-order">' +
+            '<option value="score">top score</option>' +
+            '<option value="date">newest</option>' +
+            '<option value="random">random</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="sk-chips" id="sk-chips"></div>' +
+        '<div class="sk-row">' +
+          '<button class="sk-btn" id="sk-go" style="flex:1">Search</button>' +
+        '</div>' +
       '</div>' +
       '<div class="sk-mode-row">' +
         '<button class="sk-mode-btn active" id="sk-mode-results" type="button">▤ Results</button>' +
@@ -380,6 +375,9 @@
     toggleResults.classList.toggle('active', searchViewMode === 'results');
     toggleStats.classList.toggle('active', searchViewMode === 'stats');
     toggleStats.textContent = sync.artistTag ? '📊 Stats: ' + sync.artistTag : '📊 Animator Stats';
+    // Tag-search controls only matter in Results mode — showing them in Stats
+    // mode too was exactly the "why two search fields" confusion.
+    body.querySelector('#sk-tag-controls').style.display = searchViewMode === 'stats' ? 'none' : 'block';
 
     var view = body.querySelector('#sk-search-view');
 
@@ -429,6 +427,7 @@
   function ensureResultsMarkup() {
     var view = body.querySelector('#sk-search-view');
     view.innerHTML =
+      '<div id="sk-back-to-shows" style="display:none"></div>' +
       '<div class="sk-meta" id="sk-facet-head" style="display:none;justify-content:space-between;align-items:center">' +
         '<button class="sk-filter-toggle" id="sk-filter-toggle" type="button">' +
           'Filter <span class="sk-filter-badge" id="sk-filter-badge" style="display:none"></span>' +
@@ -1076,6 +1075,19 @@
     var facetGrid = body.querySelector('#sk-facet-grid');
     var toggle = body.querySelector('#sk-filter-toggle');
     var badge = body.querySelector('#sk-filter-badge');
+    var backWrap = body.querySelector('#sk-back-to-shows');
+
+    if (cache.origin && cache.origin.type === 'shows') {
+      backWrap.style.display = 'block';
+      backWrap.innerHTML = '<a href="#" id="sk-back-to-shows-link" class="sk-mini-toggle" style="display:inline-block;margin-bottom:8px">← back to episode list</a>';
+      backWrap.querySelector('#sk-back-to-shows-link').onclick = function (e) {
+        e.preventDefault();
+        switchToTab('shows');
+      };
+    } else {
+      backWrap.style.display = 'none';
+      backWrap.innerHTML = '';
+    }
 
     var visible = safeFilter(cache.posts, function (p) {
       var tags = (p.tags || '').split(/\s+/);
@@ -1102,6 +1114,21 @@
       visible.forEach(function (p) { grid.appendChild(buildCard(p, dock)); });
       results.innerHTML = '';
       results.appendChild(grid);
+
+      if (cache.hasMore || cache.loadMoreError) {
+        var moreWrap = document.createElement('div');
+        moreWrap.className = 'sk-load-more-wrap';
+        if (cache.loadMoreError) {
+          moreWrap.innerHTML = '<div class="sk-empty">couldn\'t load more: ' + esc(cache.loadMoreError) + '</div>' +
+            '<button class="sk-frame-btn" id="sk-load-more">retry</button>';
+        } else {
+          moreWrap.innerHTML = '<button class="sk-frame-btn" id="sk-load-more"' +
+            (cache.loadingMore ? ' disabled' : '') + '>' +
+            (cache.loadingMore ? 'loading…' : 'Load more (' + cache.posts.length + ' so far)') + '</button>';
+        }
+        moreWrap.querySelector('#sk-load-more').onclick = function () { loadMoreResults(cache); };
+        results.appendChild(moreWrap);
+      }
     }
 
     var activeCount = safeFilter(Object.keys(cache.excluded), function (t) { return cache.excluded[t]; }).length;
@@ -1160,20 +1187,17 @@
     var tagsSnapshot = searchState.tags.slice();
     var orderSnapshot = searchState.order;
     var tagQuery = tagsSnapshot.join(' ') + ' order:' + orderSnapshot;
+    var PAGE_SIZE = 24;
 
-    getJSON('/post.json?limit=24&tags=' + encodeURIComponent(tagQuery.trim()))
+    return getJSON('/post.json?limit=' + PAGE_SIZE + '&tags=' + encodeURIComponent(tagQuery.trim()))
       .then(function (posts) {
-        var freq = {};
-        posts.forEach(function (p) {
-          (p.tags || '').split(/\s+/).forEach(function (t) {
-            if (!t || tagsSnapshot.indexOf(t) !== -1) return;
-            freq[t] = (freq[t] || 0) + 1;
-          });
-        });
-        var facetTags = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; })
-          .slice(0, 24);
-
-        searchCache = { tags: tagsSnapshot, order: orderSnapshot, posts: posts, excluded: {}, facetTags: facetTags };
+        searchCache = {
+          tags: tagsSnapshot, order: orderSnapshot, posts: posts, excluded: {},
+          facetTags: computeFacetTags(posts, tagsSnapshot),
+          page: 1, pageSize: PAGE_SIZE, hasMore: posts.length === PAGE_SIZE, loadingMore: false,
+          origin: searchOrigin
+        };
+        searchOrigin = null; // consumed — only applies to the search that was pending when set
         paintSearchResults(searchCache);
 
         // Figure out if this query is "about" a specific animator, so Stats can sync to it.
@@ -1183,9 +1207,86 @@
           var statsBtn = body.querySelector('#sk-mode-stats');
           if (statsBtn) statsBtn.textContent = sync.artistTag ? '📊 Stats: ' + sync.artistTag : '📊 Animator Stats';
         });
+        return posts.length;
       })
       .catch(function (err) {
         results.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+      });
+  }
+
+  // Different shows' taggers use different, unpredictable source-text conventions
+  // ("#357" vs "#0357" zero-padded vs "Episode 357" vs bare "357"), and even the
+  // exact matching behavior of the site's own source: search isn't fully known
+  // (a confirmed real case: "#0357" matched neither "#357" nor bare "357" — so
+  // it isn't a simple raw substring match either). Rather than guess once, try
+  // several realistic candidates in order and stop at the first that hits.
+  function buildEpisodeCandidates(num, observedToken) {
+    var plain = String(num);
+    var pad3 = plain.length < 3 ? ('00' + plain).slice(-3) : plain;
+    var pad4 = plain.length < 4 ? ('000' + plain).slice(-4) : plain;
+    var seen = {};
+    var out = [];
+    function add(tok) { if (tok && !seen[tok]) { seen[tok] = true; out.push(tok); } }
+    add(observedToken); // the exact raw text we actually saw, if we have it — try this first
+    [plain, pad3, pad4].forEach(function (r) { add('#' + r); add(r); });
+    return out;
+  }
+
+  function searchEpisodeWithFallback(showTag, candidates) {
+    searchState.order = 'date';
+    searchViewMode = 'results';
+    sync.artistTag = null;
+    var i = 0;
+    function tryNext() {
+      if (i >= candidates.length) return;
+      searchState.tags = [showTag, 'source:' + candidates[i]];
+      searchOrigin = { type: 'shows', showTag: showTag };
+      if (i === 0) { switchToTab('search'); } else { renderChips(); }
+      var attempt = i;
+      runSearch().then(function (count) {
+        if (count === 0 && attempt + 1 < candidates.length) {
+          i = attempt + 1;
+          tryNext();
+        }
+      });
+    }
+    tryNext();
+  }
+
+  function searchEpisodeNumber(showTag, num) {
+    searchEpisodeWithFallback(showTag, buildEpisodeCandidates(num, null));
+  }
+
+  function computeFacetTags(posts, tagsSnapshot) {
+    var freq = {};
+    posts.forEach(function (p) {
+      (p.tags || '').split(/\s+/).forEach(function (t) {
+        if (!t || tagsSnapshot.indexOf(t) !== -1) return;
+        freq[t] = (freq[t] || 0) + 1;
+      });
+    });
+    return safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 24);
+  }
+
+  function loadMoreResults(cache) {
+    if (cache.loadingMore || !cache.hasMore) return;
+    cache.loadingMore = true;
+    paintSearchResults(cache); // repaint immediately so the button shows a loading state
+    var nextPage = cache.page + 1;
+    var tagQuery = cache.tags.join(' ') + ' order:' + cache.order;
+    getJSON('/post.json?limit=' + cache.pageSize + '&page=' + nextPage + '&tags=' + encodeURIComponent(tagQuery.trim()))
+      .then(function (posts) {
+        cache.posts = cache.posts.concat(posts);
+        cache.page = nextPage;
+        cache.hasMore = posts.length === cache.pageSize;
+        cache.loadingMore = false;
+        cache.facetTags = computeFacetTags(cache.posts, cache.tags);
+        paintSearchResults(cache);
+      })
+      .catch(function (err) {
+        cache.loadingMore = false;
+        cache.loadMoreError = err.message;
+        paintSearchResults(cache);
       });
   }
 
@@ -1305,8 +1406,8 @@
   // Navigation is a simple back/forward history stack, like a browser:
   // each entry is either {type:'results', query, showsList} (a season/title
   // search) or {type:'episodes', showTag, entry, query} (an episode grid).
-  var showsCache = {}; // showTag -> { related: [...], pages: { pageNum: pageData } }
-  var SHOW_PAGE_SIZE = 100; // Sakugabooru's practical page size for /post.json
+  var showsCache = {}; // showTag -> { totalSampled, related: [...], episodes: [...] }
+  var SHOW_SAMPLE_PAGES = 3; // politeness cap: sample up to 300 posts to build the episode index
   var navStack = [];
   var navIndex = -1;
 
@@ -1323,9 +1424,9 @@
     var s = (source || '').trim();
     if (!s) return { key: 'unsorted', label: 'No source listed', sortNum: 1e9, token: null };
     var m = s.match(/#\s?(\d{1,4})/);
-    if (m) return { key: 'ep:' + (+m[1]), label: 'Episode ' + (+m[1]), sortNum: +m[1], token: '#' + (+m[1]) };
+    if (m) return { key: 'ep:' + (+m[1]), label: 'Episode ' + (+m[1]), sortNum: +m[1], token: '#' + m[1] };
     m = s.match(/\bep(?:isode)?\.?\s?(\d{1,4})\b/i);
-    if (m) return { key: 'ep:' + (+m[1]), label: 'Episode ' + (+m[1]), sortNum: +m[1], token: '#' + (+m[1]) };
+    if (m) return { key: 'ep:' + (+m[1]), label: 'Episode ' + (+m[1]), sortNum: +m[1], token: '#' + m[1] };
     if (/\bmovie\b/i.test(s)) return { key: 'movie', label: 'Movie', sortNum: 1e6 + 1, token: 'movie' };
     if (/\bova\b/i.test(s)) return { key: 'ova', label: 'OVA', sortNum: 1e6 + 2, token: 'OVA' };
     if (/\b(opening|op\d*)\b/i.test(s)) return { key: 'op', label: 'Opening', sortNum: 1e6 + 3, token: 'OP' };
@@ -1346,59 +1447,6 @@
       });
       return safeFilter(mapped, function (x) { return x && x.name !== showTag; }).slice(0, 8);
     } catch (e) { return []; }
-  }
-
-  function buildShowPageData(posts) {
-    var groups = {};
-
-    posts.forEach(function (p) {
-      var g = parseEpisodeKey(p.source);
-      if (!groups[g.key]) {
-        groups[g.key] = { label: g.label, sortNum: g.sortNum, token: g.token, count: 0, posts: [] };
-      }
-      groups[g.key].count++;
-      groups[g.key].posts.push(p);
-    });
-
-    var episodes = safeSort(
-      safeMap(Object.keys(groups), function (k) { return groups[k]; }),
-      function (a, b) { return a.sortNum - b.sortNum; }
-    );
-
-    return {
-      posts: posts,
-      totalPosts: posts.length,
-      episodes: episodes,
-      hasNext: posts.length === SHOW_PAGE_SIZE
-    };
-  }
-
-  function fetchShowPage(showTag, page, totalCount, orderMode) {
-    var mode = orderMode === 'asc' ? 'asc' : 'desc';
-    var totalPages = totalCount ? Math.max(1, Math.ceil(totalCount / SHOW_PAGE_SIZE)) : null;
-    var apiPage = page;
-
-    // Sakugabooru's existing order:date endpoint is reliable and returns newest first.
-    // For "oldest first", turn logical page 1 into the last API page, logical page 2
-    // into the second-to-last API page, etc., then reverse the posts within that page.
-    if (mode === 'asc' && totalPages) apiPage = totalPages - page + 1;
-
-    return getJSON('/post.json?limit=' + SHOW_PAGE_SIZE + '&page=' + apiPage + '&tags=' + encodeURIComponent(showTag) + '+order:date')
-      .then(function (posts) {
-        if (mode === 'asc') posts = posts.slice().reverse();
-        return buildShowPageData(posts);
-      });
-  }
-
-  function loadShowPage(showTag, entry, page, orderMode) {
-    var mode = orderMode === 'asc' ? 'asc' : 'desc';
-    if (!entry.pages[mode]) entry.pages[mode] = {};
-    if (entry.pages[mode][page]) return Promise.resolve(entry.pages[mode][page]);
-
-    return fetchShowPage(showTag, page, entry.totalCount, mode).then(function (pageData) {
-      entry.pages[mode][page] = pageData;
-      return pageData;
-    });
   }
 
   function renderShows() {
@@ -1432,19 +1480,12 @@
     var backBtn = body.querySelector('#sk-nav-back');
     var fwdBtn = body.querySelector('#sk-nav-forward');
     var crumb = body.querySelector('#sk-nav-crumb');
-    if (!navBar || !backBtn || !fwdBtn || !crumb) return;
     if (!navStack.length) { navBar.style.display = 'none'; return; }
     navBar.style.display = 'flex';
     backBtn.disabled = navIndex <= 0;
     fwdBtn.disabled = navIndex >= navStack.length - 1;
     var cur = navStack[navIndex];
-    if (cur.type === 'episodes') {
-      var page = cur.page || 1;
-      var orderLabel = cur.order === 'asc' ? 'oldest first' : 'newest first';
-      crumb.textContent = cur.showTag + ' · page ' + page + (cur.entry && cur.entry.totalCount ? ' of ' + Math.max(1, Math.ceil(cur.entry.totalCount / SHOW_PAGE_SIZE)) : '') + ' · ' + orderLabel;
-    } else {
-      crumb.textContent = '"' + cur.query + '"';
-    }
+    crumb.textContent = cur.type === 'episodes' ? cur.showTag : ('"' + cur.query + '"');
   }
 
   function renderNavCurrent() {
@@ -1452,11 +1493,10 @@
     var content = body.querySelector('#sk-show-content');
     var cur = navStack[navIndex];
     var input = body.querySelector('#sk-show-input');
-    if (!content || !input) return;
     if (!cur) { content.innerHTML = ''; return; }
     input.value = cur.type === 'episodes' ? cur.showTag : cur.query;
     if (cur.type === 'results') paintShowResults(content, cur.showsList);
-    else paintShowDetail(content, cur.showTag, cur.entry, cur.page || 1, cur.order || 'desc');
+    else paintShowDetail(content, cur.showTag, cur.entry);
   }
 
   function searchShowTags(q) {
@@ -1509,8 +1549,8 @@
       item.innerHTML = '<span class="name">' + esc(t.name) + '</span><span class="cnt">' + t.count + ' posts</span>';
       item.onclick = function () {
         content.innerHTML = '<div class="sk-loading">loading ' + esc(t.name) + '…</div>';
-        getShowEntry(t.name, t.count).then(function (entry) {
-          pushNav({ type: 'episodes', showTag: t.name, entry: entry, page: 1, order: 'desc' });
+        getShowEntry(t.name).then(function (entry) {
+          pushNav({ type: 'episodes', showTag: t.name, entry: entry });
         }).catch(function (err) {
           content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
         });
@@ -1519,142 +1559,103 @@
     });
   }
 
-  function getShowEntry(showTag, totalCount) {
-    if (showsCache[showTag]) return Promise.resolve(showsCache[showTag]);
+  function getShowEntry(showTag, targetPages) {
+    targetPages = targetPages || SHOW_SAMPLE_PAGES;
+    var cached = showsCache[showTag];
+    if (cached && (cached.pagesFetched >= targetPages || cached.exhausted)) return Promise.resolve(cached);
 
-    var relatedPromise = getJSON('/tag/related.json?tags=' + encodeURIComponent(showTag) + '&type=copyright')
-      .then(function (r) { return normalizeRelated(r, showTag); })
-      .catch(function () { return []; });
+    var startPage = cached ? cached.pagesFetched + 1 : 1;
+    var priorPosts = cached ? cached.posts : [];
+    var relatedPromise = cached ? Promise.resolve(cached.related) :
+      getJSON('/tag/related.json?tags=' + encodeURIComponent(showTag) + '&type=copyright')
+        .then(function (r) { return normalizeRelated(r, showTag); })
+        .catch(function () { return []; });
 
-    var entry = {
-      related: [],
-      totalCount: typeof totalCount === 'number' ? totalCount : null,
-      pages: { desc: {}, asc: {} }
-    };
+    var newPosts = [];
+    var reachedEnd = false;
+    function fetchPage(page) {
+      return getJSON('/post.json?limit=100&page=' + page + '&tags=' + encodeURIComponent(showTag) + '+order:date')
+        .then(function (batch) {
+          newPosts = newPosts.concat(batch);
+          if (batch.length < 100) { reachedEnd = true; return; } // genuinely out of posts, not just hit our cap
+          if (page < targetPages) {
+            return sleep(PAGE_DELAY).then(function () { return fetchPage(page + 1); });
+          }
+        });
+    }
 
-    return Promise.all([relatedPromise, loadShowPage(showTag, entry, 1, 'desc')]).then(function (res) {
-      entry.related = res[0];
+    return Promise.all([relatedPromise, fetchPage(startPage)]).then(function (res) {
+      var related = res[0];
+      var allPosts = priorPosts.concat(newPosts);
+      if (!allPosts.length) return { totalSampled: 0, related: related, episodes: [], posts: [], pagesFetched: targetPages, exhausted: reachedEnd };
+      var groups = {};
+      allPosts.forEach(function (p) {
+        var g = parseEpisodeKey(p.source);
+        if (!groups[g.key]) groups[g.key] = { label: g.label, sortNum: g.sortNum, token: g.token, count: 0, posts: [] };
+        groups[g.key].count++;
+        groups[g.key].posts.push(p);
+      });
+      var episodes = safeSort(safeMap(Object.keys(groups), function (k) { return groups[k]; }),
+        function (a, b) { return a.sortNum - b.sortNum; });
+      var entry = {
+        totalSampled: allPosts.length, related: related, episodes: episodes,
+        posts: allPosts, pagesFetched: targetPages, exhausted: reachedEnd
+      };
       showsCache[showTag] = entry;
       return entry;
     });
   }
 
-
-  function paintShowDetail(content, showTag, entry, page, orderMode) {
-    var pageNum = page || 1;
-    var mode = orderMode === 'asc' ? 'asc' : 'desc';
-    if (!entry.pages[mode]) entry.pages[mode] = {};
-    var pageData = entry.pages[mode][pageNum];
-
-    if (!pageData) {
-      content.innerHTML = '<div class="sk-loading">loading page ' + pageNum + '…</div>';
-      loadShowPage(showTag, entry, pageNum, mode).then(function () {
-        paintShowDetail(content, showTag, entry, pageNum, mode);
-      }).catch(function (err) {
-        content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
-      });
+  function paintShowDetail(content, showTag, entry) {
+    window.__skDebugShowEntry = entry; // debug hook — inspect real source text in console, see README
+    if (!entry.totalSampled) {
+      content.innerHTML = '<div class="sk-empty">no posts sampled for "' + esc(showTag) + '"</div>';
       return;
     }
-
-    if (!pageData.totalPosts) {
-      content.innerHTML = '<div class="sk-empty">no posts found on page ' + pageNum + ' for "' + esc(showTag) + '"</div>';
-      return;
-    }
-
-    var firstPost = ((pageNum - 1) * SHOW_PAGE_SIZE) + 1;
-    var lastPost = firstPost + pageData.totalPosts - 1;
-
-    var totalPages = entry.totalCount ? Math.max(1, Math.ceil(entry.totalCount / SHOW_PAGE_SIZE)) : null;
-
     content.innerHTML =
-      '<div class="sk-show-head"><span class="title">' + esc(showTag) + '</span></div>' +
-      '<div class="sk-show-nav sk-show-page-nav" id="sk-show-page-nav">' +
-        '<button class="sk-nav-btn" id="sk-show-page-prev" type="button"' +
-          (pageNum <= 1 ? ' disabled' : '') + '>← Previous</button>' +
-        '<span class="sk-nav-crumb">Page ' + pageNum + (totalPages ? ' of ' + totalPages : '') + ' · posts ' + firstPost + '–' + lastPost + '</span>' +
-        '<button class="sk-nav-btn" id="sk-show-page-next" type="button"' +
-          ((totalPages && pageNum >= totalPages) || (!totalPages && !pageData.hasNext) ? ' disabled' : '') + '>Next →</button>' +
+      '<div class="sk-show-head">' +
+        '<span class="title">' + esc(showTag) + '</span>' +
+        (entry.related.length ? '<button class="sk-mini-toggle" id="sk-related-toggle">related (' + entry.related.length + ') ▾</button>' : '') +
+        '<button class="sk-mini-toggle" id="sk-info-toggle">ⓘ how this works</button>' +
       '</div>' +
-      '<div class="sk-page-jump">' +
-        '<span class="sk-page-total">Jump to page</span>' +
-        '<input class="sk-page-input" id="sk-show-page-input" type="number" min="1"' +
-          (totalPages ? ' max="' + totalPages + '"' : '') +
-          ' value="' + pageNum + '">' +
-        '<button class="sk-page-go" id="sk-show-page-go" type="button">Go</button>' +
-        (totalPages ? '<span class="sk-page-total">/ ' + totalPages + '</span>' : '') +
+      (entry.related.length ? '<div class="sk-related-row" id="sk-related-row" style="display:none"></div>' : '') +
+      '<div class="sk-caption" id="sk-show-info" style="display:none">episode grouping below is parsed from each post\'s source text (the ' +
+        '"Title #12" convention), sampled from the ' + entry.totalSampled + ' most <b>recently tagged</b> posts — ' +
+        'not chronological by episode, so which numbers show up is down to tagging activity, not air order ' +
+        '(that\'s why the list might skip straight from Episode 357 to 1056 instead of starting at 1). ' +
+        'Anything that isn\'t a recognizable episode/OP/ED/movie marker (like individual social-media credit ' +
+        'links) gets grouped into one "Other" bucket. For a specific known episode, use the jump box below — ' +
+        'it searches directly rather than relying on this sample.</div>' +
+      '<div class="sk-row">' +
+        '<input class="sk-input" id="sk-ep-jump" type="number" min="1" placeholder="know the episode number? jump straight to it, e.g. 1000">' +
+        '<button class="sk-btn" id="sk-ep-jump-go">Go</button>' +
       '</div>' +
-      '<div class="sk-show-order-row">' +
-        '<span class="sk-show-order-label">Order</span>' +
-        '<select class="sk-show-order-select" id="sk-show-order-select">' +
-          '<option value="desc"' + (mode === 'desc' ? ' selected' : '') + '>Newest → Oldest</option>' +
-          '<option value="asc"' + (mode === 'asc' ? ' selected' : '') + '>Oldest → Newest</option>' +
-        '</select>' +
-      '</div>' +
-      (entry.related.length
-        ? '<div class="sk-related-row" id="sk-related-row"></div>'
-        : '') +
-      '<div class="sk-caption">Showing ' + pageData.totalPosts + ' posts from page ' + pageNum +
-        ' (' + firstPost + '–' + lastPost + ') of ' + (entry.totalCount ? entry.totalCount : '?') + ' ' + esc(showTag) +
-        ' results, ' + (mode === 'asc' ? 'oldest first' : 'newest first') + '. Episode grouping is parsed from each post\'s source text using the ' +
-        '"Title #12" convention; unrecognized source text is grouped into "Other / uncategorized".</div>' +
-      '<div class="sk-ep-grid" id="sk-ep-grid"></div>';
+      '<div class="sk-ep-grid" id="sk-ep-grid"></div>' +
+      '<div class="sk-load-more-wrap" id="sk-scan-more-wrap"></div>';
 
-    var prevBtn = content.querySelector('#sk-show-page-prev');
-    var nextBtn = content.querySelector('#sk-show-page-next');
-    var pageInput = content.querySelector('#sk-show-page-input');
-    var pageGo = content.querySelector('#sk-show-page-go');
-    var orderSelect = content.querySelector('#sk-show-order-select');
-
-    function goToPage(targetPage) {
-      targetPage = parseInt(targetPage, 10);
-      if (!isFinite(targetPage)) return;
-      if (targetPage < 1) targetPage = 1;
-      if (totalPages && targetPage > totalPages) targetPage = totalPages;
-      if (targetPage === pageNum) return;
-      if (pageInput) pageInput.value = targetPage;
-      content.innerHTML = '<div class="sk-loading">loading page ' + targetPage + '…</div>';
-      loadShowPage(showTag, entry, targetPage, mode).then(function () {
-        var cur = navStack[navIndex];
-        if (cur && cur.type === 'episodes') {
-          cur.page = targetPage;
-          cur.order = mode;
-          renderNavCurrent();
-        } else {
-          paintShowDetail(content, showTag, entry, targetPage, mode);
-        }
-      }).catch(function (err) {
-        content.innerHTML = '<div class="sk-empty">error loading page ' + targetPage + ': ' + esc(err.message) + '</div>';
-      });
+    if (entry.related.length) {
+      content.querySelector('#sk-related-toggle').onclick = function () {
+        var row = content.querySelector('#sk-related-row');
+        var open = row.style.display !== 'none';
+        row.style.display = open ? 'none' : 'flex';
+        this.textContent = 'related (' + entry.related.length + ') ' + (open ? '▾' : '▴');
+      };
     }
-
-    orderSelect.onchange = function () {
-      var nextMode = orderSelect.value === 'asc' ? 'asc' : 'desc';
-      var cur = navStack[navIndex];
-      if (cur && cur.type === 'episodes') {
-        cur.order = nextMode;
-        cur.page = 1;
-        renderNavCurrent();
-      } else {
-        paintShowDetail(content, showTag, entry, 1, nextMode);
-      }
+    content.querySelector('#sk-info-toggle').onclick = function () {
+      var info = content.querySelector('#sk-show-info');
+      var open = info.style.display !== 'none';
+      info.style.display = open ? 'none' : 'block';
     };
 
-    pageGo.onclick = function () { goToPage(pageInput.value); };
-    pageInput.onkeydown = function (e) {
-      if (e.key === 'Enter') goToPage(pageInput.value);
+    content.querySelector('#sk-ep-jump-go').onclick = function () {
+      var input = content.querySelector('#sk-ep-jump');
+      var num = parseInt(input.value, 10);
+      if (!num || num < 1) return;
+      searchEpisodeNumber(showTag, num);
     };
-
-    prevBtn.onclick = function () {
-      if (pageNum <= 1) return;
-      goToPage(pageNum - 1);
-    };
-
-    nextBtn.onclick = function () {
-      if ((totalPages && pageNum >= totalPages) || (!totalPages && !pageData.hasNext)) return;
-      nextBtn.disabled = true;
-      nextBtn.textContent = 'Loading…';
-      goToPage(pageNum + 1);
-    };
+    content.querySelector('#sk-ep-jump').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') content.querySelector('#sk-ep-jump-go').click();
+    });
 
     if (entry.related.length) {
       var row = content.querySelector('#sk-related-row');
@@ -1664,8 +1665,8 @@
         chip.textContent = r.name + ' (' + r.count + ')';
         chip.onclick = function () {
           content.innerHTML = '<div class="sk-loading">loading ' + esc(r.name) + '…</div>';
-          getShowEntry(r.name, r.count).then(function (e2) {
-            pushNav({ type: 'episodes', showTag: r.name, entry: e2, page: 1, order: 'desc' });
+          getShowEntry(r.name).then(function (e2) {
+            pushNav({ type: 'episodes', showTag: r.name, entry: e2 });
           }).catch(function (err) {
             content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
           });
@@ -1675,24 +1676,29 @@
     }
 
     var grid = content.querySelector('#sk-ep-grid');
-    pageData.episodes.forEach(function (ep) {
+    entry.episodes.forEach(function (ep) {
       var btn = document.createElement('div');
       btn.className = 'sk-ep-btn';
       btn.innerHTML = '<span class="num">' + esc(ep.label) + '</span><span class="cnt">' +
-        (ep.token ? ep.count + ' sampled on this page' : ep.count + ' sampled · browse only') + '</span>';
+        (ep.token ? ep.count + ' sampled' : ep.count + ' sampled · browse only') + '</span>';
       btn.onclick = function () {
         searchState.order = 'date';
         searchViewMode = 'results';
         sync.artistTag = null; // avoid Search's auto-sync overwriting this specific episode query
-        if (ep.token) {
-          // A real episode/OP/ED/movie marker — run an actual server search so we get
-          // every matching post, not just whatever happened to be on the current page.
+        if (ep.token && ep.sortNum < 1e6) {
+          // A numbered episode — try the exact text we actually observed first,
+          // then fall back through likely alternate formats (see buildEpisodeCandidates).
+          searchEpisodeWithFallback(showTag, buildEpisodeCandidates(ep.sortNum, ep.token));
+        } else if (ep.token) {
+          // OP/ED/Movie/OVA/PV — a fixed word, not a number, so no fallback needed.
           searchState.tags = [showTag, 'source:' + ep.token];
+          searchOrigin = { type: 'shows', showTag: showTag };
           switchToTab('search');
           runSearch();
         } else {
           // No single query can isolate this bucket (e.g. individual social-media credit
-          // links each with a different URL) — show exactly the posts from this page.
+          // links each with a different URL) — show exactly the posts we already sampled
+          // instead of pretending we can search for them.
           var freq = {};
           ep.posts.forEach(function (p) {
             (p.tags || '').split(/\s+/).forEach(function (t) {
@@ -1702,14 +1708,38 @@
           });
           var facetTags = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 24);
           searchState.tags = [showTag];
-          searchCache = { tags: [showTag], order: 'date', posts: ep.posts, excluded: {}, facetTags: facetTags, sampledOnly: true };
+          searchCache = {
+            tags: [showTag], order: 'date', posts: ep.posts, excluded: {}, facetTags: facetTags,
+            sampledOnly: true, origin: { type: 'shows', showTag: showTag }
+          };
           switchToTab('search');
         }
       };
       grid.appendChild(btn);
     });
-  }
 
+    var scanWrap = content.querySelector('#sk-scan-more-wrap');
+    function renderScanButton() {
+      if (entry.exhausted) {
+        scanWrap.innerHTML = '<div class="sk-caption">sampled this show\'s entire post history — nothing more to scan</div>';
+        return;
+      }
+      scanWrap.innerHTML = '<button class="sk-frame-btn" id="sk-scan-more">' +
+        'scan further back (+300 more posts, currently ' + entry.totalSampled + ')</button>';
+      scanWrap.querySelector('#sk-scan-more').onclick = function () {
+        scanWrap.innerHTML = '<div class="sk-loading">scanning further back… (may take a few seconds)</div>';
+        getShowEntry(showTag, (entry.pagesFetched || SHOW_SAMPLE_PAGES) + 3).then(function (deeperEntry) {
+          if (navStack[navIndex] && navStack[navIndex].type === 'episodes' && navStack[navIndex].showTag === showTag) {
+            navStack[navIndex].entry = deeperEntry;
+          }
+          paintShowDetail(content, showTag, deeperEntry);
+        }).catch(function (err) {
+          scanWrap.innerHTML = '<div class="sk-empty">couldn\'t scan further: ' + esc(err.message) + '</div>';
+        });
+      };
+    }
+    renderScanButton();
+  }
 
   function renderTab(name) {
     if (name === 'shows') renderShows();
