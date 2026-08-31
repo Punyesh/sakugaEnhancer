@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF6 (fixed source link + hover dwell) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF8 (image lightbox too) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -183,6 +183,18 @@
     '.sk-loading{color:' + C.amber + ';font-size:12px;text-align:center;padding:20px 0;',
     'font-family:"Courier New",monospace;}',
     '.sk-close{cursor:pointer;color:' + C.dim + ';font-size:16px;line-height:1;}',
+    '.sk-media-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2147483600;',
+    'display:flex;align-items:center;justify-content:center;padding:24px;}',
+    '.sk-media-box{max-width:760px;width:100%;background:' + C.panel + ';border:1px solid ' + C.line + ';',
+    'border-radius:8px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);}',
+    '.sk-media-box video,.sk-media-box img{width:100%;max-height:72vh;display:block;background:#000;',
+    'object-fit:contain;}',
+    '.sk-media-top{display:flex;align-items:center;gap:8px;padding:8px 10px;background:' + C.panel2 + ';}',
+    '.sk-media-viewpost{margin-left:auto;color:' + C.amber + ';font-size:12px;text-decoration:none;',
+    'font-family:"Courier New",monospace;}',
+    '.sk-media-viewpost:hover{text-decoration:underline;}',
+    '.sk-media-close{cursor:pointer;color:' + C.dim + ';font-size:22px;line-height:1;padding:0 2px 2px;}',
+    '.sk-media-close:hover{color:' + C.red + ';}',
     '.sk-close:hover{color:' + C.red + ';}'
   ].join('');
 
@@ -561,6 +573,51 @@
     });
   }
 
+  function buildMediaShell(p) {
+    var backdrop = document.createElement('div');
+    backdrop.className = 'sk-media-backdrop';
+    var box = document.createElement('div');
+    box.className = 'sk-media-box';
+    box.innerHTML =
+      '<div class="sk-media-top">' +
+        '<span class="sk-badge score">▲ ' + (p.score || 0) + '</span>' +
+        '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
+        '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
+        '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
+      '</div>';
+    backdrop.appendChild(box);
+    document.body.appendChild(backdrop); // attach to the real page body so it overlays everything, not just our small panel
+
+    function close() {
+      var vid = box.querySelector('video');
+      if (vid) vid.pause();
+      backdrop.remove();
+      document.removeEventListener('keydown', onKey);
+    }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+    box.querySelector('#sk-media-close').onclick = close;
+    return box; // caller appends the actual <video> or <img>
+  }
+
+  function openVideoModal(p) {
+    var box = buildMediaShell(p);
+    var vid = document.createElement('video');
+    vid.controls = true;
+    vid.autoplay = true;
+    vid.playsInline = true;
+    vid.src = p.file_url;
+    box.appendChild(vid);
+  }
+
+  function openImageModal(p) {
+    var box = buildMediaShell(p);
+    var img = document.createElement('img');
+    img.src = p.sample_url || p.jpeg_url || p.file_url || p.preview_url;
+    box.appendChild(img);
+  }
+
   function buildCard(p, dock) {
     var card = document.createElement('div');
     card.className = 'sk-card';
@@ -572,16 +629,17 @@
       (playable ? '<video muted loop playsinline preload="none"></video><div class="vidmark">▶ clip</div>' : '') +
       '<div class="score">&#9650; ' + (p.score || 0) + '</div>';
 
+    var hoverVid = null;
     if (playable) {
-      var vid = card.querySelector('video');
+      hoverVid = card.querySelector('video');
       card.addEventListener('mouseenter', function () {
-        vid.src = clipUrl;
-        vid.play().catch(function () {});
+        hoverVid.src = clipUrl;
+        hoverVid.play().catch(function () {});
       });
       card.addEventListener('mouseleave', function () {
-        vid.pause();
-        vid.removeAttribute('src');
-        vid.load();
+        hoverVid.pause();
+        hoverVid.removeAttribute('src');
+        hoverVid.load();
       });
     }
 
@@ -591,7 +649,14 @@
     });
     card.addEventListener('mouseleave', function () { clearTimeout(card._dockTimer); });
     card.title = (p.tags || '').slice(0, 200);
-    card.onclick = function () { window.open('/post/show/' + p.id, '_blank'); };
+    card.onclick = function () {
+      if (playable) {
+        if (hoverVid) hoverVid.pause();
+        openVideoModal(p);
+      } else {
+        openImageModal(p);
+      }
+    };
     return card;
   }
 
