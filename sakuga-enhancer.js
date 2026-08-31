@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF33 (hide tag search controls in Stats mode) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF34 (hide number input spinner) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -59,6 +59,9 @@
     '.sk-input{flex:1;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
     'padding:7px 9px;border-radius:4px;font-size:13px;outline:none;}',
     '.sk-input:focus{border-color:' + C.amber + ';}',
+    '.sk-input[type=number]::-webkit-inner-spin-button,',
+    '.sk-input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}',
+    '.sk-input[type=number]{-moz-appearance:textfield;}',
     '.sk-select{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
     'padding:7px 6px;border-radius:4px;font-size:12px;}',
     '.sk-btn{background:' + C.amberDim + ';border:1px solid ' + C.amber + ';color:' + C.amber + ';',
