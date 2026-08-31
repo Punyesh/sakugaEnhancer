@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF40 (shorter chart label) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF41 (frame-accurate trim via re-encode, not stream-copy) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -761,17 +761,27 @@
       .then(function (ffmpeg) {
         statusEl.textContent = 'reading clip…';
         return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
-          var ext = p.file_ext || 'webm';
-          var inputName = 'input.' + ext;
-          var outputName = 'output.' + ext;
+          var inputName = 'input.' + (p.file_ext || 'webm');
+          var outputName = 'output.mp4';
           return ffmpeg.writeFile(inputName, new Uint8Array(buf)).then(function () {
-            statusEl.textContent = 'trimming…';
-            return ffmpeg.exec(['-ss', String(inTime), '-to', String(outTime), '-i', inputName, '-c', 'copy', outputName]);
+            statusEl.textContent = 'trimming (re-encoding for frame accuracy)…';
+            // `-ss`/`-to` placed AFTER `-i`, with real encoders instead of `-c copy`:
+            // stream-copy can only cut on keyframe boundaries since it never decodes
+            // the video, so the actual start/end can drift from what was marked.
+            // Re-encoding is the only way to land on the exact requested frame —
+            // slower and a generation of quality loss, but genuinely frame-accurate.
+            return ffmpeg.exec([
+              '-i', inputName,
+              '-ss', String(inTime), '-to', String(outTime),
+              '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18',
+              '-c:a', 'aac',
+              outputName
+            ]);
           }).then(function () {
             return ffmpeg.readFile(outputName);
           }).then(function (data) {
             statusEl.textContent = '';
-            return { blob: new Blob([data.buffer], { type: 'video/' + ext }), ext: ext };
+            return { blob: new Blob([data.buffer], { type: 'video/mp4' }), ext: 'mp4' };
           });
         });
       });
@@ -938,8 +948,9 @@
 
     // ---- trim range + download/share ----
     // There's no server here, so trimming runs entirely client-side via
-    // ffmpeg.wasm (loaded on first use, see below) — a real stream-copy cut,
-    // fast and lossless since it's not re-encoding, just remuxing.
+    // ffmpeg.wasm (loaded on first use, see below) — a real re-encode, not a
+    // stream copy, since stream-copy can only cut on keyframe boundaries and
+    // frame-accurate trimming needs an actual decode/re-encode of the range.
     var inTime = null, outTime = null;
 
     var trimCaption = document.createElement('div');
