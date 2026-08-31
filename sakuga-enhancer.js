@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  console.log('%c[sakuga-enhancer] build SF25 (removed unreliable Share button) loaded', 'color:#ffb020;font-weight:bold');
+  console.log('%c[sakuga-enhancer] build SF26 (show pagination) loaded', 'color:#ffb020;font-weight:bold');
 
   // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
   var EXISTING = document.getElementById('sk-enh-root');
@@ -1292,8 +1292,8 @@
   // Navigation is a simple back/forward history stack, like a browser:
   // each entry is either {type:'results', query, showsList} (a season/title
   // search) or {type:'episodes', showTag, entry, query} (an episode grid).
-  var showsCache = {}; // showTag -> { totalSampled, related: [...], episodes: [...] }
-  var SHOW_SAMPLE_PAGES = 3; // politeness cap: sample up to 300 posts to build the episode index
+  var showsCache = {}; // showTag -> { related: [...], pages: { pageNum: pageData } }
+  var SHOW_PAGE_SIZE = 100; // Sakugabooru's practical page size for /post.json
   var navStack = [];
   var navIndex = -1;
 
@@ -1335,6 +1335,47 @@
     } catch (e) { return []; }
   }
 
+  function buildShowPageData(posts) {
+    var groups = {};
+
+    posts.forEach(function (p) {
+      var g = parseEpisodeKey(p.source);
+      if (!groups[g.key]) {
+        groups[g.key] = { label: g.label, sortNum: g.sortNum, token: g.token, count: 0, posts: [] };
+      }
+      groups[g.key].count++;
+      groups[g.key].posts.push(p);
+    });
+
+    var episodes = safeSort(
+      safeMap(Object.keys(groups), function (k) { return groups[k]; }),
+      function (a, b) { return a.sortNum - b.sortNum; }
+    );
+
+    return {
+      posts: posts,
+      totalPosts: posts.length,
+      episodes: episodes,
+      hasNext: posts.length === SHOW_PAGE_SIZE
+    };
+  }
+
+  function fetchShowPage(showTag, page) {
+    return getJSON('/post.json?limit=' + SHOW_PAGE_SIZE + '&page=' + page + '&tags=' + encodeURIComponent(showTag) + '+order:date')
+      .then(function (posts) {
+        return buildShowPageData(posts);
+      });
+  }
+
+  function loadShowPage(showTag, entry, page) {
+    if (entry.pages[page]) return Promise.resolve(entry.pages[page]);
+
+    return fetchShowPage(showTag, page).then(function (pageData) {
+      entry.pages[page] = pageData;
+      return pageData;
+    });
+  }
+
   function renderShows() {
     body.innerHTML =
       '<div class="sk-row"><input class="sk-input" id="sk-show-input" placeholder="search a show or movie title"></div>' +
@@ -1366,12 +1407,18 @@
     var backBtn = body.querySelector('#sk-nav-back');
     var fwdBtn = body.querySelector('#sk-nav-forward');
     var crumb = body.querySelector('#sk-nav-crumb');
+    if (!navBar || !backBtn || !fwdBtn || !crumb) return;
     if (!navStack.length) { navBar.style.display = 'none'; return; }
     navBar.style.display = 'flex';
     backBtn.disabled = navIndex <= 0;
     fwdBtn.disabled = navIndex >= navStack.length - 1;
     var cur = navStack[navIndex];
-    crumb.textContent = cur.type === 'episodes' ? cur.showTag : ('"' + cur.query + '"');
+    if (cur.type === 'episodes') {
+      var page = cur.page || 1;
+      crumb.textContent = cur.showTag + ' · page ' + page;
+    } else {
+      crumb.textContent = '"' + cur.query + '"';
+    }
   }
 
   function renderNavCurrent() {
@@ -1379,10 +1426,11 @@
     var content = body.querySelector('#sk-show-content');
     var cur = navStack[navIndex];
     var input = body.querySelector('#sk-show-input');
+    if (!content || !input) return;
     if (!cur) { content.innerHTML = ''; return; }
     input.value = cur.type === 'episodes' ? cur.showTag : cur.query;
     if (cur.type === 'results') paintShowResults(content, cur.showsList);
-    else paintShowDetail(content, cur.showTag, cur.entry);
+    else paintShowDetail(content, cur.showTag, cur.entry, cur.page || 1);
   }
 
   function searchShowTags(q) {
@@ -1436,7 +1484,7 @@
       item.onclick = function () {
         content.innerHTML = '<div class="sk-loading">loading ' + esc(t.name) + '…</div>';
         getShowEntry(t.name).then(function (entry) {
-          pushNav({ type: 'episodes', showTag: t.name, entry: entry });
+          pushNav({ type: 'episodes', showTag: t.name, entry: entry, page: 1 });
         }).catch(function (err) {
           content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
         });
@@ -1452,51 +1500,91 @@
       .then(function (r) { return normalizeRelated(r, showTag); })
       .catch(function () { return []; });
 
-    var posts = [];
-    function fetchPage(page) {
-      return getJSON('/post.json?limit=100&page=' + page + '&tags=' + encodeURIComponent(showTag) + '+order:date')
-        .then(function (batch) {
-          posts = posts.concat(batch);
-          if (batch.length === 100 && page < SHOW_SAMPLE_PAGES) {
-            return sleep(PAGE_DELAY).then(function () { return fetchPage(page + 1); });
-          }
-        });
-    }
-
-    return Promise.all([relatedPromise, fetchPage(1)]).then(function (res) {
-      var related = res[0];
-      if (!posts.length) return { totalSampled: 0, related: related, episodes: [] };
-      var groups = {};
-      posts.forEach(function (p) {
-        var g = parseEpisodeKey(p.source);
-        if (!groups[g.key]) groups[g.key] = { label: g.label, sortNum: g.sortNum, token: g.token, count: 0, posts: [] };
-        groups[g.key].count++;
-        groups[g.key].posts.push(p);
-      });
-      var episodes = safeSort(safeMap(Object.keys(groups), function (k) { return groups[k]; }),
-        function (a, b) { return a.sortNum - b.sortNum; });
-      var entry = { totalSampled: posts.length, related: related, episodes: episodes };
+    return Promise.all([relatedPromise, loadShowPage(showTag, { pages: {} }, 1)]).then(function (res) {
+      var entry = {
+        related: res[0],
+        pages: { 1: res[1] }
+      };
       showsCache[showTag] = entry;
       return entry;
     });
   }
 
-  function paintShowDetail(content, showTag, entry) {
-    if (!entry.totalSampled) {
-      content.innerHTML = '<div class="sk-empty">no posts sampled for "' + esc(showTag) + '"</div>';
+
+  function paintShowDetail(content, showTag, entry, page) {
+    var pageNum = page || 1;
+    var pageData = entry.pages[pageNum];
+
+    if (!pageData) {
+      content.innerHTML = '<div class="sk-loading">loading page ' + pageNum + '…</div>';
+      loadShowPage(showTag, entry, pageNum).then(function () {
+        paintShowDetail(content, showTag, entry, pageNum);
+      }).catch(function (err) {
+        content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+      });
       return;
     }
+
+    if (!pageData.totalPosts) {
+      content.innerHTML = '<div class="sk-empty">no posts found on page ' + pageNum + ' for "' + esc(showTag) + '"</div>';
+      return;
+    }
+
+    var firstPost = ((pageNum - 1) * SHOW_PAGE_SIZE) + 1;
+    var lastPost = firstPost + pageData.totalPosts - 1;
+
     content.innerHTML =
       '<div class="sk-show-head"><span class="title">' + esc(showTag) + '</span></div>' +
+      '<div class="sk-show-nav sk-show-page-nav" id="sk-show-page-nav">' +
+        '<button class="sk-nav-btn" id="sk-show-page-prev" type="button"' +
+          (pageNum <= 1 ? ' disabled' : '') + '>← Previous</button>' +
+        '<span class="sk-nav-crumb">Page ' + pageNum + ' · posts ' + firstPost + '–' + lastPost + '</span>' +
+        '<button class="sk-nav-btn" id="sk-show-page-next" type="button"' +
+          (!pageData.hasNext ? ' disabled' : '') + '>Next →</button>' +
+      '</div>' +
       (entry.related.length
         ? '<div class="sk-related-row" id="sk-related-row"></div>'
         : '') +
-      '<div class="sk-caption">episode grouping is parsed from each post\'s source text (the ' +
-        '"Title #12" convention), sampled from the ' + entry.totalSampled + ' most recent tagged posts — ' +
-        'not a guaranteed structured field, so it can be rough where tagging was inconsistent — ' +
-        'anything that isn\'t a recognizable episode/OP/ED/movie marker (like individual social-media ' +
-        'credit links) gets grouped into one "Other" bucket rather than cluttering this list.</div>' +
+      '<div class="sk-caption">Showing ' + pageData.totalPosts + ' posts from page ' + pageNum +
+        ' (' + firstPost + '–' + lastPost + ') of the ' + esc(showTag) +
+        ' results, newest first. Episode grouping is parsed from each post\'s source text using the ' +
+        '"Title #12" convention; unrecognized source text is grouped into "Other / uncategorized".</div>' +
       '<div class="sk-ep-grid" id="sk-ep-grid"></div>';
+
+    var prevBtn = content.querySelector('#sk-show-page-prev');
+    var nextBtn = content.querySelector('#sk-show-page-next');
+
+    prevBtn.onclick = function () {
+      if (pageNum <= 1) return;
+      var targetPage = pageNum - 1;
+      var cur = navStack[navIndex];
+      if (cur && cur.type === 'episodes') {
+        cur.page = targetPage;
+        renderNavCurrent();
+      } else {
+        paintShowDetail(content, showTag, entry, targetPage);
+      }
+    };
+
+    nextBtn.onclick = function () {
+      if (!pageData.hasNext) return;
+      var targetPage = pageNum + 1;
+      nextBtn.disabled = true;
+      nextBtn.textContent = 'Loading…';
+      loadShowPage(showTag, entry, targetPage).then(function () {
+        var cur = navStack[navIndex];
+        if (cur && cur.type === 'episodes') {
+          cur.page = targetPage;
+          renderNavCurrent();
+        } else {
+          paintShowDetail(content, showTag, entry, targetPage);
+        }
+      }).catch(function (err) {
+        nextBtn.disabled = false;
+        nextBtn.textContent = 'Next →';
+        content.querySelector('.sk-caption').textContent = 'error loading page ' + targetPage + ': ' + err.message;
+      });
+    };
 
     if (entry.related.length) {
       var row = content.querySelector('#sk-related-row');
@@ -1507,7 +1595,7 @@
         chip.onclick = function () {
           content.innerHTML = '<div class="sk-loading">loading ' + esc(r.name) + '…</div>';
           getShowEntry(r.name).then(function (e2) {
-            pushNav({ type: 'episodes', showTag: r.name, entry: e2 });
+            pushNav({ type: 'episodes', showTag: r.name, entry: e2, page: 1 });
           }).catch(function (err) {
             content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
           });
@@ -1517,25 +1605,24 @@
     }
 
     var grid = content.querySelector('#sk-ep-grid');
-    entry.episodes.forEach(function (ep) {
+    pageData.episodes.forEach(function (ep) {
       var btn = document.createElement('div');
       btn.className = 'sk-ep-btn';
       btn.innerHTML = '<span class="num">' + esc(ep.label) + '</span><span class="cnt">' +
-        (ep.token ? ep.count + ' sampled' : ep.count + ' sampled · browse only') + '</span>';
+        (ep.token ? ep.count + ' sampled on this page' : ep.count + ' sampled · browse only') + '</span>';
       btn.onclick = function () {
         searchState.order = 'date';
         searchViewMode = 'results';
         sync.artistTag = null; // avoid Search's auto-sync overwriting this specific episode query
         if (ep.token) {
           // A real episode/OP/ED/movie marker — run an actual server search so we get
-          // every matching post, not just whatever happened to be in our sample.
+          // every matching post, not just whatever happened to be on the current page.
           searchState.tags = [showTag, 'source:' + ep.token];
           switchToTab('search');
           runSearch();
         } else {
           // No single query can isolate this bucket (e.g. individual social-media credit
-          // links each with a different URL) — show exactly the posts we already sampled
-          // instead of pretending we can search for them.
+          // links each with a different URL) — show exactly the posts from this page.
           var freq = {};
           ep.posts.forEach(function (p) {
             (p.tags || '').split(/\s+/).forEach(function (t) {
@@ -1552,6 +1639,7 @@
       grid.appendChild(btn);
     });
   }
+
 
   function renderTab(name) {
     if (name === 'shows') renderShows();
