@@ -31,7 +31,8 @@
     dim: '#9c9581',
     amber: '#ffb020',
     amberDim: '#7a5a1e',
-    red: '#d9634a'
+    red: '#d9634a',
+    link: '#6db3f2'
   };
 
   var css = [
@@ -68,6 +69,13 @@
     'padding:7px 12px;border-radius:4px;font-size:12px;cursor:pointer;white-space:nowrap;}',
     '.sk-btn:hover{background:' + C.amber + ';color:#1a1509;}',
     '.sk-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;min-height:0;}',
+    '.sk-suggest-list{background:' + C.panel + ';border:1px solid ' + C.line + ';border-radius:6px;',
+    'margin-bottom:8px;overflow:hidden;}',
+    '.sk-suggest-row{display:flex;justify-content:space-between;align-items:center;',
+    'padding:8px 10px;border-top:1px solid ' + C.line + ';cursor:pointer;font-size:12px;}',
+    '.sk-suggest-row:first-child{border-top:none;}',
+    '.sk-suggest-row:hover{background:' + C.panel2 + ';}',
+    '.sk-suggest-count{color:' + C.dim + ';font-size:11px;font-family:monospace;}',
     '.sk-chip{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
     'font-size:11px;padding:3px 7px;border-radius:20px;display:flex;align-items:center;gap:5px;',
     'font-family:"Courier New",monospace;}',
@@ -228,6 +236,11 @@
     'font-family:"Courier New",monospace;margin-bottom:3px;}',
     '.sk-comment-head span{color:' + C.dim + ';font-weight:normal;}',
     '.sk-comment-body{font-size:12px;color:' + C.text + ';line-height:1.5;white-space:pre-wrap;}',
+    '.sk-comment-quote{border-left:3px solid ' + C.line + ';padding:4px 0 4px 8px;margin:4px 0;color:' + C.dim + ';}',
+    '.sk-comment-ts{color:' + C.amber + ';cursor:pointer;font-weight:bold;}',
+    '.sk-comment-ts:hover{text-decoration:underline;}',
+    '.sk-comment-postlink{color:' + C.link + ';cursor:pointer;text-decoration:underline;}',
+    '.sk-comment-link{color:' + C.link + ';text-decoration:underline;}',
     '.sk-close:hover{color:' + C.red + ';}',
     // Themed scrollbars for our own scrollable panels — scoped to these specific
     // classes only, since these styles are injected globally into the host page
@@ -355,6 +368,7 @@
           '</select>' +
         '</div>' +
         '<div class="sk-chips" id="sk-chips"></div>' +
+        '<div class="sk-suggest-list" id="sk-tag-suggestions" style="display:none"></div>' +
         '<div class="sk-row">' +
           '<button class="sk-btn" id="sk-go" style="flex:1">Search</button>' +
         '</div>' +
@@ -375,6 +389,49 @@
       if (e.key === 'Enter' && input.value.trim()) {
         commitPendingTag();
       }
+    });
+
+    // Live tag suggestions as you type — reuses the same cached full tag
+    // dictionary the Shows tab already builds, just filtered across all tag
+    // types instead of only type 3 (shows), no separate fetch mechanism
+    // needed. Selecting a suggestion runs the search immediately rather than
+    // just adding the chip, since picking a suggestion is how someone
+    // finishes specifying what they're looking for — no reason to also
+    // require a separate Search tap after. Manually typing a full tag and
+    // pressing Enter still just adds a chip without searching, since that
+    // path is more often used to string several tags together first.
+    var suggestWrap = body.querySelector('#sk-tag-suggestions');
+    var suggestDebounce = null;
+    input.addEventListener('input', function () {
+      clearTimeout(suggestDebounce);
+      var q = input.value.trim().toLowerCase().replace(/\s+/g, '_');
+      if (!q) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
+      suggestDebounce = setTimeout(function () {
+        ensureAllTags().then(function (list) {
+          var matches = safeFilter(list, function (t) { return t.name.indexOf(q) !== -1; });
+          matches = safeSort(matches, function (a, b) { return b.count - a.count; }).slice(0, 8);
+          if (!matches.length) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
+          suggestWrap.style.display = 'block';
+          suggestWrap.innerHTML = matches.map(function (t) {
+            return '<div class="sk-suggest-row" data-name="' + esc(t.name) + '">' +
+              '<span>' + esc(t.name) + '</span><span class="sk-suggest-count">' + t.count + '</span></div>';
+          }).join('');
+          var rows = suggestWrap.querySelectorAll('.sk-suggest-row');
+          for (var i = 0; i < rows.length; i++) {
+            rows[i].onclick = function (e) {
+              var name = e.currentTarget.getAttribute('data-name');
+              searchState.tags.push(name);
+              input.value = '';
+              suggestWrap.style.display = 'none';
+              suggestWrap.innerHTML = '';
+              renderChips();
+              searchViewMode = 'results';
+              ensureResultsMarkup();
+              runSearch();
+            };
+          }
+        }).catch(function () { /* a failed suggestion lookup just shows nothing, not worth an error banner */ });
+      }, 150);
     });
 
     body.querySelector('#sk-go').onclick = function () {
@@ -807,7 +864,84 @@
     return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
   }
 
-  function renderComments(panel, comments) {
+  // Splits a raw comment body into alternating quote / non-quote text
+  // segments on [quote]...[/quote] markers (case-insensitive, can span
+  // multiple lines) — quote segments get their own distinct styling.
+  function parseCommentSegments(raw) {
+    var segments = [];
+    var quoteRe = /\[quote\]([\s\S]*?)\[\/quote\]/gi;
+    var lastIndex = 0;
+    var m;
+    while ((m = quoteRe.exec(raw))) {
+      if (m.index > lastIndex) segments.push({ quote: false, text: raw.slice(lastIndex, m.index) });
+      segments.push({ quote: true, text: m[1] });
+      lastIndex = quoteRe.lastIndex;
+    }
+    if (lastIndex < raw.length) segments.push({ quote: false, text: raw.slice(lastIndex) });
+    return segments;
+  }
+
+  // Escapes a text segment, then finds timestamps (M:SS / MM:SS / H:MM:SS),
+  // sakugabooru post links, and other URLs, turning each into the
+  // appropriate clickable markup. A single combined regex + one replace()
+  // pass avoids the double-processing risk of running separate regexes in
+  // sequence (a generic-URL pass re-wrapping a post-link span, for example).
+  function linkifySegment(text) {
+    var escaped = esc(text);
+    var re = /(https?:\/\/[^\s]*\/post\/show\/(\d+)[^\s]*)|(\/post\/show\/(\d+)[^\s]*)|(https?:\/\/[^\s<]+)|(\b(?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d+)?\b)/g;
+    return escaped.replace(re, function (match, fullPostUrl, id1, relPostUrl, id2, plainUrl, timestamp) {
+      if (timestamp) {
+        return '<span class="sk-comment-ts" data-ts="' + match + '">' + match + '</span>';
+      }
+      // Strip common trailing punctuation (end-of-sentence periods, closing
+      // parens, etc.) that's more likely sentence punctuation than part of
+      // the actual URL, so a link doesn't swallow the punctuation after it.
+      var stripped = match.replace(/[.,;:!?)\]}'"]+$/, '');
+      var trailing = match.slice(stripped.length);
+      if (fullPostUrl || relPostUrl) {
+        var id = id1 || id2;
+        return '<span class="sk-comment-postlink" data-post-id="' + id + '">' + stripped + '</span>' + trailing;
+      }
+      if (plainUrl) {
+        return '<a href="' + stripped + '" target="_blank" rel="noopener" class="sk-comment-link">' + stripped + '</a>' + trailing;
+      }
+      return match;
+    });
+  }
+
+  function renderCommentBody(raw) {
+    var segments = parseCommentSegments(raw);
+    var html = '';
+    segments.forEach(function (seg) {
+      var inner = linkifySegment(seg.text).replace(/\n/g, '<br>');
+      html += seg.quote ? '<div class="sk-comment-quote">' + inner + '</div>' : inner;
+    });
+    return html;
+  }
+
+  // M:SS / MM:SS / H:MM:SS -> total seconds. Each ':'-separated part
+  // multiplies the running total by 60 and adds the next part.
+  function parseTimestampToSeconds(ts) {
+    var parts = ts.split(':');
+    var seconds = 0;
+    for (var i = 0; i < parts.length; i++) seconds = seconds * 60 + parseFloat(parts[i]);
+    return isNaN(seconds) ? null : seconds;
+  }
+
+  // Fetches a post by id and opens it in a new modal on top of whatever's
+  // currently open — the in-app equivalent of a comment's post link, rather
+  // than navigating the browser tab away to view it on the actual site.
+  function openPostById(id) {
+    getJSON('/post.json?tags=' + encodeURIComponent('id:' + id) + '&limit=1').then(function (posts) {
+      var p = posts && posts[0];
+      if (!p) { alert('post #' + id + ' not found'); return; }
+      if (isVideoFile(p.file_url)) openVideoModal(p); else openImageModal(p);
+    }).catch(function (err) {
+      alert('failed to open post: ' + err.message);
+    });
+  }
+
+  function renderComments(panel, comments, vid) {
     if (!comments || !comments.length) {
       panel.innerHTML = '<div class="sk-empty" style="padding:10px 0">no comments yet</div>';
       return;
@@ -815,14 +949,34 @@
     var html = '';
     comments.forEach(function (c) {
       var name = esc(c.creator || (c.creator_id ? 'user #' + c.creator_id : 'anonymous'));
-      var body = esc(c.body || c.comment || '');
+      var body = renderCommentBody(c.body || c.comment || '');
       var when = formatCommentDate(c.created_at);
       html += '<div class="sk-comment">' +
         '<div class="sk-comment-head"><b>' + name + '</b><span>' + when + '</span></div>' +
-        '<div class="sk-comment-body">' + body.replace(/\n/g, '<br>') + '</div>' +
+        '<div class="sk-comment-body">' + body + '</div>' +
       '</div>';
     });
     panel.innerHTML = html;
+
+    // Event delegation rather than per-element listeners — the panel gets
+    // fully replaced via innerHTML above, so individual listeners would
+    // need re-wiring on every render anyway.
+    panel.onclick = function (e) {
+      var tsEl = e.target.closest && e.target.closest('.sk-comment-ts');
+      if (tsEl) {
+        var seconds = parseTimestampToSeconds(tsEl.getAttribute('data-ts'));
+        if (seconds !== null && vid) {
+          vid.currentTime = Math.min(seconds, vid.duration || seconds);
+          vid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+      }
+      var linkEl = e.target.closest && e.target.closest('.sk-comment-postlink');
+      if (linkEl) {
+        var id = linkEl.getAttribute('data-post-id');
+        if (id) openPostById(Number(id));
+      }
+    };
   }
 
 
@@ -837,6 +991,7 @@
     panel.style.display = 'none';
     box.appendChild(panel);
 
+    var vid = box.querySelector('video'); // null for image posts — renderComments handles that gracefully
     var loaded = false;
     row.querySelector('#sk-comments-toggle').onclick = function () {
       var showing = panel.style.display !== 'none';
@@ -845,7 +1000,7 @@
       loaded = true;
       panel.innerHTML = '<div class="sk-loading" style="padding:10px 0">loading comments…</div>';
       getJSON('/comment.json?post_id=' + p.id).then(function (comments) {
-        renderComments(panel, Array.isArray(comments) ? comments : null);
+        renderComments(panel, Array.isArray(comments) ? comments : null, vid);
       }).catch(function (err) {
         panel.innerHTML = '<div class="sk-empty" style="padding:10px 0">couldn\'t load comments — ' + esc(err.message) + '</div>';
       });
