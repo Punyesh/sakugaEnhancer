@@ -208,6 +208,19 @@
     'font-family:"Courier New",monospace;}',
     '.sk-media-viewpost:hover{text-decoration:underline;}',
     '.sk-media-close{cursor:pointer;color:' + C.dim + ';font-size:22px;line-height:1;padding:0 2px 2px;}',
+    '.sk-login-box{width:100%;max-width:320px;background:' + C.panel + ';border:1px solid ' + C.line + ';',
+    'border-radius:8px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.6);}',
+    '.sk-login-title{font-size:15px;font-weight:bold;color:' + C.text + ';margin-bottom:12px;}',
+    '.sk-login-box .sk-input{width:100%;margin-bottom:8px;}',
+    '.sk-login-cancel{display:block;text-align:center;margin-top:10px;color:' + C.dim + ';font-size:12px;cursor:pointer;}',
+    '.sk-comment-composer{background:' + C.panel2 + ';border:1px solid ' + C.line + ';border-radius:6px;',
+    'padding:8px;margin-bottom:10px;}',
+    '.sk-comment-loggedin{display:flex;justify-content:space-between;font-size:11px;color:' + C.dim + ';margin-bottom:6px;}',
+    '.sk-comment-logout{color:' + C.red + ';cursor:pointer;}',
+    '.sk-comment-textarea{width:100%;background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:6px;',
+    'color:' + C.text + ';padding:6px;font-size:12px;min-height:50px;resize:vertical;margin-bottom:6px;',
+    'font-family:inherit;}',
+    '.sk-comment-loginlink{color:' + C.amber + ';font-size:12px;font-weight:600;cursor:pointer;margin-bottom:10px;display:inline-block;}',
     '.sk-media-close:hover{color:' + C.red + ';}',
     '.sk-frame-bar{padding:8px 10px;background:' + C.panel2 + ';border-top:1px solid ' + C.line + ';}',
     '.sk-frame-row{display:flex;align-items:center;gap:4px;}',
@@ -303,6 +316,95 @@
       return r.json();
     });
   }
+
+  // ---------- auth & comment posting ----------
+  // Confirmed directly from sakugabooru's own /help/api page: "Simply
+  // hashing your plain password will NOT work since Danbooru salts its
+  // passwords. The actual string that is hashed is
+  // 'er@!$rjiajd0$!dkaopc350!Y%)--your-password--'." This is the classic
+  // Danbooru-v1/Moebooru convention this fork inherited — not a modern
+  // token-based auth scheme, just what the site itself actually uses.
+  var PASSWORD_SALT_PREFIX = 'er@!$rjiajd0$!dkaopc350!Y%)--';
+  var PASSWORD_SALT_SUFFIX = '--';
+  var CREDENTIALS_KEY = 'sk-enh-credentials';
+
+  function sha1Hex(str) {
+    var enc = new TextEncoder().encode(str);
+    return crypto.subtle.digest('SHA-1', enc).then(function (buf) {
+      var bytes = new Uint8Array(buf);
+      var hex = '';
+      for (var i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, '0');
+      return hex;
+    });
+  }
+
+  function hashSakugaPassword(password) {
+    return sha1Hex(PASSWORD_SALT_PREFIX + password + PASSWORD_SALT_SUFFIX);
+  }
+
+  // The raw password is never stored — only the hash, and only in
+  // localStorage, since browsers don't offer anything like a native OS
+  // keychain. That's a real step down from the mobile app's secure storage,
+  // worth knowing even though the principle (store the hash, not the
+  // password) is the same.
+  function saveCredentials(username, passwordHash) {
+    try { localStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ username: username, passwordHash: passwordHash })); }
+    catch (e) { /* storage full/blocked — non-fatal, login just won't persist */ }
+  }
+  function getStoredCredentials() {
+    try {
+      var raw = localStorage.getItem(CREDENTIALS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function clearCredentials() {
+    try { localStorage.removeItem(CREDENTIALS_KEY); } catch (e) { /* non-fatal */ }
+  }
+
+  function postCommentRaw(postId, bodyText, username, passwordHash) {
+    var params = new URLSearchParams();
+    params.set('login', username);
+    params.set('password_hash', passwordHash);
+    params.set('comment[post_id]', String(postId));
+    params.set('comment[body]', bodyText);
+
+    return fetch('/comment/create.json', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    }).then(function (r) {
+      return r.text().then(function (text) {
+        var parsed = null;
+        try { parsed = JSON.parse(text); } catch (e) { /* non-JSON response — fall through to generic HTTP result */ }
+        if (r.ok && (!parsed || parsed.success !== false)) return { success: true };
+        return { success: false, reason: (parsed && parsed.reason) || ('HTTP ' + r.status + ': ' + text.slice(0, 200)) };
+      });
+    });
+  }
+
+  function postComment(postId, bodyText, username, passwordHash) {
+    return postCommentRaw(postId, bodyText, username, passwordHash).then(function (result) {
+      if (!result.success) throw new Error(result.reason || 'failed to post comment');
+    });
+  }
+
+  // Verifies credentials against the real server WITHOUT posting a visible
+  // comment — attempts one on a deliberately out-of-range post id. A
+  // confirmed real response shape from this exact endpoint (tested live in
+  // the native app build of this same feature) is
+  // {"success":false,"reason":"access denied"} for bad credentials — any
+  // OTHER failure reason means auth itself succeeded and the failure is
+  // just that this post obviously doesn't exist.
+  function verifyLogin(username, passwordHash) {
+    return postCommentRaw(999999999, '(login verification — safe to ignore if visible)', username, passwordHash)
+      .then(function (result) {
+        if (result.success) return true;
+        var reason = (result.reason || '').toLowerCase();
+        return reason.indexOf('denied') === -1;
+      });
+  }
+
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   // Sakugabooru loads Prototype.js, which globally overwrites Array.prototype's
   // filter/map/sort/every/some/find with its own Ruby-Enumerable-style aliases
@@ -980,6 +1082,103 @@
   }
 
 
+  function openLoginModal(onSuccess) {
+    var backdrop = document.createElement('div');
+    backdrop.className = 'sk-media-backdrop';
+    var box = document.createElement('div');
+    box.className = 'sk-login-box';
+    box.innerHTML =
+      '<div class="sk-login-title">Log In</div>' +
+      '<input class="sk-input" id="sk-login-user" placeholder="username" autocomplete="username">' +
+      '<input class="sk-input" id="sk-login-pass" type="password" placeholder="password" autocomplete="current-password">' +
+      '<button class="sk-btn" id="sk-login-submit" style="width:100%">Log In</button>' +
+      '<div class="sk-action-status" id="sk-login-status"></div>' +
+      '<span class="sk-login-cancel" id="sk-login-cancel">cancel</span>';
+    backdrop.appendChild(box);
+    document.body.appendChild(backdrop);
+
+    function close() {
+      backdrop.remove();
+      document.removeEventListener('keydown', onKey);
+    }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+    box.querySelector('#sk-login-cancel').onclick = close;
+
+    var userInput = box.querySelector('#sk-login-user');
+    var passInput = box.querySelector('#sk-login-pass');
+    var statusEl = box.querySelector('#sk-login-status');
+    var submitBtn = box.querySelector('#sk-login-submit');
+
+    function submit() {
+      var username = userInput.value.trim();
+      var password = passInput.value;
+      if (!username || !password) return;
+      submitBtn.disabled = true;
+      statusEl.textContent = 'checking…';
+      hashSakugaPassword(password).then(function (hash) {
+        return verifyLogin(username, hash).then(function (ok) {
+          if (!ok) {
+            statusEl.textContent = 'username or password is incorrect';
+            submitBtn.disabled = false;
+            return;
+          }
+          saveCredentials(username, hash);
+          close();
+          onSuccess({ username: username, passwordHash: hash });
+        });
+      }).catch(function (err) {
+        statusEl.textContent = 'login failed: ' + err.message;
+        submitBtn.disabled = false;
+      });
+    }
+    submitBtn.onclick = submit;
+    passInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+    userInput.focus();
+  }
+
+  function renderCommentComposer(container, p, onPosted) {
+    var creds = getStoredCredentials();
+    if (!creds) {
+      container.innerHTML = '<span class="sk-comment-loginlink" id="sk-login-open">Log in to comment</span>';
+      container.querySelector('#sk-login-open').onclick = function () {
+        openLoginModal(function () { renderCommentComposer(container, p, onPosted); });
+      };
+      return;
+    }
+    container.innerHTML =
+      '<div class="sk-comment-composer">' +
+        '<div class="sk-comment-loggedin"><span>logged in as ' + esc(creds.username) + '</span>' +
+        '<span class="sk-comment-logout" id="sk-comment-logout">log out</span></div>' +
+        '<textarea class="sk-comment-textarea" id="sk-comment-text" placeholder="write a comment…"></textarea>' +
+        '<button class="sk-btn" id="sk-comment-post" style="width:100%">Post Comment</button>' +
+        '<div class="sk-action-status" id="sk-comment-status"></div>' +
+      '</div>';
+    container.querySelector('#sk-comment-logout').onclick = function () {
+      clearCredentials();
+      renderCommentComposer(container, p, onPosted);
+    };
+    var textArea = container.querySelector('#sk-comment-text');
+    var postBtn = container.querySelector('#sk-comment-post');
+    var statusEl = container.querySelector('#sk-comment-status');
+    postBtn.onclick = function () {
+      var body = textArea.value.trim();
+      if (!body) return;
+      postBtn.disabled = true;
+      statusEl.textContent = 'posting…';
+      postComment(p.id, body, creds.username, creds.passwordHash).then(function () {
+        textArea.value = '';
+        statusEl.textContent = '';
+        postBtn.disabled = false;
+        onPosted();
+      }).catch(function (err) {
+        statusEl.textContent = 'failed to post: ' + err.message;
+        postBtn.disabled = false;
+      });
+    };
+  }
+
   function addCommentsSection(box, p) {
     var row = document.createElement('div');
     row.className = 'sk-comments-row';
@@ -991,19 +1190,30 @@
     panel.style.display = 'none';
     box.appendChild(panel);
 
+    var composerDiv = document.createElement('div');
+    panel.appendChild(composerDiv);
+    var listDiv = document.createElement('div');
+    panel.appendChild(listDiv);
+
     var vid = box.querySelector('video'); // null for image posts — renderComments handles that gracefully
+    function loadComments() {
+      listDiv.innerHTML = '<div class="sk-loading" style="padding:10px 0">loading comments…</div>';
+      getJSON('/comment.json?post_id=' + p.id).then(function (comments) {
+        renderComments(listDiv, Array.isArray(comments) ? comments : null, vid);
+      }).catch(function (err) {
+        listDiv.innerHTML = '<div class="sk-empty" style="padding:10px 0">couldn\'t load comments — ' + esc(err.message) + '</div>';
+      });
+    }
+
     var loaded = false;
     row.querySelector('#sk-comments-toggle').onclick = function () {
       var showing = panel.style.display !== 'none';
       panel.style.display = showing ? 'none' : 'block';
-      if (showing || loaded) return;
+      if (showing) return;
+      renderCommentComposer(composerDiv, p, loadComments); // cheap to re-render each open; keeps login state current
+      if (loaded) return;
       loaded = true;
-      panel.innerHTML = '<div class="sk-loading" style="padding:10px 0">loading comments…</div>';
-      getJSON('/comment.json?post_id=' + p.id).then(function (comments) {
-        renderComments(panel, Array.isArray(comments) ? comments : null, vid);
-      }).catch(function (err) {
-        panel.innerHTML = '<div class="sk-empty" style="padding:10px 0">couldn\'t load comments — ' + esc(err.message) + '</div>';
-      });
+      loadComments();
     };
   }
 
