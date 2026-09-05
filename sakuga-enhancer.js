@@ -51,10 +51,19 @@
     'cursor:move;user-select:none;touch-action:none;}',
     '#sk-enh-head .brand{font-family:"Courier New",monospace;font-size:12px;color:' + C.dim + ';letter-spacing:1px;}',
     '#sk-enh-head .brand b{color:' + C.amber + ';}',
-    '#sk-enh-resize{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;',
-    'touch-action:none;background:linear-gradient(135deg,transparent 0 40%,' + C.dim + ' 40% 46%,',
+    '.sk-resize-corner{position:absolute;width:14px;height:14px;z-index:5;touch-action:none;}',
+    '.sk-resize-corner.nw{top:0;left:0;cursor:nwse-resize;}',
+    '.sk-resize-corner.ne{top:0;right:0;cursor:nesw-resize;}',
+    '.sk-resize-corner.sw{bottom:0;left:0;cursor:nesw-resize;}',
+    '#sk-enh-resize-se{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;',
+    'touch-action:none;z-index:5;background:linear-gradient(135deg,transparent 0 40%,' + C.dim + ' 40% 46%,',
     'transparent 46% 58%,' + C.dim + ' 58% 64%,transparent 64% 100%);opacity:.7;}',
-    '#sk-enh-resize:hover{opacity:1;}',
+    '#sk-enh-resize-se:hover{opacity:1;}',
+    '.sk-resize-edge{position:absolute;z-index:4;touch-action:none;}',
+    '.sk-resize-edge.n{top:0;left:14px;right:14px;height:6px;cursor:ns-resize;}',
+    '.sk-resize-edge.s{bottom:0;left:14px;right:14px;height:6px;cursor:ns-resize;}',
+    '.sk-resize-edge.w{left:0;top:14px;bottom:14px;width:6px;cursor:ew-resize;}',
+    '.sk-resize-edge.e{right:0;top:14px;bottom:14px;width:6px;cursor:ew-resize;}',
     '#sk-enh-tabs{display:flex;border-bottom:1px solid ' + C.line + ';}',
     '.sk-tab{flex:1;padding:9px 0;text-align:center;font-size:12px;letter-spacing:.5px;',
     'text-transform:uppercase;cursor:pointer;color:' + C.dim + ';border-bottom:2px solid transparent;}',
@@ -302,7 +311,14 @@
         '<div class="sk-tab" data-tab="pools">Pools</div>' +
       '</div>' +
       '<div class="sk-body" id="sk-enh-body"></div>' +
-      '<div id="sk-enh-resize" title="drag to resize"></div>' +
+      '<div class="sk-resize-corner nw" data-dir="nw" title="drag to resize"></div>' +
+      '<div class="sk-resize-corner ne" data-dir="ne" title="drag to resize"></div>' +
+      '<div class="sk-resize-corner sw" data-dir="sw" title="drag to resize"></div>' +
+      '<div id="sk-enh-resize-se" data-dir="se" title="drag to resize"></div>' +
+      '<div class="sk-resize-edge n" data-dir="n" title="drag to resize"></div>' +
+      '<div class="sk-resize-edge s" data-dir="s" title="drag to resize"></div>' +
+      '<div class="sk-resize-edge w" data-dir="w" title="drag to resize"></div>' +
+      '<div class="sk-resize-edge e" data-dir="e" title="drag to resize"></div>' +
     '</div>' +
     '<div id="sk-enh-toggle" title="Sakuga Enhancer">##</div>';
   document.body.appendChild(root);
@@ -310,7 +326,6 @@
   var panel = root.querySelector('#sk-enh-panel');
   var body = root.querySelector('#sk-enh-body');
   var head = root.querySelector('#sk-enh-head');
-  var resizeHandle = root.querySelector('#sk-enh-resize');
 
   // ===================== PANEL GEOMETRY (drag + resize) =====================
   // The panel used to be pinned via CSS (bottom-right, fixed width, 80vh cap).
@@ -357,14 +372,36 @@
     var top = Math.min(Math.max(g.top, GEOM_MARGIN), Math.max(GEOM_MARGIN, window.innerHeight - g.height - GEOM_MARGIN));
     return { left: left, top: top, width: g.width, height: g.height };
   }
-  // Resizing by the corner handle: top-left stays anchored, size is capped
-  // at whatever room is actually left before the viewport edge.
-  function clampSize(g) {
-    var maxW = Math.max(GEOM_MIN_W, window.innerWidth - g.left - GEOM_MARGIN);
-    var maxH = Math.max(GEOM_MIN_H, window.innerHeight - g.top - GEOM_MARGIN);
-    var width = Math.min(Math.max(g.width, GEOM_MIN_W), maxW);
-    var height = Math.min(Math.max(g.height, GEOM_MIN_H), maxH);
-    return { left: g.left, top: g.top, width: width, height: height };
+  // Resizing by any corner/edge handle: a handle's `dirs` string names which
+  // edge(s) it drags ('n'/'s'/'e'/'w', or a corner pair like 'se'). Whichever
+  // edge is being dragged is free to move; the opposite edge stays anchored,
+  // and everything is clamped to the viewport plus the min-size floor.
+  function clampResize(dirs, start, dx, dy) {
+    var left = start.left, top = start.top, width = start.width, height = start.height;
+
+    if (dirs.indexOf('e') !== -1) {
+      var maxW = Math.max(GEOM_MIN_W, window.innerWidth - start.left - GEOM_MARGIN);
+      width = Math.min(Math.max(start.width + dx, GEOM_MIN_W), maxW);
+    } else if (dirs.indexOf('w') !== -1) {
+      var rightEdge = start.left + start.width;
+      var newLeft = Math.max(start.left + dx, GEOM_MARGIN);
+      newLeft = Math.min(newLeft, rightEdge - GEOM_MIN_W);
+      left = newLeft;
+      width = rightEdge - left;
+    }
+
+    if (dirs.indexOf('s') !== -1) {
+      var maxH = Math.max(GEOM_MIN_H, window.innerHeight - start.top - GEOM_MARGIN);
+      height = Math.min(Math.max(start.height + dy, GEOM_MIN_H), maxH);
+    } else if (dirs.indexOf('n') !== -1) {
+      var bottomEdge = start.top + start.height;
+      var newTop = Math.max(start.top + dy, GEOM_MARGIN);
+      newTop = Math.min(newTop, bottomEdge - GEOM_MIN_H);
+      top = newTop;
+      height = bottomEdge - top;
+    }
+
+    return { left: left, top: top, width: width, height: height };
   }
   function applyGeometry(g) {
     panel.style.left = g.left + 'px';
@@ -407,25 +444,31 @@
     head.addEventListener('pointerup', onUp);
   });
 
-  resizeHandle.addEventListener('pointerdown', function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    var startX = e.clientX, startY = e.clientY;
-    var startW = geom.width, startH = geom.height;
-    resizeHandle.setPointerCapture(e.pointerId);
-    function onMove(ev) {
-      geom = clampSize({ left: geom.left, top: geom.top, width: startW + (ev.clientX - startX), height: startH + (ev.clientY - startY) });
-      applyGeometry(geom);
-    }
-    function onUp() {
-      resizeHandle.releasePointerCapture(e.pointerId);
-      resizeHandle.removeEventListener('pointermove', onMove);
-      resizeHandle.removeEventListener('pointerup', onUp);
-      saveGeometry(geom);
-    }
-    resizeHandle.addEventListener('pointermove', onMove);
-    resizeHandle.addEventListener('pointerup', onUp);
-  });
+  var resizeHandles = root.querySelectorAll('[data-dir]');
+  for (var ri = 0; ri < resizeHandles.length; ri++) {
+    (function (handleEl) {
+      var dirs = handleEl.getAttribute('data-dir');
+      handleEl.addEventListener('pointerdown', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var start = { left: geom.left, top: geom.top, width: geom.width, height: geom.height };
+        var startX = e.clientX, startY = e.clientY;
+        handleEl.setPointerCapture(e.pointerId);
+        function onMove(ev) {
+          geom = clampResize(dirs, start, ev.clientX - startX, ev.clientY - startY);
+          applyGeometry(geom);
+        }
+        function onUp() {
+          handleEl.releasePointerCapture(e.pointerId);
+          handleEl.removeEventListener('pointermove', onMove);
+          handleEl.removeEventListener('pointerup', onUp);
+          saveGeometry(geom);
+        }
+        handleEl.addEventListener('pointermove', onMove);
+        handleEl.addEventListener('pointerup', onUp);
+      });
+    })(resizeHandles[ri]);
+  }
 
   root.querySelector('#sk-enh-toggle').onclick = function () {
     panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
