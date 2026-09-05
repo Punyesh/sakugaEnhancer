@@ -44,18 +44,22 @@
     'box-shadow:0 4px 18px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;',
     'font-family:"Courier New",monospace;letter-spacing:-1px;}',
     '#sk-enh-toggle:hover{border-color:' + C.amber + ';}',
-    '#sk-enh-panel{position:absolute;bottom:64px;right:0;width:460px;max-height:80vh;',
-    'background:' + C.panel + ';border:1px solid ' + C.line + ';border-radius:6px;',
+    '#sk-enh-panel{position:fixed;background:' + C.panel + ';border:1px solid ' + C.line + ';border-radius:6px;',
     'box-shadow:0 12px 40px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden;}',
     '#sk-enh-head{display:flex;align-items:center;justify-content:space-between;',
-    'padding:10px 12px;border-bottom:1px solid ' + C.line + ';background:' + C.panel2 + ';}',
+    'padding:10px 12px;border-bottom:1px solid ' + C.line + ';background:' + C.panel2 + ';',
+    'cursor:move;user-select:none;touch-action:none;}',
     '#sk-enh-head .brand{font-family:"Courier New",monospace;font-size:12px;color:' + C.dim + ';letter-spacing:1px;}',
     '#sk-enh-head .brand b{color:' + C.amber + ';}',
+    '#sk-enh-resize{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;',
+    'touch-action:none;background:linear-gradient(135deg,transparent 0 40%,' + C.dim + ' 40% 46%,',
+    'transparent 46% 58%,' + C.dim + ' 58% 64%,transparent 64% 100%);opacity:.7;}',
+    '#sk-enh-resize:hover{opacity:1;}',
     '#sk-enh-tabs{display:flex;border-bottom:1px solid ' + C.line + ';}',
     '.sk-tab{flex:1;padding:9px 0;text-align:center;font-size:12px;letter-spacing:.5px;',
     'text-transform:uppercase;cursor:pointer;color:' + C.dim + ';border-bottom:2px solid transparent;}',
     '.sk-tab.active{color:' + C.amber + ';border-bottom-color:' + C.amber + ';}',
-    '.sk-body{padding:12px;overflow-y:auto;}',
+    '.sk-body{padding:12px;overflow-y:auto;flex:1;min-height:0;}',
     '.sk-row{display:flex;gap:6px;margin-bottom:8px;}',
     '.sk-input{flex:1;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
     'padding:7px 9px;border-radius:4px;font-size:13px;outline:none;}',
@@ -295,12 +299,131 @@
         '<div class="sk-tab" data-tab="pools">Pools</div>' +
       '</div>' +
       '<div class="sk-body" id="sk-enh-body"></div>' +
+      '<div id="sk-enh-resize" title="drag to resize"></div>' +
     '</div>' +
     '<div id="sk-enh-toggle" title="Sakuga Enhancer">##</div>';
   document.body.appendChild(root);
 
   var panel = root.querySelector('#sk-enh-panel');
   var body = root.querySelector('#sk-enh-body');
+  var head = root.querySelector('#sk-enh-head');
+  var resizeHandle = root.querySelector('#sk-enh-resize');
+
+  // ===================== PANEL GEOMETRY (drag + resize) =====================
+  // The panel used to be pinned via CSS (bottom-right, fixed width, 80vh cap).
+  // Now position/size are explicit px, tracked in `geom` and written straight
+  // to inline styles, so drag/resize math has one source of truth to clamp
+  // against instead of fighting the stylesheet.
+  var GEOM_KEY = 'sk-enh-geom';
+  var GEOM_MIN_W = 320, GEOM_MIN_H = 280, GEOM_MARGIN = 8;
+
+  function loadGeometry() {
+    try {
+      var raw = localStorage.getItem(GEOM_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function saveGeometry(g) {
+    try { localStorage.setItem(GEOM_KEY, JSON.stringify(g)); } catch (e) { /* non-fatal */ }
+  }
+  function defaultGeometry() {
+    var width = 460;
+    var height = Math.min(640, Math.round(window.innerHeight * 0.8));
+    return {
+      width: width,
+      height: height,
+      left: window.innerWidth - width - 20,
+      top: window.innerHeight - height - 84 // clears the 52px toggle + its own gap
+    };
+  }
+  // Free to adjust both size AND position — used for the very first render
+  // and to recover a geometry that no longer fits (e.g. restored on a
+  // smaller screen than it was saved on).
+  function clampFull(g) {
+    var maxW = Math.max(GEOM_MIN_W, window.innerWidth - GEOM_MARGIN * 2);
+    var maxH = Math.max(GEOM_MIN_H, window.innerHeight - GEOM_MARGIN * 2);
+    var width = Math.min(Math.max(g.width, GEOM_MIN_W), maxW);
+    var height = Math.min(Math.max(g.height, GEOM_MIN_H), maxH);
+    var left = Math.min(Math.max(g.left, GEOM_MARGIN), Math.max(GEOM_MARGIN, window.innerWidth - width - GEOM_MARGIN));
+    var top = Math.min(Math.max(g.top, GEOM_MARGIN), Math.max(GEOM_MARGIN, window.innerHeight - height - GEOM_MARGIN));
+    return { left: left, top: top, width: width, height: height };
+  }
+  // Dragging by the header: size stays put, position is what's constrained.
+  function clampPosition(g) {
+    var left = Math.min(Math.max(g.left, GEOM_MARGIN), Math.max(GEOM_MARGIN, window.innerWidth - g.width - GEOM_MARGIN));
+    var top = Math.min(Math.max(g.top, GEOM_MARGIN), Math.max(GEOM_MARGIN, window.innerHeight - g.height - GEOM_MARGIN));
+    return { left: left, top: top, width: g.width, height: g.height };
+  }
+  // Resizing by the corner handle: top-left stays anchored, size is capped
+  // at whatever room is actually left before the viewport edge.
+  function clampSize(g) {
+    var maxW = Math.max(GEOM_MIN_W, window.innerWidth - g.left - GEOM_MARGIN);
+    var maxH = Math.max(GEOM_MIN_H, window.innerHeight - g.top - GEOM_MARGIN);
+    var width = Math.min(Math.max(g.width, GEOM_MIN_W), maxW);
+    var height = Math.min(Math.max(g.height, GEOM_MIN_H), maxH);
+    return { left: g.left, top: g.top, width: width, height: height };
+  }
+  function applyGeometry(g) {
+    panel.style.left = g.left + 'px';
+    panel.style.top = g.top + 'px';
+    panel.style.width = g.width + 'px';
+    panel.style.height = g.height + 'px';
+  }
+
+  var geom = clampFull(loadGeometry() || defaultGeometry());
+  applyGeometry(geom);
+
+  // Window itself getting resized can invalidate a perfectly fine geometry
+  // (panel now bigger than the viewport, or hanging off an edge) — re-clamp
+  // automatically rather than leaving it stranded off-screen.
+  var geomSaveTimer = null;
+  window.addEventListener('resize', function () {
+    geom = clampFull(geom);
+    applyGeometry(geom);
+    clearTimeout(geomSaveTimer);
+    geomSaveTimer = setTimeout(function () { saveGeometry(geom); }, 300);
+  });
+
+  head.addEventListener('pointerdown', function (e) {
+    if (e.target.closest('#sk-enh-x')) return; // don't start a drag from the close button
+    e.preventDefault();
+    var startX = e.clientX, startY = e.clientY;
+    var startLeft = geom.left, startTop = geom.top;
+    head.setPointerCapture(e.pointerId);
+    function onMove(ev) {
+      geom = clampPosition({ left: startLeft + (ev.clientX - startX), top: startTop + (ev.clientY - startY), width: geom.width, height: geom.height });
+      applyGeometry(geom);
+    }
+    function onUp() {
+      head.releasePointerCapture(e.pointerId);
+      head.removeEventListener('pointermove', onMove);
+      head.removeEventListener('pointerup', onUp);
+      saveGeometry(geom);
+    }
+    head.addEventListener('pointermove', onMove);
+    head.addEventListener('pointerup', onUp);
+  });
+
+  resizeHandle.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var startX = e.clientX, startY = e.clientY;
+    var startW = geom.width, startH = geom.height;
+    resizeHandle.setPointerCapture(e.pointerId);
+    function onMove(ev) {
+      geom = clampSize({ left: geom.left, top: geom.top, width: startW + (ev.clientX - startX), height: startH + (ev.clientY - startY) });
+      applyGeometry(geom);
+    }
+    function onUp() {
+      resizeHandle.releasePointerCapture(e.pointerId);
+      resizeHandle.removeEventListener('pointermove', onMove);
+      resizeHandle.removeEventListener('pointerup', onUp);
+      saveGeometry(geom);
+    }
+    resizeHandle.addEventListener('pointermove', onMove);
+    resizeHandle.addEventListener('pointerup', onUp);
+  });
+
   root.querySelector('#sk-enh-toggle').onclick = function () {
     panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
   };
