@@ -39,12 +39,12 @@
     '#sk-enh-root *{box-sizing:border-box;}',
     '#sk-enh-root{position:fixed;z-index:2147483000;bottom:20px;right:20px;',
     'font-family:"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif;color:' + C.text + ';}',
-    '#sk-enh-toggle{width:52px;height:52px;border-radius:50%;background:' + C.panel + ';',
+    '#sk-enh-toggle{position:relative;z-index:2;width:52px;height:52px;border-radius:50%;background:' + C.panel + ';',
     'border:1px solid ' + C.line + ';color:' + C.amber + ';font-size:20px;cursor:pointer;',
     'box-shadow:0 4px 18px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;',
     'font-family:"Courier New",monospace;letter-spacing:-1px;}',
     '#sk-enh-toggle:hover{border-color:' + C.amber + ';}',
-    '#sk-enh-panel{position:fixed;background:' + C.panel + ';border:1px solid ' + C.line + ';border-radius:6px;',
+    '#sk-enh-panel{position:fixed;z-index:1;background:' + C.panel + ';border:1px solid ' + C.line + ';border-radius:6px;',
     'box-shadow:0 12px 40px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden;}',
     '#sk-enh-head{display:flex;align-items:center;justify-content:space-between;',
     'padding:10px 12px;border-bottom:1px solid ' + C.line + ';background:' + C.panel2 + ';',
@@ -292,7 +292,10 @@
   root.innerHTML =
     '<div id="sk-enh-panel" style="display:none">' +
       '<div id="sk-enh-head"><div class="brand">SAKUGA <b>ENHANCER</b></div>' +
-        '<div class="sk-close" id="sk-enh-x">&times;</div></div>' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          '<span class="sk-media-viewpost" id="sk-enh-reset" style="cursor:pointer;margin-left:0" title="reset size and position">Reset</span>' +
+          '<div class="sk-close" id="sk-enh-x">&times;</div>' +
+        '</div></div>' +
       '<div id="sk-enh-tabs">' +
         '<div class="sk-tab active" data-tab="search">Search</div>' +
         '<div class="sk-tab" data-tab="shows">Shows</div>' +
@@ -385,7 +388,7 @@
   });
 
   head.addEventListener('pointerdown', function (e) {
-    if (e.target.closest('#sk-enh-x')) return; // don't start a drag from the close button
+    if (e.target.closest('#sk-enh-x') || e.target.closest('#sk-enh-reset')) return; // don't start a drag from these
     e.preventDefault();
     var startX = e.clientX, startY = e.clientY;
     var startLeft = geom.left, startTop = geom.top;
@@ -428,6 +431,11 @@
     panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
   };
   root.querySelector('#sk-enh-x').onclick = function () { panel.style.display = 'none'; };
+  root.querySelector('#sk-enh-reset').onclick = function () {
+    geom = clampFull(defaultGeometry());
+    applyGeometry(geom);
+    saveGeometry(geom);
+  };
 
   var tabs = root.querySelectorAll('.sk-tab');
   function switchToTab(name) {
@@ -688,7 +696,7 @@
       '</div>' +
       '<div class="sk-mode-row">' +
         '<button class="sk-mode-btn active" id="sk-mode-results" type="button">▤ Results</button>' +
-        '<button class="sk-mode-btn" id="sk-mode-stats" type="button">📊 Animator Stats</button>' +
+        '<button class="sk-mode-btn" id="sk-mode-stats" type="button">▥ Animator Stats</button>' +
       '</div>' +
       '<div id="sk-search-view"></div>';
 
@@ -765,7 +773,7 @@
     var toggleStats = body.querySelector('#sk-mode-stats');
     toggleResults.classList.toggle('active', searchViewMode === 'results');
     toggleStats.classList.toggle('active', searchViewMode === 'stats');
-    toggleStats.textContent = sync.artistTag ? '📊 Stats: ' + sync.artistTag : '📊 Animator Stats';
+    toggleStats.textContent = sync.artistTag ? '▥ Stats: ' + sync.artistTag : '▥ Animator Stats';
     // Tag-search controls only matter in Results mode — showing them in Stats
     // mode too was exactly the "why two search fields" confusion.
     body.querySelector('#sk-tag-controls').style.display = searchViewMode === 'stats' ? 'none' : 'block';
@@ -1444,7 +1452,7 @@
   function addCommentsSection(box, p) {
     var row = document.createElement('div');
     row.className = 'sk-comments-row';
-    row.innerHTML = '<button class="sk-frame-btn" id="sk-comments-toggle">💬 Comments</button>';
+    row.innerHTML = '<button class="sk-frame-btn" id="sk-comments-toggle">Comments</button>';
     box.appendChild(row);
 
     var panel = document.createElement('div');
@@ -1550,7 +1558,7 @@
         '<span class="sk-badge score" id="sk-vote-badge" style="cursor:pointer">▲ ' + (p.score || 0) + '</span>' +
         '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
         '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
-        '<span class="sk-media-viewpost" id="sk-copy-link" style="cursor:pointer;margin-left:8px" title="copy a link to this post">🔗 copy link</span>' +
+        '<span class="sk-media-viewpost" id="sk-copy-link" style="cursor:pointer;margin-left:8px" title="copy a link to this post">Copy Link</span>' +
         '<span class="sk-media-viewpost" id="sk-add-pool" style="cursor:pointer;margin-left:8px" title="add this clip to a pool">Add to Pool</span>' +
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
@@ -1941,7 +1949,7 @@
           item.className = 'sk-facet-item' + (cache.excluded[t] ? ' off' : '') + (map[t] === 1 ? ' is-artist' : '');
           item.innerHTML =
             '<input type="checkbox" ' + (cache.excluded[t] ? '' : 'checked') + '> ' +
-            '<span class="fname" title="' + esc(t) + '">' + (map[t] === 1 ? '🎬 ' : '') + esc(t) + '</span>' +
+            '<span class="fname" title="' + esc(t) + '">' + esc(t) + '</span>' +
             '<span class="fcount">' + count + '</span>';
           item.querySelector('input').addEventListener('change', function (e) {
             cache.excluded[t] = !e.target.checked;
@@ -1987,7 +1995,7 @@
           var found = safeFilter(tagsSnapshot, function (t) { return map[t] === 1; })[0] || null;
           sync.artistTag = found;
           var statsBtn = body.querySelector('#sk-mode-stats');
-          if (statsBtn) statsBtn.textContent = sync.artistTag ? '📊 Stats: ' + sync.artistTag : '📊 Animator Stats';
+          if (statsBtn) statsBtn.textContent = sync.artistTag ? '▥ Stats: ' + sync.artistTag : '▥ Animator Stats';
         });
         return posts.length;
       })
@@ -2099,7 +2107,7 @@
       statsCache = { tagName: tagName, allPosts: allPosts };
       sync.artistTag = tagName;
       var statsBtn = body.querySelector('#sk-mode-stats');
-      if (statsBtn) statsBtn.textContent = '📊 Stats: ' + tagName;
+      if (statsBtn) statsBtn.textContent = '▥ Stats: ' + tagName;
       renderArtistStats(out, tagName, allPosts);
     }).catch(function (err) {
       out.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
