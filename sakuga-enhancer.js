@@ -51,6 +51,8 @@
     'cursor:move;user-select:none;touch-action:none;}',
     '#sk-enh-head .brand{font-family:"Courier New",monospace;font-size:12px;color:' + C.dim + ';letter-spacing:1px;}',
     '#sk-enh-head .brand b{color:' + C.amber + ';}',
+    '.sk-lock-label{display:flex;align-items:center;gap:4px;font-size:11px;color:' + C.dim + ';',
+    'cursor:pointer;user-select:none;}',
     '.sk-resize-corner{position:absolute;width:14px;height:14px;z-index:5;touch-action:none;}',
     '.sk-resize-corner.nw{top:0;left:0;cursor:nwse-resize;}',
     '.sk-resize-corner.ne{top:0;right:0;cursor:nesw-resize;}',
@@ -94,6 +96,7 @@
     'font-family:"Courier New",monospace;}',
     '.sk-chip span{cursor:pointer;color:' + C.red + ';font-weight:bold;}',
     '.sk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}',
+    '#sk-enh-panel.sk-size-locked .sk-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}',
     '.sk-card{position:relative;border:1px solid ' + C.line + ';border-radius:4px;overflow:hidden;',
     'aspect-ratio:1/1;background:#000;cursor:pointer;}',
     '.sk-card img,.sk-card video{width:100%;height:100%;object-fit:cover;display:block;opacity:.9;}',
@@ -302,6 +305,9 @@
     '<div id="sk-enh-panel" style="display:none">' +
       '<div id="sk-enh-head"><div class="brand">SAKUGA <b>ENHANCER</b></div>' +
         '<div style="display:flex;align-items:center;gap:10px">' +
+          '<label class="sk-lock-label" id="sk-enh-lock-label" title="when locked, resizing the panel adds or removes clips per row instead of resizing the clips themselves">' +
+            '<input type="checkbox" id="sk-enh-lock-size"> Lock size' +
+          '</label>' +
           '<span class="sk-media-viewpost" id="sk-enh-reset" style="cursor:pointer;margin-left:0" title="reset size and position">Reset</span>' +
           '<div class="sk-close" id="sk-enh-x">&times;</div>' +
         '</div></div>' +
@@ -425,7 +431,7 @@
   });
 
   head.addEventListener('pointerdown', function (e) {
-    if (e.target.closest('#sk-enh-x') || e.target.closest('#sk-enh-reset')) return; // don't start a drag from these
+    if (e.target.closest('#sk-enh-x') || e.target.closest('#sk-enh-reset') || e.target.closest('#sk-enh-lock-label')) return; // don't start a drag from these
     e.preventDefault();
     var startX = e.clientX, startY = e.clientY;
     var startLeft = geom.left, startTop = geom.top;
@@ -479,6 +485,27 @@
     applyGeometry(geom);
     saveGeometry(geom);
   };
+
+  // ===================== LOCK SIZE (fixed clip size vs. fixed column count) =====================
+  // Default grid behavior is a fixed 3 columns that stretch/shrink with the
+  // panel — resizing the panel resizes the clips. Locking flips that: clips
+  // stay a fixed size and the grid reflows more/fewer per row instead,
+  // via CSS Grid's auto-fill + minmax (the standard pattern for this).
+  var LOCK_KEY = 'sk-enh-lock-size';
+  function loadLockPref() {
+    try { return localStorage.getItem(LOCK_KEY) === '1'; } catch (e) { return false; }
+  }
+  function saveLockPref(locked) {
+    try { localStorage.setItem(LOCK_KEY, locked ? '1' : '0'); } catch (e) { /* non-fatal */ }
+  }
+  var lockCheckbox = root.querySelector('#sk-enh-lock-size');
+  var lockSize = loadLockPref();
+  lockCheckbox.checked = lockSize;
+  panel.classList.toggle('sk-size-locked', lockSize);
+  lockCheckbox.addEventListener('change', function () {
+    panel.classList.toggle('sk-size-locked', lockCheckbox.checked);
+    saveLockPref(lockCheckbox.checked);
+  });
 
   var tabs = root.querySelectorAll('.sk-tab');
   function switchToTab(name) {
