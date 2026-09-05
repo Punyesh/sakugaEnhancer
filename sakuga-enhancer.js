@@ -132,6 +132,9 @@
     '.sk-stars{display:inline-flex;gap:2px;align-items:center;}',
     '.sk-star{font-size:15px;color:' + C.dim + ';cursor:pointer;line-height:1;}',
     '.sk-star.filled{color:' + C.amber + ';}',
+    '.sk-star-clear{font-size:12px;color:' + C.dim + ';cursor:pointer;margin-left:3px;opacity:.3;}',
+    '.sk-star-clear.active{opacity:.8;}',
+    '.sk-star-clear:hover{color:' + C.red + ';opacity:1;}',
     '.sk-dock-head a{font-size:11px;color:' + C.amber + ';text-decoration:none;',
     'border:1px solid ' + C.amberDim + ';padding:2px 8px;border-radius:10px;}',
     '.sk-dock-head a:hover{background:' + C.amberDim + ';}',
@@ -676,18 +679,34 @@
   // that same embedded data). This costs one extra page fetch per opened
   // clip (not per thumbnail in a grid), which is the honest tradeoff for
   // real accuracy instead of a per-device guess.
+  //
+  // Return value is three-way on purpose — collapsing "couldn't tell" and
+  // "confirmed no vote" into the same null caused a real bug in the app's
+  // version of this: a genuine 3-star rating would reopen showing empty
+  // stars, because a failed fetch and "you never voted" both came back as
+  // null, and the caller treated both as "the real vote is 0", silently
+  // overwriting a correct local rating with nothing.
+  //   - a number (1-3): confirmed real vote, straight from the server
+  //   - null: confirmed no vote — the votes map was read successfully and
+  //     this post genuinely isn't in it
+  //   - undefined: couldn't determine anything (network failure, page shape
+  //     unexpected) — callers must leave the existing local guess alone
+  //     rather than treating this as "no vote"
   function fetchServerVote(postId) {
     return fetch('/post/show/' + postId, { credentials: 'same-origin' })
-      .then(function (r) { return r.text(); })
-      .then(function (html) {
-        var m = html.match(/"votes"\s*:\s*(\{[^}]*\})/);
-        if (!m) return null;
-        try {
-          var votesMap = JSON.parse(m[1]);
-          return votesMap[String(postId)] || null;
-        } catch (e) { return null; }
+      .then(function (r) {
+        if (!r.ok) return undefined;
+        return r.text().then(function (html) {
+          var m = html.match(/"votes"\s*:\s*(\{[^}]*\})/);
+          if (!m) return undefined; // couldn't find the votes object at all — unknown, not "no vote"
+          try {
+            var votesMap = JSON.parse(m[1]);
+            var v = votesMap[String(postId)];
+            return v === undefined ? null : v; // key present -> real value; key absent -> confirmed no vote
+          } catch (e) { return undefined; }
+        });
       })
-      .catch(function () { return null; }); // non-fatal — falls back to the local guess
+      .catch(function () { return undefined; }); // network failure — unknown, not "no vote"
   }
 
 
@@ -1776,6 +1795,7 @@
           '<span class="sk-star" data-n="1">&#9733;</span>' +
           '<span class="sk-star" data-n="2">&#9733;</span>' +
           '<span class="sk-star" data-n="3">&#9733;</span>' +
+          '<span class="sk-star-clear" id="sk-star-clear" title="clear your rating">&times;</span>' +
         '</span>' +
         '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
         '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
@@ -1789,6 +1809,7 @@
     var scoreEl = box.querySelector('#sk-vote-score');
     var starsWrap = box.querySelector('#sk-stars');
     var starEls = starsWrap.querySelectorAll('.sk-star');
+    var clearBtn = box.querySelector('#sk-star-clear');
     var currentRating = getVoteRating(p.id) || 0;
     var currentScoreValue = p.score || 0;
     var submitting = false;
@@ -1797,6 +1818,7 @@
       for (var i = 0; i < starEls.length; i++) {
         starEls[i].classList.toggle('filled', (i + 1) <= n);
       }
+      clearBtn.classList.toggle('active', n > 0);
     }
     paintStars(currentRating); // instant paint from the local guess, corrected below once real data loads
 
@@ -1806,7 +1828,8 @@
     // the display if it disagrees, without blocking on it first.
     fetchServerVote(p.id).then(function (serverVote) {
       if (submitting) return; // don't clobber an in-flight vote the person just cast
-      var real = serverVote || 0;
+      if (serverVote === undefined) return; // couldn't determine anything real — leave the local guess alone
+      var real = serverVote || 0; // null (confirmed no vote) -> 0
       if (real !== currentRating) {
         currentRating = real;
         setVoteRating(p.id, real);
@@ -1814,46 +1837,60 @@
       }
     });
 
+    // Shared by both the 1-3 star clicks and the clear ("×") control below —
+    // clearing is just rating with n=0, inferred from the site's own vote
+    // widget markup (a distinct "star-0" control alongside stars 1-3,
+    // presumably clearing a vote) but not independently confirmed live the
+    // way every other piece of this feature was, so worth a real test.
+    function submitRating(n) {
+      // Real vote behavior turns out to be mutable — re-clicking a
+      // different star changes an existing rating rather than being
+      // rejected, so this only guards against a second click landing
+      // mid-request, not against re-rating in general.
+      if (submitting) return;
+      var creds = getStoredCredentials();
+      if (!creds) { openLoginModal(function () { submitRating(n); }); return; }
+      submitting = true;
+      castVote(p.id, n, creds.username, creds.passwordHash).then(function (result) {
+        var fresh = result && result.posts && result.posts[0];
+        // The vote response itself carries the server's own record of your
+        // current vote (result.votes[postId]) — trust that over the value
+        // we just sent, in case the server ever normalizes/rejects it
+        // differently than expected.
+        var myVote = result && result.votes && result.votes[String(p.id)];
+        var previousRating = currentRating;
+        currentRating = myVote || n;
+        setVoteRating(p.id, currentRating);
+        // Re-voting is delta-based (the server replaces your old star value
+        // rather than adding a new one) — confirmed directly (1★→2★ moved
+        // score by exactly +1) — so if the response is ever missing the
+        // fresh post for some reason, the fallback has to guess
+        // score + (new - old), not score + new.
+        currentScoreValue = fresh ? fresh.score : currentScoreValue + (n - previousRating);
+        scoreEl.textContent = currentScoreValue;
+        paintStars(currentRating);
+      }).catch(function (err) {
+        paintStars(currentRating); // revert the hover-preview back to the real current rating
+        alert('rating failed: ' + err.message);
+      }).then(function () { submitting = false; });
+    }
+
     for (var si = 0; si < starEls.length; si++) {
       (function (starEl) {
         var n = parseInt(starEl.getAttribute('data-n'), 10);
         starEl.addEventListener('mouseenter', function () {
           if (!submitting) paintStars(n);
         });
-        starEl.addEventListener('click', function () {
-          // Real vote behavior turns out to be mutable — re-clicking a
-          // different star changes an existing rating rather than being
-          // rejected, so this only guards against a second click landing
-          // mid-request, not against re-rating in general.
-          if (submitting) return;
-          var creds = getStoredCredentials();
-          if (!creds) { openLoginModal(function () { starEl.click(); }); return; }
-          submitting = true;
-          castVote(p.id, n, creds.username, creds.passwordHash).then(function (result) {
-            var fresh = result && result.posts && result.posts[0];
-            // The vote response itself carries the server's own record of your
-            // current vote (result.votes[postId]) — trust that over the value
-            // we just sent, in case the server ever normalizes/rejects it
-            // differently than expected.
-            var myVote = result && result.votes && result.votes[String(p.id)];
-            var previousRating = currentRating;
-            currentRating = myVote || n;
-            setVoteRating(p.id, currentRating);
-            // Re-voting is delta-based (the server replaces your old star value
-            // rather than adding a new one) — confirmed directly (1★→2★ moved
-            // score by exactly +1) — so if the response is ever missing the
-            // fresh post for some reason, the fallback has to guess
-            // score + (new - old), not score + new.
-            currentScoreValue = fresh ? fresh.score : currentScoreValue + (n - previousRating);
-            scoreEl.textContent = currentScoreValue;
-            paintStars(currentRating);
-          }).catch(function (err) {
-            paintStars(currentRating); // revert the hover-preview back to the real current rating
-            alert('rating failed: ' + err.message);
-          }).then(function () { submitting = false; });
-        });
+        starEl.addEventListener('click', function () { submitRating(n); });
       })(starEls[si]);
     }
+    clearBtn.addEventListener('mouseenter', function () {
+      if (!submitting) paintStars(0);
+    });
+    clearBtn.addEventListener('click', function () {
+      if (currentRating === 0) return; // nothing to clear
+      submitRating(0);
+    });
     starsWrap.addEventListener('mouseleave', function () {
       if (!submitting) paintStars(currentRating);
     });
