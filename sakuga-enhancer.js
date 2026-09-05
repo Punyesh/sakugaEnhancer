@@ -129,6 +129,10 @@
     '.sk-badge{font-family:"Courier New",monospace;font-size:11px;padding:2px 7px;',
     'border-radius:10px;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';}',
     '.sk-badge.score{color:' + C.amber + ';border-color:' + C.amberDim + ';}',
+    '.sk-stars{display:inline-flex;gap:2px;align-items:center;}',
+    '.sk-star{font-size:15px;color:' + C.dim + ';cursor:pointer;line-height:1;}',
+    '.sk-star.filled{color:' + C.amber + ';}',
+    '.sk-stars.rated .sk-star{cursor:default;}',
     '.sk-dock-head a{font-size:11px;color:' + C.amber + ';text-decoration:none;',
     'border:1px solid ' + C.amberDim + ';padding:2px 8px;border-radius:10px;}',
     '.sk-dock-head a:hover{background:' + C.amberDim + ';}',
@@ -625,18 +629,19 @@
       });
   }
 
-  // Upvote-only, scoped conservatively — same reasoning as the native app:
-  // confirmed the endpoint exists directly from sakugabooru's own
-  // /help/api page ("The base URL is /post/vote.xml"), but the exact
-  // parameter format isn't backed by the same documentation level as
-  // comment-posting was, built against the general Danbooru-family
-  // convention (post_vote(post_id, score)) as the best-reasoned guess.
-  function voteUp(postId, username, passwordHash) {
+  // Confirmed to actually be a 1–3 star rating (not a flat upvote) directly
+  // from the site's own post page — "Score: N ★★★ (vote up)", clickable
+  // per-star. `score` as the param name was already a correct guess (this
+  // worked when hardcoded to 1); this just stops assuming the value is
+  // always 1. Still no confirmed way to check an existing rating server-side
+  // (no vote-check request fires on page load — the site renders that state
+  // straight into its own HTML), so that part is still tracked locally.
+  function castVote(postId, stars, username, passwordHash) {
     var params = new URLSearchParams();
     params.set('login', username);
     params.set('password_hash', passwordHash);
     params.set('id', String(postId));
-    params.set('score', '1');
+    params.set('score', String(stars));
     return fetch('/post/vote.json', {
       method: 'POST',
       credentials: 'same-origin',
@@ -650,6 +655,49 @@
         throw new Error((parsed && parsed.reason) || ('HTTP ' + r.status + ': ' + text.slice(0, 200)));
       });
     });
+  }
+
+
+  // Tracks which posts this browser has rated via the bookmarklet, and what
+  // rating was given (1-3 stars) — the badge's own "voted" state used to be
+  // a plain JS variable that reset on every page reload, showing the rating
+  // option again as if nothing happened. There's no confirmed server-side
+  // "what did I rate this" check to fall back on (no such request fires on
+  // page load — see castVote above), so this is a client-side memory of
+  // *this bookmarklet's own* successful ratings, not a true source of truth —
+  // rating via the site directly, another browser, etc. won't be reflected
+  // here until rated through the bookmarklet at least once.
+  var VOTED_KEY = 'sk-voted-posts';
+  function readVotedMap() {
+    try {
+      var raw = localStorage.getItem(VOTED_KEY);
+      if (!raw) return {};
+      var parsed = JSON.parse(raw);
+      // migrate the old boolean-array-of-ids shape from before star ratings existed
+      if (Array.isArray(parsed)) {
+        var migrated = {};
+        parsed.forEach(function (id) { migrated[id] = 1; });
+        return migrated;
+      }
+      return parsed || {};
+    } catch (e) { return {}; }
+  }
+  function getVoteRating(postId) {
+    var map = readVotedMap();
+    return map[postId] || null;
+  }
+  function setVoteRating(postId, stars) {
+    try {
+      var map = readVotedMap();
+      map[postId] = stars;
+      var keys = Object.keys(map);
+      if (keys.length > 2000) {
+        // keep this from growing forever — drop the oldest-inserted entries
+        var toDrop = keys.length - 2000;
+        for (var i = 0; i < toDrop; i++) delete map[keys[i]];
+      }
+      localStorage.setItem(VOTED_KEY, JSON.stringify(map));
+    } catch (e) { /* non-fatal — worst case the reminder just doesn't persist */ }
   }
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -1690,7 +1738,12 @@
     box.className = 'sk-media-box';
     box.innerHTML =
       '<div class="sk-media-top">' +
-        '<span class="sk-badge score" id="sk-vote-badge" style="cursor:pointer">▲ ' + (p.score || 0) + '</span>' +
+        '<span class="sk-badge score" id="sk-vote-score">' + (p.score || 0) + '</span>' +
+        '<span class="sk-stars" id="sk-stars" title="rate 1-3 stars">' +
+          '<span class="sk-star" data-n="1">&#9733;</span>' +
+          '<span class="sk-star" data-n="2">&#9733;</span>' +
+          '<span class="sk-star" data-n="3">&#9733;</span>' +
+        '</span>' +
         '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
         '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
         '<span class="sk-media-viewpost" id="sk-copy-link" style="cursor:pointer;margin-left:8px" title="copy a link to this post">Copy Link</span>' +
@@ -1700,25 +1753,51 @@
     backdrop.appendChild(box);
     document.body.appendChild(backdrop); // attach to the real page body so it overlays everything, not just our small panel
 
-    var voted = false;
-    var voteBadge = box.querySelector('#sk-vote-badge');
-    voteBadge.onclick = function () {
-      if (voted) return;
-      var creds = getStoredCredentials();
-      if (!creds) { openLoginModal(function () { voteBadge.onclick(); }); return; }
-      voteBadge.textContent = '…';
-      voteUp(p.id, creds.username, creds.passwordHash).then(function () {
-        return getJSON('/post.json?tags=' + encodeURIComponent('id:' + p.id) + '&limit=1');
-      }).then(function (posts) {
-        var fresh = posts && posts[0];
-        voted = true;
-        voteBadge.textContent = '✓ ' + (fresh ? fresh.score : (p.score || 0) + 1);
-        voteBadge.style.cursor = 'default';
-      }).catch(function (err) {
-        voteBadge.textContent = '▲ ' + (p.score || 0);
-        alert('vote failed: ' + err.message);
+    var scoreEl = box.querySelector('#sk-vote-score');
+    var starsWrap = box.querySelector('#sk-stars');
+    var starEls = starsWrap.querySelectorAll('.sk-star');
+    var existingRating = getVoteRating(p.id);
+
+    function paintStars(n) {
+      for (var i = 0; i < starEls.length; i++) {
+        starEls[i].classList.toggle('filled', (i + 1) <= n);
+      }
+    }
+
+    if (existingRating) {
+      starsWrap.classList.add('rated');
+      paintStars(existingRating);
+    } else {
+      for (var si = 0; si < starEls.length; si++) {
+        (function (starEl) {
+          var n = parseInt(starEl.getAttribute('data-n'), 10);
+          starEl.addEventListener('mouseenter', function () {
+            if (!starsWrap.classList.contains('rated')) paintStars(n);
+          });
+          starEl.addEventListener('click', function () {
+            if (starsWrap.classList.contains('rated')) return;
+            var creds = getStoredCredentials();
+            if (!creds) { openLoginModal(function () { starEl.click(); }); return; }
+            starsWrap.classList.add('rated'); // lock immediately against double-submits while the request is in flight
+            castVote(p.id, n, creds.username, creds.passwordHash).then(function () {
+              return getJSON('/post.json?tags=' + encodeURIComponent('id:' + p.id) + '&limit=1');
+            }).then(function (posts) {
+              var fresh = posts && posts[0];
+              setVoteRating(p.id, n);
+              scoreEl.textContent = fresh ? fresh.score : (p.score || 0);
+              paintStars(n);
+            }).catch(function (err) {
+              starsWrap.classList.remove('rated');
+              paintStars(0);
+              alert('rating failed: ' + err.message);
+            });
+          });
+        })(starEls[si]);
+      }
+      starsWrap.addEventListener('mouseleave', function () {
+        if (!starsWrap.classList.contains('rated')) paintStars(0);
       });
-    };
+    }
 
     var copyLinkBtn = box.querySelector('#sk-copy-link');
     copyLinkBtn.onclick = function () {
