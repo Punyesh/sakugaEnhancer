@@ -132,7 +132,6 @@
     '.sk-stars{display:inline-flex;gap:2px;align-items:center;}',
     '.sk-star{font-size:15px;color:' + C.dim + ';cursor:pointer;line-height:1;}',
     '.sk-star.filled{color:' + C.amber + ';}',
-    '.sk-stars.rated .sk-star{cursor:default;}',
     '.sk-dock-head a{font-size:11px;color:' + C.amber + ';text-decoration:none;',
     'border:1px solid ' + C.amberDim + ';padding:2px 8px;border-radius:10px;}',
     '.sk-dock-head a:hover{background:' + C.amberDim + ';}',
@@ -633,9 +632,17 @@
   // from the site's own post page — "Score: N ★★★ (vote up)", clickable
   // per-star. `score` as the param name was already a correct guess (this
   // worked when hardcoded to 1); this just stops assuming the value is
-  // always 1. Still no confirmed way to check an existing rating server-side
-  // (no vote-check request fires on page load — the site renders that state
-  // straight into its own HTML), so that part is still tracked locally.
+  // always 1. There's still no way to check a rating cold on page load — no
+  // vote-check request fires then, and the site's own vote widget HTML is
+  // byte-identical across every rating state (confirmed by direct comparison).
+  // But the vote response ITSELF turns out to carry real, authoritative
+  // state: watching the site's own vote.coffee via DevTools showed the POST
+  // to /post/vote.json returns not just success/failure but the fresh post
+  // (with the real updated score) plus a `votes` map keyed by post id with
+  // *your account's own current vote value* on it, straight from the server
+  // — not an echo of what was just sent. So this now returns the parsed
+  // response instead of resolving void, letting the caller read that
+  // real state directly instead of doing a separate refetch afterward.
   function castVote(postId, stars, username, passwordHash) {
     var params = new URLSearchParams();
     params.set('login', username);
@@ -651,10 +658,36 @@
       return r.text().then(function (text) {
         var parsed = null;
         try { parsed = JSON.parse(text); } catch (e) { /* non-JSON — fall through to generic HTTP check */ }
-        if (r.ok && (!parsed || parsed.success !== false)) return;
+        if (r.ok && (!parsed || parsed.success !== false)) return parsed;
         throw new Error((parsed && parsed.reason) || ('HTTP ' + r.status + ': ' + text.slice(0, 200)));
       });
     });
+  }
+
+  // Real per-account vote state does exist and is fetchable after all — just
+  // not through the JSON API, a dedicated endpoint, or the DOM (all three
+  // came back empty/identical across every rating state when tested
+  // directly). It's embedded in the post page's own raw HTML, inside an
+  // inline `Post.register_resp({...})` script call, under a `votes` map
+  // keyed by post id — confirmed by diffing the actual fetched HTML text
+  // itself, not the rendered DOM (which never reflects it; the widget
+  // renders the same "off" markup regardless, then a separate inline
+  // `vote.updateWidget(...)` call paints the real state client-side from
+  // that same embedded data). This costs one extra page fetch per opened
+  // clip (not per thumbnail in a grid), which is the honest tradeoff for
+  // real accuracy instead of a per-device guess.
+  function fetchServerVote(postId) {
+    return fetch('/post/show/' + postId, { credentials: 'same-origin' })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var m = html.match(/"votes"\s*:\s*(\{[^}]*\})/);
+        if (!m) return null;
+        try {
+          var votesMap = JSON.parse(m[1]);
+          return votesMap[String(postId)] || null;
+        } catch (e) { return null; }
+      })
+      .catch(function () { return null; }); // non-fatal — falls back to the local guess
   }
 
 
@@ -1739,7 +1772,7 @@
     box.innerHTML =
       '<div class="sk-media-top">' +
         '<span class="sk-badge score" id="sk-vote-score">' + (p.score || 0) + '</span>' +
-        '<span class="sk-stars" id="sk-stars" title="rate 1-3 stars">' +
+        '<span class="sk-stars" id="sk-stars" title="rate 1-3 stars — click again anytime to change your rating">' +
           '<span class="sk-star" data-n="1">&#9733;</span>' +
           '<span class="sk-star" data-n="2">&#9733;</span>' +
           '<span class="sk-star" data-n="3">&#9733;</span>' +
@@ -1756,48 +1789,74 @@
     var scoreEl = box.querySelector('#sk-vote-score');
     var starsWrap = box.querySelector('#sk-stars');
     var starEls = starsWrap.querySelectorAll('.sk-star');
-    var existingRating = getVoteRating(p.id);
+    var currentRating = getVoteRating(p.id) || 0;
+    var currentScoreValue = p.score || 0;
+    var submitting = false;
 
     function paintStars(n) {
       for (var i = 0; i < starEls.length; i++) {
         starEls[i].classList.toggle('filled', (i + 1) <= n);
       }
     }
+    paintStars(currentRating); // instant paint from the local guess, corrected below once real data loads
 
-    if (existingRating) {
-      starsWrap.classList.add('rated');
-      paintStars(existingRating);
-    } else {
-      for (var si = 0; si < starEls.length; si++) {
-        (function (starEl) {
-          var n = parseInt(starEl.getAttribute('data-n'), 10);
-          starEl.addEventListener('mouseenter', function () {
-            if (!starsWrap.classList.contains('rated')) paintStars(n);
-          });
-          starEl.addEventListener('click', function () {
-            if (starsWrap.classList.contains('rated')) return;
-            var creds = getStoredCredentials();
-            if (!creds) { openLoginModal(function () { starEl.click(); }); return; }
-            starsWrap.classList.add('rated'); // lock immediately against double-submits while the request is in flight
-            castVote(p.id, n, creds.username, creds.passwordHash).then(function () {
-              return getJSON('/post.json?tags=' + encodeURIComponent('id:' + p.id) + '&limit=1');
-            }).then(function (posts) {
-              var fresh = posts && posts[0];
-              setVoteRating(p.id, n);
-              scoreEl.textContent = fresh ? fresh.score : (p.score || 0);
-              paintStars(n);
-            }).catch(function (err) {
-              starsWrap.classList.remove('rated');
-              paintStars(0);
-              alert('rating failed: ' + err.message);
-            });
-          });
-        })(starEls[si]);
+    // The local guess above is only this browser's own memory — it can be
+    // wrong (voted from another device, or never voted despite a stale
+    // local entry). Fetch the real per-account state and silently correct
+    // the display if it disagrees, without blocking on it first.
+    fetchServerVote(p.id).then(function (serverVote) {
+      if (submitting) return; // don't clobber an in-flight vote the person just cast
+      var real = serverVote || 0;
+      if (real !== currentRating) {
+        currentRating = real;
+        setVoteRating(p.id, real);
+        paintStars(currentRating);
       }
-      starsWrap.addEventListener('mouseleave', function () {
-        if (!starsWrap.classList.contains('rated')) paintStars(0);
-      });
+    });
+
+    for (var si = 0; si < starEls.length; si++) {
+      (function (starEl) {
+        var n = parseInt(starEl.getAttribute('data-n'), 10);
+        starEl.addEventListener('mouseenter', function () {
+          if (!submitting) paintStars(n);
+        });
+        starEl.addEventListener('click', function () {
+          // Real vote behavior turns out to be mutable — re-clicking a
+          // different star changes an existing rating rather than being
+          // rejected, so this only guards against a second click landing
+          // mid-request, not against re-rating in general.
+          if (submitting) return;
+          var creds = getStoredCredentials();
+          if (!creds) { openLoginModal(function () { starEl.click(); }); return; }
+          submitting = true;
+          castVote(p.id, n, creds.username, creds.passwordHash).then(function (result) {
+            var fresh = result && result.posts && result.posts[0];
+            // The vote response itself carries the server's own record of your
+            // current vote (result.votes[postId]) — trust that over the value
+            // we just sent, in case the server ever normalizes/rejects it
+            // differently than expected.
+            var myVote = result && result.votes && result.votes[String(p.id)];
+            var previousRating = currentRating;
+            currentRating = myVote || n;
+            setVoteRating(p.id, currentRating);
+            // Re-voting is delta-based (the server replaces your old star value
+            // rather than adding a new one) — confirmed directly (1★→2★ moved
+            // score by exactly +1) — so if the response is ever missing the
+            // fresh post for some reason, the fallback has to guess
+            // score + (new - old), not score + new.
+            currentScoreValue = fresh ? fresh.score : currentScoreValue + (n - previousRating);
+            scoreEl.textContent = currentScoreValue;
+            paintStars(currentRating);
+          }).catch(function (err) {
+            paintStars(currentRating); // revert the hover-preview back to the real current rating
+            alert('rating failed: ' + err.message);
+          }).then(function () { submitting = false; });
+        });
+      })(starEls[si]);
     }
+    starsWrap.addEventListener('mouseleave', function () {
+      if (!submitting) paintStars(currentRating);
+    });
 
     var copyLinkBtn = box.querySelector('#sk-copy-link');
     copyLinkBtn.onclick = function () {
