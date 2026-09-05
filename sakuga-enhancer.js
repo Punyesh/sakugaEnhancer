@@ -776,6 +776,43 @@
 
   function isVideoFile(url) { return /\.(webm|mp4|mov)(\?|$)/i.test(url || ''); }
 
+  // Shared between the hover-preview dock and the tag section inside an
+  // opened clip — both need the same chip rendering (color-coded by type)
+  // and the same click-to-search behavior, no reason to duplicate either.
+  function buildTagChipsHtml(tags, map) {
+    var artistTags = safeFilter(tags, function (t) { return map[t] === 1; });
+    var otherTags = safeFilter(tags, function (t) { return map[t] !== 1; });
+    function chip(t, extraClass) {
+      return '<span class="sk-mini-chip clickable ' + extraClass + '" data-tag="' + esc(t) + '">' + esc(t) + '</span>';
+    }
+    return '<div class="sk-dock-section">' +
+        '<div class="sk-tagblock-label">' + (artistTags.length ? 'Animator' : 'Animator — untagged') + '</div>' +
+        '<div class="sk-chipwrap">' +
+          (artistTags.length
+            ? safeMap(artistTags, function (t) { return chip(t, 'artist'); }).join('')
+            : '<span class="sk-mini-chip other">not credited on this post</span>') +
+        '</div>' +
+      '</div>' +
+      '<div class="sk-dock-section">' +
+        '<div class="sk-tagblock-label">Tags (' + otherTags.length + ')</div>' +
+        '<div class="sk-chipwrap">' +
+          safeMap(otherTags, function (t) { return chip(t, map[t] === 3 ? 'show' : 'other'); }).join('') +
+        '</div>' +
+      '</div>';
+  }
+
+  function wireTagChipClicks(container) {
+    container.onclick = function (e) {
+      var chipEl = e.target.closest && e.target.closest('.sk-mini-chip[data-tag]');
+      if (!chipEl) return;
+      var tag = chipEl.getAttribute('data-tag');
+      searchState.tags = [tag];
+      searchViewMode = 'results';
+      ensureResultsMarkup();
+      runSearch();
+    };
+  }
+
   function renderInfoDock(dock, p) {
     dock.style.display = 'block';
     var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
@@ -801,38 +838,9 @@
     dock.classList.add('show');
 
     ensureTagTypes().then(function (map) {
-      var artistTags = safeFilter(tags, function (t) { return map[t] === 1; });
-      var otherTags = safeFilter(tags, function (t) { return map[t] !== 1; });
-      function chip(t, extraClass) {
-        return '<span class="sk-mini-chip clickable ' + extraClass + '" data-tag="' + esc(t) + '">' + esc(t) + '</span>';
-      }
-      var body =
-        '<div class="sk-dock-section">' +
-          '<div class="sk-tagblock-label">' + (artistTags.length ? 'Animator' : 'Animator — untagged') + '</div>' +
-          '<div class="sk-chipwrap">' +
-            (artistTags.length
-              ? safeMap(artistTags, function (t) { return chip(t, 'artist'); }).join('')
-              : '<span class="sk-mini-chip other">not credited on this post</span>') +
-          '</div>' +
-        '</div>' +
-        '<div class="sk-dock-section">' +
-          '<div class="sk-tagblock-label">Tags (' + otherTags.length + ')</div>' +
-          '<div class="sk-chipwrap">' +
-            safeMap(otherTags, function (t) { return chip(t, map[t] === 3 ? 'show' : 'other'); }).join('') +
-          '</div>' +
-        '</div>';
+      var body = buildTagChipsHtml(tags, map);
       dock.innerHTML = head + '<div class="sk-dock-body">' + body + '</div>';
-      // Event delegation — the dock gets fully replaced via innerHTML above,
-      // so a listener on the dock itself avoids re-wiring one per chip.
-      dock.onclick = function (e) {
-        var chipEl = e.target.closest && e.target.closest('.sk-mini-chip[data-tag]');
-        if (!chipEl) return;
-        var tag = chipEl.getAttribute('data-tag');
-        searchState.tags = [tag];
-        searchViewMode = 'results';
-        ensureResultsMarkup();
-        runSearch();
-      };
+      wireTagChipClicks(dock);
     });
   }
 
@@ -1225,6 +1233,24 @@
     };
   }
 
+  // Tags weren't visible anywhere inside an actually-opened clip before —
+  // only via the separate hover-preview dock shown before opening. This
+  // puts the same color-coded, clickable chip display directly in the
+  // modal itself, reusing the exact same rendering/click logic.
+  function addTagsSection(box, p) {
+    var container = document.createElement('div');
+    container.className = 'sk-dock-body';
+    container.style.borderTop = '1px solid ' + C.line;
+    container.innerHTML = '<div class="sk-loading" style="padding:8px 0">loading tag info…</div>';
+    box.appendChild(container);
+
+    var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
+    ensureTagTypes().then(function (map) {
+      container.innerHTML = buildTagChipsHtml(tags, map);
+      wireTagChipClicks(container);
+    });
+  }
+
   function addCommentsSection(box, p) {
     var row = document.createElement('div');
     row.className = 'sk-comments-row';
@@ -1273,6 +1299,7 @@
         '<span class="sk-badge score" id="sk-vote-badge" style="cursor:pointer">▲ ' + (p.score || 0) + '</span>' +
         '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
         '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
+        '<span class="sk-media-viewpost" id="sk-copy-link" style="cursor:pointer;margin-left:8px" title="copy a link to this post">🔗 copy link</span>' +
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
     backdrop.appendChild(box);
@@ -1296,6 +1323,21 @@
         voteBadge.textContent = '▲ ' + (p.score || 0);
         alert('vote failed: ' + err.message);
       });
+    };
+
+    var copyLinkBtn = box.querySelector('#sk-copy-link');
+    copyLinkBtn.onclick = function () {
+      var url = location.origin + '/post/show/' + p.id;
+      var originalText = copyLinkBtn.textContent;
+      function showCopied() {
+        copyLinkBtn.textContent = '✓ copied';
+        setTimeout(function () { copyLinkBtn.textContent = originalText; }, 1500);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(showCopied).catch(function () { prompt('copy this link:', url); });
+      } else {
+        prompt('copy this link:', url);
+      }
     };
 
     var extraCleanup = [];
@@ -1481,6 +1523,7 @@
       });
     };
 
+    addTagsSection(box, p);
     addCommentsSection(box, p);
   }
 
@@ -1504,6 +1547,7 @@
       triggerDownload(p.file_url || src, 'sakuga_' + p.id + '.' + (p.file_ext || 'jpg'));
     };
 
+    addTagsSection(box, p);
     addCommentsSection(box, p);
   }
 
