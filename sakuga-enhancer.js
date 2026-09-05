@@ -692,16 +692,49 @@
   //   - undefined: couldn't determine anything (network failure, page shape
   //     unexpected) — callers must leave the existing local guess alone
   //     rather than treating this as "no vote"
+  // Finds the JSON object literal starting right after `marker` and returns
+  // it as a substring, using real brace/string-aware scanning rather than a
+  // regex — needed because a naive "match up to the next }" (or even a
+  // targeted "votes":{...} pattern) can grab the WRONG object if the page
+  // embeds more than one thing that happens to look similar (e.g. a related
+  // post, sidebar widget, etc. also serialized somewhere earlier in the same
+  // page). This walks the actual object matching braces properly, so it's
+  // guaranteed to extract the exact argument passed to that specific call.
+  function extractJsonAfter(html, marker) {
+    var markerIdx = html.indexOf(marker);
+    if (markerIdx === -1) return null;
+    var start = html.indexOf('{', markerIdx);
+    if (start === -1) return null;
+    var depth = 0, inStr = false, strCh = '', escape = false;
+    for (var i = start; i < html.length; i++) {
+      var ch = html.charAt(i);
+      if (inStr) {
+        if (escape) { escape = false; }
+        else if (ch === '\\') { escape = true; }
+        else if (ch === strCh) { inStr = false; }
+        continue;
+      }
+      if (ch === '"' || ch === '\'') { inStr = true; strCh = ch; continue; }
+      if (ch === '{') { depth++; }
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) return html.slice(start, i + 1);
+      }
+    }
+    return null; // never closed — malformed/truncated, give up rather than guess
+  }
+
   function fetchServerVote(postId) {
     return fetch('/post/show/' + postId, { credentials: 'same-origin' })
       .then(function (r) {
         if (!r.ok) return undefined;
         return r.text().then(function (html) {
-          var m = html.match(/"votes"\s*:\s*(\{[^}]*\})/);
-          if (!m) return undefined; // couldn't find the votes object at all — unknown, not "no vote"
+          var jsonStr = extractJsonAfter(html, 'Post.register_resp(');
+          if (!jsonStr) return undefined;
           try {
-            var votesMap = JSON.parse(m[1]);
-            var v = votesMap[String(postId)];
+            var data = JSON.parse(jsonStr);
+            if (!data || typeof data.votes !== 'object' || data.votes === null) return undefined;
+            var v = data.votes[String(postId)];
             return v === undefined ? null : v; // key present -> real value; key absent -> confirmed no vote
           } catch (e) { return undefined; }
         });
@@ -1869,6 +1902,17 @@
         currentScoreValue = fresh ? fresh.score : currentScoreValue + (n - previousRating);
         scoreEl.textContent = currentScoreValue;
         paintStars(currentRating);
+        // The results grid (or a pool grid) this clip was opened from
+        // already rendered its own card with the old score baked into
+        // static HTML — mutating p.score alone wouldn't touch that DOM, and
+        // there was no re-render to pick it up until a fresh search. Update
+        // both: the underlying object (so anything rendered *after* this
+        // point is correct) and any already-rendered card right now.
+        p.score = currentScoreValue;
+        var openCards = root.querySelectorAll('.sk-card[data-post-id="' + p.id + '"] .score');
+        for (var oc = 0; oc < openCards.length; oc++) {
+          openCards[oc].textContent = '\u25B2 ' + currentScoreValue;
+        }
       }).catch(function (err) {
         paintStars(currentRating); // revert the hover-preview back to the real current rating
         alert('rating failed: ' + err.message);
@@ -2129,6 +2173,7 @@
   function buildCard(p) {
     var card = document.createElement('div');
     card.className = 'sk-card';
+    card.setAttribute('data-post-id', String(p.id)); // lets a vote cast later find this exact card and refresh its score without a full re-render
     var thumb = p.preview_url || p.jpeg_url || p.sample_url;
     var clipUrl = p.file_url;
     var playable = isVideoFile(clipUrl);
