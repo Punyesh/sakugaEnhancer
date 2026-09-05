@@ -290,6 +290,7 @@
       '<div id="sk-enh-tabs">' +
         '<div class="sk-tab active" data-tab="search">Search</div>' +
         '<div class="sk-tab" data-tab="shows">Shows</div>' +
+        '<div class="sk-tab" data-tab="pools">Pools</div>' +
       '</div>' +
       '<div class="sk-body" id="sk-enh-body"></div>' +
     '</div>' +
@@ -480,6 +481,59 @@
   var searchOrigin = null; // e.g. {type:'shows'} — set right before a Shows-originated search, consumed by runSearch
   var statsCache = null;  // { tagName, allPosts }
 
+  // ===================== LOCAL POOLS (localStorage) =====================
+  // Real server-side pool CREATION requires an account-permission tier most
+  // accounts (including a freshly made test account) don't have — confirmed
+  // both via the API ("access denied") and by trying to create a pool
+  // directly on the site itself. So "My Pools" here is entirely on-device:
+  // no login, no server round-trip, same tradeoff as the companion app's
+  // AsyncStorage-based local pools, just backed by localStorage instead.
+  // Posts are stored as full snapshots at add-time — score etc. won't stay
+  // live-updated, matching the app's approach.
+  var LOCAL_POOLS_KEY = 'sk-local-pools-v1';
+
+  function readLocalPools() {
+    try {
+      var raw = localStorage.getItem(LOCAL_POOLS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+  function writeLocalPools(pools) {
+    try { localStorage.setItem(LOCAL_POOLS_KEY, JSON.stringify(pools)); } catch (e) { /* non-fatal — worst case a save doesn't persist */ }
+  }
+  function getLocalPools() { return readLocalPools(); }
+  function getLocalPool(id) {
+    return safeFilter(readLocalPools(), function (p) { return p.id === id; })[0] || null;
+  }
+  function createLocalPool(name, description) {
+    var pools = readLocalPools();
+    var pool = { id: String(Date.now()), name: name, description: description || '', posts: [], createdAt: Date.now() };
+    pools.unshift(pool);
+    writeLocalPools(pools);
+    return pool;
+  }
+  function deleteLocalPool(id) {
+    writeLocalPools(safeFilter(readLocalPools(), function (p) { return p.id !== id; }));
+  }
+  function addPostToLocalPool(poolId, post) {
+    var pools = readLocalPools();
+    var pool = safeFilter(pools, function (p) { return p.id === poolId; })[0];
+    if (pool && !safeFilter(pool.posts, function (p) { return p.id === post.id; }).length) {
+      pool.posts.unshift(post);
+      writeLocalPools(pools);
+      return true;
+    }
+    return false;
+  }
+  function removePostFromLocalPool(poolId, postId) {
+    var pools = readLocalPools();
+    var pool = safeFilter(pools, function (p) { return p.id === poolId; })[0];
+    if (pool) {
+      pool.posts = safeFilter(pool.posts, function (p) { return p.id !== postId; });
+      writeLocalPools(pools);
+    }
+  }
+
   // ===================== SEARCH TAB =====================
   var searchState = { tags: [], order: 'score', rating: '' };
   var searchViewMode = 'results'; // 'results' | 'stats'
@@ -497,7 +551,7 @@
             '<option value="score">top score</option>' +
             '<option value="score_asc">lowest score</option>' +
             '<option value="date">newest</option>' +
-            '<option value="id_asc">oldest</option>' +
+            '<option value="id">oldest</option>' +
             '<option value="random">random</option>' +
           '</select>' +
         '</div>' +
@@ -1300,6 +1354,40 @@
     };
   }
 
+  function renderAddToPoolPanel(panel, post) {
+    var pools = getLocalPools();
+    panel.innerHTML =
+      (pools.length
+        ? safeMap(pools, function (pl) {
+            var already = !!safeFilter(pl.posts, function (x) { return x.id === post.id; }).length;
+            return '<div class="sk-facet-item' + (already ? ' off' : '') + '" data-pool="' + esc(pl.id) + '" style="cursor:pointer">' +
+              '<span class="fname">' + esc(pl.name) + '</span>' +
+              '<span class="fcount">' + (already ? '✓ added' : pl.posts.length + ' clips') + '</span></div>';
+          }).join('')
+        : '<div class="sk-caption" style="padding:6px 0">no local pools yet — create one below</div>') +
+      '<div class="sk-row" style="margin-top:8px">' +
+        '<input class="sk-input" id="sk-new-pool-name" placeholder="new pool name">' +
+        '<button class="sk-btn" id="sk-new-pool-go">Create</button>' +
+      '</div>';
+
+    var rows = panel.querySelectorAll('[data-pool]');
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].onclick = function (e) {
+        var poolId = e.currentTarget.getAttribute('data-pool');
+        var added = addPostToLocalPool(poolId, post);
+        if (added) renderAddToPoolPanel(panel, post); // repaint to show "✓ added"
+      };
+    }
+    panel.querySelector('#sk-new-pool-go').onclick = function () {
+      var nameInput = panel.querySelector('#sk-new-pool-name');
+      var name = nameInput.value.trim();
+      if (!name) return;
+      var pool = createLocalPool(name, '');
+      addPostToLocalPool(pool.id, post);
+      renderAddToPoolPanel(panel, post);
+    };
+  }
+
   function buildMediaShell(p) {
     var backdrop = document.createElement('div');
     backdrop.className = 'sk-media-backdrop';
@@ -1311,6 +1399,7 @@
         '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
         '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
         '<span class="sk-media-viewpost" id="sk-copy-link" style="cursor:pointer;margin-left:8px" title="copy a link to this post">🔗 copy link</span>' +
+        '<span class="sk-media-viewpost" id="sk-add-pool" style="cursor:pointer;margin-left:8px" title="add this clip to a local pool">➕ pool</span>' +
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
     backdrop.appendChild(box);
@@ -1349,6 +1438,16 @@
       } else {
         prompt('copy this link:', url);
       }
+    };
+
+    var poolPanel = document.createElement('div');
+    poolPanel.className = 'sk-comments-panel';
+    poolPanel.style.display = 'none';
+    box.appendChild(poolPanel);
+    box.querySelector('#sk-add-pool').onclick = function () {
+      var showing = poolPanel.style.display !== 'none';
+      poolPanel.style.display = showing ? 'none' : 'block';
+      if (!showing) renderAddToPoolPanel(poolPanel, p);
     };
 
     var extraCleanup = [];
@@ -2278,8 +2377,163 @@
     renderScanButton();
   }
 
+  // ===================== POOLS TAB =====================
+  // Two intentionally separate systems, same split as the companion app:
+  // "My Pools" is entirely local (no login, no server interaction) since
+  // real pool creation needs an account tier most accounts don't have.
+  // "Browse Public Pools" is real — reads pools other users made public.
+  var poolsViewMode = 'local'; // 'local' | 'public'
+
+  function renderPools() {
+    body.innerHTML =
+      '<div class="sk-mode-row">' +
+        '<button class="sk-mode-btn active" id="sk-pools-mode-local" type="button">📌 My Pools</button>' +
+        '<button class="sk-mode-btn" id="sk-pools-mode-public" type="button">🌐 Browse Public Pools</button>' +
+      '</div>' +
+      '<div id="sk-pools-view"></div>';
+    body.querySelector('#sk-pools-mode-local').onclick = function () { poolsViewMode = 'local'; renderPoolsView(); };
+    body.querySelector('#sk-pools-mode-public').onclick = function () { poolsViewMode = 'public'; renderPoolsView(); };
+    renderPoolsView();
+  }
+
+  function renderPoolsView() {
+    body.querySelector('#sk-pools-mode-local').classList.toggle('active', poolsViewMode === 'local');
+    body.querySelector('#sk-pools-mode-public').classList.toggle('active', poolsViewMode === 'public');
+    var view = body.querySelector('#sk-pools-view');
+    if (poolsViewMode === 'local') renderLocalPoolsList(view);
+    else renderPublicPoolsBrowse(view);
+  }
+
+  function renderLocalPoolsList(view) {
+    var pools = getLocalPools();
+    view.innerHTML =
+      '<div class="sk-row">' +
+        '<input class="sk-input" id="sk-lp-new-name" placeholder="new pool name">' +
+        '<button class="sk-btn" id="sk-lp-new-go">Create</button>' +
+      '</div>' +
+      '<div class="sk-caption">these live only in this browser (localStorage) — no login needed, but they won\'t follow you to another device.</div>' +
+      '<div id="sk-lp-list"></div>';
+
+    view.querySelector('#sk-lp-new-go').onclick = function () {
+      var input = view.querySelector('#sk-lp-new-name');
+      var name = input.value.trim();
+      if (!name) return;
+      createLocalPool(name, '');
+      renderLocalPoolsList(view);
+    };
+
+    var listEl = view.querySelector('#sk-lp-list');
+    if (!pools.length) {
+      listEl.innerHTML = '<div class="sk-empty">no local pools yet — add clips to one from the ➕ pool button inside any opened clip.</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    pools.forEach(function (pl) {
+      var item = document.createElement('div');
+      item.className = 'sk-show-pick';
+      item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + pl.posts.length + ' clips</span>';
+      item.onclick = function () { renderLocalPoolDetail(view, pl.id); };
+      listEl.appendChild(item);
+    });
+  }
+
+  function renderLocalPoolDetail(view, poolId) {
+    var pool = getLocalPool(poolId);
+    if (!pool) { renderLocalPoolsList(view); return; }
+    view.innerHTML =
+      '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
+        '<button class="sk-nav-btn" id="sk-lp-back">‹ back</button>' +
+        '<span class="sk-caption" style="margin:0">' + esc(pool.name) + ' — ' + pool.posts.length + ' clips</span>' +
+        '<button class="sk-nav-btn" id="sk-lp-delete" title="delete this pool (does not affect the actual posts)">🗑 delete</button>' +
+      '</div>' +
+      '<div class="sk-grid" id="sk-lp-grid"></div>' +
+      '<div class="sk-info-dock" id="sk-lp-dock" style="display:none"></div>';
+
+    view.querySelector('#sk-lp-back').onclick = function () { renderLocalPoolsList(view); };
+    view.querySelector('#sk-lp-delete').onclick = function () {
+      if (!confirm('delete pool "' + pool.name + '"? this only removes the local pool, not the actual posts.')) return;
+      deleteLocalPool(pool.id);
+      renderLocalPoolsList(view);
+    };
+
+    var grid = view.querySelector('#sk-lp-grid');
+    var dock = view.querySelector('#sk-lp-dock');
+    if (!pool.posts.length) {
+      grid.innerHTML = '<div class="sk-empty">no clips in this pool yet.</div>';
+      return;
+    }
+    pool.posts.forEach(function (p) { grid.appendChild(buildCard(p, dock)); });
+  }
+
+  function renderPublicPoolsBrowse(view) {
+    view.innerHTML =
+      '<div class="sk-row">' +
+        '<input class="sk-input" id="sk-pp-query" placeholder="search pool name (blank = browse all)">' +
+        '<button class="sk-btn" id="sk-pp-go">Search</button>' +
+      '</div>' +
+      '<div id="sk-pp-list"><div class="sk-loading">loading pools…</div></div>';
+
+    function load(query) {
+      var listEl = view.querySelector('#sk-pp-list');
+      listEl.innerHTML = '<div class="sk-loading">loading pools…</div>';
+      var path = query ? '/pool.json?query=' + encodeURIComponent(query) : '/pool.json';
+      getJSON(path).then(function (pools) {
+        if (!pools || !pools.length) {
+          listEl.innerHTML = '<div class="sk-empty">no public pools found' + (query ? ' for "' + esc(query) + '"' : '') + '.</div>';
+          return;
+        }
+        listEl.innerHTML = '';
+        pools.forEach(function (pl) {
+          var item = document.createElement('div');
+          item.className = 'sk-show-pick';
+          item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + (pl.post_count || 0) + ' posts</span>';
+          item.onclick = function () { renderPublicPoolDetail(view, pl.id, pl.name); };
+          listEl.appendChild(item);
+        });
+      }).catch(function (err) {
+        listEl.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+      });
+    }
+
+    view.querySelector('#sk-pp-go').onclick = function () { load(view.querySelector('#sk-pp-query').value.trim()); };
+    load('');
+  }
+
+  function renderPublicPoolDetail(view, poolId, poolName) {
+    view.innerHTML =
+      '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
+        '<button class="sk-nav-btn" id="sk-pp-back">‹ back</button>' +
+        '<span class="sk-caption" style="margin:0">' + esc(poolName) + '</span>' +
+        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-media-viewpost">view on site ↗</a>' +
+      '</div>' +
+      '<div id="sk-pp-grid" class="sk-grid"></div>' +
+      '<div class="sk-info-dock" id="sk-pp-dock" style="display:none"></div>';
+    view.querySelector('#sk-pp-back').onclick = function () { renderPoolsView(); };
+
+    var grid = view.querySelector('#sk-pp-grid');
+    var dock = view.querySelector('#sk-pp-dock');
+    grid.innerHTML = '<div class="sk-loading">loading posts…</div>';
+
+    // pool:ID search on the standard post-search endpoint — reuses proven,
+    // already-working infrastructure rather than a separate, untested one
+    // (same approach the app takes via getPoolPosts). order:id keeps the
+    // pool's own sequence rather than defaulting to newest-first.
+    getJSON('/post.json?limit=100&tags=' + encodeURIComponent('pool:' + poolId + ' order:id'))
+      .then(function (posts) {
+        if (!posts || !posts.length) {
+          grid.innerHTML = '<div class="sk-empty">no posts in this pool.</div>';
+          return;
+        }
+        grid.innerHTML = '';
+        posts.forEach(function (p) { grid.appendChild(buildCard(p, dock)); });
+      }).catch(function (err) {
+        grid.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+      });
+  }
+
   function renderTab(name) {
     if (name === 'shows') renderShows();
+    else if (name === 'pools') renderPools();
     else renderSearch();
   }
 
