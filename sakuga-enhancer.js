@@ -1091,7 +1091,13 @@
   }
 
   var currentInfoPopupClose = null;
+  var currentInfoPopupAnchor = null;
   function openInfoPopup(anchorEl, p) {
+    if (currentInfoPopupAnchor === anchorEl) {
+      // clicking the same badge that's already open toggles it closed
+      if (currentInfoPopupClose) currentInfoPopupClose();
+      return;
+    }
     if (currentInfoPopupClose) currentInfoPopupClose();
 
     var pop = document.createElement('div');
@@ -1142,7 +1148,7 @@
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('mousedown', onOutside, true);
       window.removeEventListener('resize', position);
-      if (currentInfoPopupClose === close) currentInfoPopupClose = null;
+      if (currentInfoPopupClose === close) { currentInfoPopupClose = null; currentInfoPopupAnchor = null; }
     }
     function onKey(e) { if (e.key === 'Escape') close(); }
     function onOutside(e) { if (!pop.contains(e.target) && e.target !== anchorEl) close(); }
@@ -1153,6 +1159,7 @@
     setTimeout(function () { document.addEventListener('mousedown', onOutside, true); }, 0);
     window.addEventListener('resize', position);
     currentInfoPopupClose = close;
+    currentInfoPopupAnchor = anchorEl;
 
     ensureTagTypes().then(function (map) {
       if (!document.body.contains(pop)) return; // closed before this resolved
