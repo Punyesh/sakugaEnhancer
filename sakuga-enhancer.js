@@ -51,8 +51,12 @@
     'cursor:move;user-select:none;touch-action:none;}',
     '#sk-enh-head .brand{font-family:"Courier New",monospace;font-size:12px;color:' + C.dim + ';letter-spacing:1px;}',
     '#sk-enh-head .brand b{color:' + C.amber + ';}',
-    '.sk-lock-label{display:flex;align-items:center;gap:4px;font-size:11px;color:' + C.dim + ';',
-    'cursor:pointer;user-select:none;}',
+    '.sk-icon-btn{width:24px;height:24px;border-radius:5px;border:1px solid ' + C.line + ';',
+    'background:transparent;color:' + C.dim + ';display:flex;align-items:center;justify-content:center;',
+    'cursor:pointer;font-size:13px;line-height:1;padding:0;font-family:inherit;}',
+    '.sk-icon-btn:hover:not(:disabled){border-color:' + C.amber + ';color:' + C.amber + ';}',
+    '.sk-icon-btn.active{background:' + C.amberDim + ';border-color:' + C.amber + ';color:' + C.amber + ';}',
+    '.sk-icon-btn:disabled{opacity:.35;cursor:default;}',
     '.sk-resize-corner{position:absolute;width:14px;height:14px;z-index:5;touch-action:none;}',
     '.sk-resize-corner.nw{top:0;left:0;cursor:nwse-resize;}',
     '.sk-resize-corner.ne{top:0;right:0;cursor:nesw-resize;}',
@@ -304,11 +308,9 @@
   root.innerHTML =
     '<div id="sk-enh-panel" style="display:none">' +
       '<div id="sk-enh-head"><div class="brand">SAKUGA <b>ENHANCER</b></div>' +
-        '<div style="display:flex;align-items:center;gap:10px">' +
-          '<label class="sk-lock-label" id="sk-enh-lock-label" title="when locked, resizing the panel adds or removes clips per row instead of resizing the clips themselves">' +
-            '<input type="checkbox" id="sk-enh-lock-size"> Lock size' +
-          '</label>' +
-          '<span class="sk-media-viewpost" id="sk-enh-reset" style="cursor:pointer;margin-left:0" title="reset size and position">Reset</span>' +
+        '<div id="sk-enh-head-actions" style="display:flex;align-items:center;gap:6px">' +
+          '<button type="button" class="sk-icon-btn" id="sk-enh-lock-size" title="lock clip size — resizing the panel adds/removes clips per row instead of resizing them">&#9638;</button>' +
+          '<button type="button" class="sk-icon-btn" id="sk-enh-reset" title="reset size and position">&#8634;</button>' +
           '<div class="sk-close" id="sk-enh-x">&times;</div>' +
         '</div></div>' +
       '<div id="sk-enh-tabs">' +
@@ -431,7 +433,7 @@
   });
 
   head.addEventListener('pointerdown', function (e) {
-    if (e.target.closest('#sk-enh-x') || e.target.closest('#sk-enh-reset') || e.target.closest('#sk-enh-lock-label')) return; // don't start a drag from these
+    if (e.target.closest('#sk-enh-head-actions')) return; // don't start a drag from any header button
     e.preventDefault();
     var startX = e.clientX, startY = e.clientY;
     var startLeft = geom.left, startTop = geom.top;
@@ -498,13 +500,17 @@
   function saveLockPref(locked) {
     try { localStorage.setItem(LOCK_KEY, locked ? '1' : '0'); } catch (e) { /* non-fatal */ }
   }
-  var lockCheckbox = root.querySelector('#sk-enh-lock-size');
+  var lockBtn = root.querySelector('#sk-enh-lock-size');
   var lockSize = loadLockPref();
-  lockCheckbox.checked = lockSize;
-  panel.classList.toggle('sk-size-locked', lockSize);
-  lockCheckbox.addEventListener('change', function () {
-    panel.classList.toggle('sk-size-locked', lockCheckbox.checked);
-    saveLockPref(lockCheckbox.checked);
+  function applyLockUI(locked) {
+    lockBtn.classList.toggle('active', locked);
+    panel.classList.toggle('sk-size-locked', locked);
+  }
+  applyLockUI(lockSize);
+  lockBtn.addEventListener('click', function () {
+    lockSize = !lockSize;
+    applyLockUI(lockSize);
+    saveLockPref(lockSize);
   });
 
   var tabs = root.querySelectorAll('.sk-tab');
@@ -803,7 +809,7 @@
           matches = safeSort(matches, function (a, b) { return b.count - a.count; }).slice(0, 8);
           if (!matches.length) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
           suggestWrap.style.display = 'block';
-          suggestWrap.innerHTML = matches.map(function (t) {
+          suggestWrap.innerHTML = safeMap(matches, function (t) {
             return '<div class="sk-suggest-row" data-name="' + esc(t.name) + '">' +
               '<span>' + esc(t.name) + '</span><span class="sk-suggest-count">' + t.count + '</span></div>';
           }).join('');
@@ -897,6 +903,9 @@
     var view = body.querySelector('#sk-search-view');
     view.innerHTML =
       '<div id="sk-back-to-shows" style="display:none"></div>' +
+      '<div id="sk-solo-row" style="display:none;margin-bottom:8px">' +
+        '<button type="button" class="sk-icon-btn" id="sk-solo-toggle">&#9312;</button>' +
+      '</div>' +
       '<div class="sk-meta" id="sk-facet-head" style="display:none;justify-content:space-between;align-items:center">' +
         '<button class="sk-filter-toggle" id="sk-filter-toggle" type="button">' +
           'Filter <span class="sk-filter-badge" id="sk-filter-badge" style="display:none"></span>' +
@@ -1076,8 +1085,7 @@
   }
 
   function renderInfoDock(dock, p) {
-    dock.style.display = 'block';
-    var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
+    dock.style.display = 'block';    var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
     // The `source` field is often just descriptive text (e.g. "Attack_on_Titan #12"),
     // not an actual URL — putting non-URL text straight into an href causes the
     // browser to treat it as a same-page fragment link (the "#12" jumps nowhere real).
@@ -1098,6 +1106,11 @@
     dock.innerHTML = head +
       '<div class="sk-dock-body"><div class="sk-loading" style="padding:2px 0">loading tag info…</div></div>';
     dock.classList.add('show');
+    // The dock sits at the very bottom of the results, below the whole grid —
+    // hovering a card near the top can leave it well below the fold, looking
+    // "hidden" until you scroll (or resize the panel taller). Bring it into
+    // view automatically instead of relying on either.
+    dock.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     ensureTagTypes().then(function (map) {
       var body = buildTagChipsHtml(tags, map);
@@ -1949,10 +1962,45 @@
       backWrap.innerHTML = '';
     }
 
+    var soloRow = body.querySelector('#sk-solo-row');
+    var soloBtn = body.querySelector('#sk-solo-toggle');
+    if (cache.posts.length) {
+      soloRow.style.display = 'block';
+      // Contradicts a search that already requires 2+ animators to all be
+      // credited together (every result would necessarily have 2+ animator
+      // tags, so "exactly 1" could never match anything) — disable rather
+      // than let someone hit a silently-empty result.
+      var soloDisabled = safeFilter(cache.tags, function (t) { return tagTypeMap && tagTypeMap[t] === 1; }).length > 1;
+      if (soloDisabled && cache.soloOnly) cache.soloOnly = false;
+      soloBtn.disabled = soloDisabled;
+      soloBtn.classList.toggle('active', !!cache.soloOnly);
+      soloBtn.title = soloDisabled
+        ? 'solo cuts only — disabled, this search already requires 2+ animators'
+        : (cache.soloOnly ? 'showing solo cuts only (exactly one animator) — click to show all' : 'solo cuts only — exactly one animator credited');
+      soloBtn.onclick = function () {
+        if (soloBtn.disabled) return;
+        cache.soloOnly = !cache.soloOnly;
+        paintSearchResults(cache);
+      };
+    } else {
+      soloRow.style.display = 'none';
+    }
+
+    // Solo cut = exactly one animator-type tag on the post. Same client-side
+    // approach as the exclude-tags filter below, since there's no server-side
+    // tag syntax for "exactly one of type X" — reuses the same tagTypeMap
+    // already populated after every search.
     var visible = safeFilter(cache.posts, function (p) {
       var tags = (p.tags || '').split(/\s+/);
       for (var i = 0; i < tags.length; i++) {
         if (cache.excluded[tags[i]]) return false;
+      }
+      if (cache.soloOnly) {
+        var animatorCount = 0;
+        for (var j = 0; j < tags.length; j++) {
+          if (tagTypeMap && tagTypeMap[tags[j]] === 1) animatorCount++;
+        }
+        if (animatorCount !== 1) return false;
       }
       return true;
     });
@@ -2052,7 +2100,7 @@
     return getJSON('/post.json?limit=' + PAGE_SIZE + '&tags=' + encodeURIComponent(tagQuery.trim()))
       .then(function (posts) {
         searchCache = {
-          tags: tagsSnapshot, order: orderSnapshot, posts: posts, excluded: {},
+          tags: tagsSnapshot, order: orderSnapshot, posts: posts, excluded: {}, soloOnly: false,
           facetTags: computeFacetTags(posts, tagsSnapshot),
           page: 1, pageSize: PAGE_SIZE, hasMore: posts.length === PAGE_SIZE, loadingMore: false,
           origin: searchOrigin
@@ -2569,7 +2617,7 @@
           var facetTags = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 24);
           searchState.tags = [showTag];
           searchCache = {
-            tags: [showTag], order: 'date', posts: ep.posts, excluded: {}, facetTags: facetTags,
+            tags: [showTag], order: 'date', posts: ep.posts, excluded: {}, soloOnly: false, facetTags: facetTags,
             sampledOnly: true, origin: { type: 'shows', showTag: showTag }
           };
           switchToTab('search');
