@@ -153,6 +153,8 @@
     '.sk-show-pick:hover{border-color:' + C.amber + ';background:' + C.panel2 + ';}',
     '.sk-show-pick .name{font-family:"Courier New",monospace;font-size:12px;}',
     '.sk-show-pick .cnt{color:' + C.dim + ';font-size:11px;}',
+    '.sk-show-pick.off{opacity:.5;cursor:default;}',
+    '.sk-show-pick.off:hover{border-color:' + C.line + ';background:none;}',
     '.sk-show-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}',
     '.sk-mini-toggle{background:transparent;border:1px solid ' + C.line + ';color:' + C.dim + ';',
     'padding:3px 9px;border-radius:12px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap;}',
@@ -1354,38 +1356,65 @@
     };
   }
 
-  function renderAddToPoolPanel(panel, post) {
-    var pools = getLocalPools();
-    panel.innerHTML =
-      (pools.length
-        ? safeMap(pools, function (pl) {
-            var already = !!safeFilter(pl.posts, function (x) { return x.id === post.id; }).length;
-            return '<div class="sk-facet-item' + (already ? ' off' : '') + '" data-pool="' + esc(pl.id) + '" style="cursor:pointer">' +
-              '<span class="fname">' + esc(pl.name) + '</span>' +
-              '<span class="fcount">' + (already ? '✓ added' : pl.posts.length + ' clips') + '</span></div>';
-          }).join('')
-        : '<div class="sk-caption" style="padding:6px 0">no local pools yet — create one below</div>') +
-      '<div class="sk-row" style="margin-top:8px">' +
-        '<input class="sk-input" id="sk-new-pool-name" placeholder="new pool name">' +
-        '<button class="sk-btn" id="sk-new-pool-go">Create</button>' +
-      '</div>';
+  function openAddToPoolModal(post) {
+    var backdrop = document.createElement('div');
+    backdrop.className = 'sk-media-backdrop';
+    var box = document.createElement('div');
+    box.className = 'sk-login-box';
+    backdrop.appendChild(box);
+    document.body.appendChild(backdrop);
 
-    var rows = panel.querySelectorAll('[data-pool]');
-    for (var i = 0; i < rows.length; i++) {
-      rows[i].onclick = function (e) {
-        var poolId = e.currentTarget.getAttribute('data-pool');
-        var added = addPostToLocalPool(poolId, post);
-        if (added) renderAddToPoolPanel(panel, post); // repaint to show "✓ added"
-      };
+    function close() {
+      backdrop.remove();
+      document.removeEventListener('keydown', onKey);
     }
-    panel.querySelector('#sk-new-pool-go').onclick = function () {
-      var nameInput = panel.querySelector('#sk-new-pool-name');
-      var name = nameInput.value.trim();
-      if (!name) return;
-      var pool = createLocalPool(name, '');
-      addPostToLocalPool(pool.id, post);
-      renderAddToPoolPanel(panel, post);
-    };
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+
+    function render() {
+      var pools = getLocalPools();
+      box.innerHTML =
+        '<div class="sk-login-title">Add to Pool</div>' +
+        (pools.length
+          ? '<div id="sk-atp-list"></div>'
+          : '<div class="sk-caption">no pools yet</div>') +
+        '<div class="sk-row" style="margin-top:4px">' +
+          '<input class="sk-input" id="sk-atp-new-name" placeholder="new pool name">' +
+          '<button class="sk-btn" id="sk-atp-new-go">Create</button>' +
+        '</div>' +
+        '<span class="sk-login-cancel" id="sk-atp-cancel">close</span>';
+
+      box.querySelector('#sk-atp-cancel').onclick = close;
+
+      var listEl = box.querySelector('#sk-atp-list');
+      if (listEl) {
+        pools.forEach(function (pl) {
+          var already = !!safeFilter(pl.posts, function (x) { return x.id === post.id; }).length;
+          var item = document.createElement('div');
+          item.className = 'sk-show-pick' + (already ? ' off' : '');
+          item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + (already ? 'added' : pl.posts.length) + '</span>';
+          if (!already) {
+            item.onclick = function () {
+              addPostToLocalPool(pl.id, post);
+              render();
+            };
+          }
+          listEl.appendChild(item);
+        });
+      }
+
+      var nameInput = box.querySelector('#sk-atp-new-name');
+      box.querySelector('#sk-atp-new-go').onclick = function () {
+        var name = nameInput.value.trim();
+        if (!name) return;
+        var pool = createLocalPool(name, '');
+        addPostToLocalPool(pool.id, post);
+        render();
+      };
+      nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') box.querySelector('#sk-atp-new-go').onclick(); });
+    }
+    render();
   }
 
   function buildMediaShell(p) {
@@ -1399,7 +1428,7 @@
         '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
         '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
         '<span class="sk-media-viewpost" id="sk-copy-link" style="cursor:pointer;margin-left:8px" title="copy a link to this post">🔗 copy link</span>' +
-        '<span class="sk-media-viewpost" id="sk-add-pool" style="cursor:pointer;margin-left:8px" title="add this clip to a local pool">➕ pool</span>' +
+        '<span class="sk-media-viewpost" id="sk-add-pool" style="cursor:pointer;margin-left:8px" title="add this clip to a pool">Add to Pool</span>' +
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
     backdrop.appendChild(box);
@@ -1440,14 +1469,8 @@
       }
     };
 
-    var poolPanel = document.createElement('div');
-    poolPanel.className = 'sk-comments-panel';
-    poolPanel.style.display = 'none';
-    box.appendChild(poolPanel);
     box.querySelector('#sk-add-pool').onclick = function () {
-      var showing = poolPanel.style.display !== 'none';
-      poolPanel.style.display = showing ? 'none' : 'block';
-      if (!showing) renderAddToPoolPanel(poolPanel, p);
+      openAddToPoolModal(p);
     };
 
     var extraCleanup = [];
@@ -2387,8 +2410,8 @@
   function renderPools() {
     body.innerHTML =
       '<div class="sk-mode-row">' +
-        '<button class="sk-mode-btn active" id="sk-pools-mode-local" type="button">📌 My Pools</button>' +
-        '<button class="sk-mode-btn" id="sk-pools-mode-public" type="button">🌐 Browse Public Pools</button>' +
+        '<button class="sk-mode-btn active" id="sk-pools-mode-local" type="button">My Pools</button>' +
+        '<button class="sk-mode-btn" id="sk-pools-mode-public" type="button">Public Pools</button>' +
       '</div>' +
       '<div id="sk-pools-view"></div>';
     body.querySelector('#sk-pools-mode-local').onclick = function () { poolsViewMode = 'local'; renderPoolsView(); };
@@ -2411,7 +2434,6 @@
         '<input class="sk-input" id="sk-lp-new-name" placeholder="new pool name">' +
         '<button class="sk-btn" id="sk-lp-new-go">Create</button>' +
       '</div>' +
-      '<div class="sk-caption">these live only in this browser (localStorage) — no login needed, but they won\'t follow you to another device.</div>' +
       '<div id="sk-lp-list"></div>';
 
     view.querySelector('#sk-lp-new-go').onclick = function () {
@@ -2424,14 +2446,14 @@
 
     var listEl = view.querySelector('#sk-lp-list');
     if (!pools.length) {
-      listEl.innerHTML = '<div class="sk-empty">no local pools yet — add clips to one from the ➕ pool button inside any opened clip.</div>';
+      listEl.innerHTML = '<div class="sk-empty">no pools yet</div>';
       return;
     }
     listEl.innerHTML = '';
     pools.forEach(function (pl) {
       var item = document.createElement('div');
       item.className = 'sk-show-pick';
-      item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + pl.posts.length + ' clips</span>';
+      item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + pl.posts.length + '</span>';
       item.onclick = function () { renderLocalPoolDetail(view, pl.id); };
       listEl.appendChild(item);
     });
@@ -2443,15 +2465,15 @@
     view.innerHTML =
       '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
         '<button class="sk-nav-btn" id="sk-lp-back">‹ back</button>' +
-        '<span class="sk-caption" style="margin:0">' + esc(pool.name) + ' — ' + pool.posts.length + ' clips</span>' +
-        '<button class="sk-nav-btn" id="sk-lp-delete" title="delete this pool (does not affect the actual posts)">🗑 delete</button>' +
+        '<span class="sk-caption" style="margin:0">' + esc(pool.name) + '</span>' +
+        '<button class="sk-nav-btn" id="sk-lp-delete">Delete</button>' +
       '</div>' +
       '<div class="sk-grid" id="sk-lp-grid"></div>' +
       '<div class="sk-info-dock" id="sk-lp-dock" style="display:none"></div>';
 
     view.querySelector('#sk-lp-back').onclick = function () { renderLocalPoolsList(view); };
     view.querySelector('#sk-lp-delete').onclick = function () {
-      if (!confirm('delete pool "' + pool.name + '"? this only removes the local pool, not the actual posts.')) return;
+      if (!confirm('delete "' + pool.name + '"?')) return;
       deleteLocalPool(pool.id);
       renderLocalPoolsList(view);
     };
@@ -2459,7 +2481,7 @@
     var grid = view.querySelector('#sk-lp-grid');
     var dock = view.querySelector('#sk-lp-dock');
     if (!pool.posts.length) {
-      grid.innerHTML = '<div class="sk-empty">no clips in this pool yet.</div>';
+      grid.innerHTML = '<div class="sk-empty">no clips yet</div>';
       return;
     }
     pool.posts.forEach(function (p) { grid.appendChild(buildCard(p, dock)); });
@@ -2468,7 +2490,7 @@
   function renderPublicPoolsBrowse(view) {
     view.innerHTML =
       '<div class="sk-row">' +
-        '<input class="sk-input" id="sk-pp-query" placeholder="search pool name (blank = browse all)">' +
+        '<input class="sk-input" id="sk-pp-query" placeholder="search pools">' +
         '<button class="sk-btn" id="sk-pp-go">Search</button>' +
       '</div>' +
       '<div id="sk-pp-list"><div class="sk-loading">loading pools…</div></div>';
@@ -2479,7 +2501,7 @@
       var path = query ? '/pool.json?query=' + encodeURIComponent(query) : '/pool.json';
       getJSON(path).then(function (pools) {
         if (!pools || !pools.length) {
-          listEl.innerHTML = '<div class="sk-empty">no public pools found' + (query ? ' for "' + esc(query) + '"' : '') + '.</div>';
+          listEl.innerHTML = '<div class="sk-empty">no pools found</div>';
           return;
         }
         listEl.innerHTML = '';
