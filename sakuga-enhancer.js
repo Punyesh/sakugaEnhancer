@@ -808,7 +808,11 @@
       var tag = chipEl.getAttribute('data-tag');
       searchState.tags = [tag];
       searchViewMode = 'results';
-      ensureResultsMarkup();
+      // switchToTab (not just ensureResultsMarkup) so this also rebuilds the
+      // chip pills from the tags array, and correctly switches away from
+      // Shows if that's where the clip was opened from — ensureResultsMarkup
+      // alone only rebuilds the results container, not the chips display.
+      switchToTab('search');
       runSearch();
       if (onNavigate) onNavigate();
     };
