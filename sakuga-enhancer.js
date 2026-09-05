@@ -113,9 +113,16 @@
     'color:' + C.text + ';font-size:9px;padding:1px 4px;border-radius:8px;z-index:2;',
     'font-family:"Courier New",monospace;}',
     '.sk-meta{font-size:11px;color:' + C.dim + ';margin:8px 0 4px;font-family:"Courier New",monospace;}',
-    '.sk-info-dock{margin-top:10px;padding:0;background:' + C.bg + ';border:1px solid ' + C.line + ';',
-    'border-radius:6px;overflow:hidden;opacity:0;transition:opacity .12s ease;}',
-    '.sk-info-dock.show{opacity:1;}',
+    '.sk-card .info-badge{position:absolute;bottom:3px;right:4px;background:rgba(0,0,0,.7);',
+    'color:' + C.text + ';font-size:11px;width:18px;height:18px;border-radius:50%;',
+    'display:flex;align-items:center;justify-content:center;z-index:2;cursor:pointer;',
+    'font-family:"Courier New",monospace;}',
+    '.sk-card .info-badge:hover{background:rgba(0,0,0,.9);color:' + C.amber + ';}',
+    '.sk-info-popup{position:fixed;z-index:2147483300;width:280px;max-height:320px;',
+    'overflow-y:auto;background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:6px;',
+    'box-shadow:0 10px 30px rgba(0,0,0,.6);}',
+    '.sk-info-popup .sk-dock-head{padding-right:26px;}',
+    '.sk-info-popup .sk-close{position:absolute;top:6px;right:8px;}',
     '.sk-dock-head{display:flex;align-items:center;justify-content:space-between;',
     'padding:8px 10px;background:' + C.panel2 + ';border-bottom:1px solid ' + C.line + ';}',
     '.sk-dock-badges{display:flex;gap:6px;align-items:center;}',
@@ -913,8 +920,7 @@
         '<span><a href="#" id="sk-facet-all" style="color:' + C.amber + '">reset</a></span>' +
       '</div>' +
       '<div class="sk-facet-grid" id="sk-facet-grid" style="display:none"></div>' +
-      '<div id="sk-results"></div>' +
-      '<div class="sk-info-dock" id="sk-info-dock" style="display:none"></div>';
+      '<div id="sk-results"></div>';
   }
 
   function commitPendingTag() {
@@ -1084,8 +1090,16 @@
     };
   }
 
-  function renderInfoDock(dock, p) {
-    dock.style.display = 'block';    var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
+  var currentInfoPopupClose = null;
+  function openInfoPopup(anchorEl, p) {
+    if (currentInfoPopupClose) currentInfoPopupClose();
+
+    var pop = document.createElement('div');
+    pop.id = 'sk-info-popup';
+    pop.className = 'sk-info-popup';
+    document.body.appendChild(pop);
+
+    var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
     // The `source` field is often just descriptive text (e.g. "Attack_on_Titan #12"),
     // not an actual URL — putting non-URL text straight into an href causes the
     // browser to treat it as a same-page fragment link (the "#12" jumps nowhere real).
@@ -1102,20 +1116,51 @@
           '<span class="sk-badge score">▲ ' + (p.score || 0) + '</span>' +
           '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
         '</div>' + linkHtml +
+        '<span class="sk-close" id="sk-info-popup-close">&times;</span>' +
       '</div>';
-    dock.innerHTML = head +
+
+    function position() {
+      var rect = anchorEl.getBoundingClientRect();
+      var popRect = pop.getBoundingClientRect();
+      var margin = 8;
+      var left = Math.min(Math.max(rect.left, margin), Math.max(margin, window.innerWidth - popRect.width - margin));
+      var top = rect.bottom + 6;
+      if (top + popRect.height > window.innerHeight - margin) {
+        top = rect.top - popRect.height - 6; // flip above the anchor if there's no room below
+        if (top < margin) top = margin; // neither fits — just clamp to the top edge
+      }
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+    }
+
+    pop.innerHTML = head +
       '<div class="sk-dock-body"><div class="sk-loading" style="padding:2px 0">loading tag info…</div></div>';
-    dock.classList.add('show');
-    // The dock sits at the very bottom of the results, below the whole grid —
-    // hovering a card near the top can leave it well below the fold, looking
-    // "hidden" until you scroll (or resize the panel taller). Bring it into
-    // view automatically instead of relying on either.
-    dock.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    position();
+
+    function close() {
+      pop.remove();
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onOutside, true);
+      window.removeEventListener('resize', position);
+      if (currentInfoPopupClose === close) currentInfoPopupClose = null;
+    }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    function onOutside(e) { if (!pop.contains(e.target) && e.target !== anchorEl) close(); }
+    pop.querySelector('#sk-info-popup-close').onclick = close;
+    document.addEventListener('keydown', onKey);
+    // Deferred so the same click that opened the popup doesn't immediately
+    // register as an "outside" click and close it right back again.
+    setTimeout(function () { document.addEventListener('mousedown', onOutside, true); }, 0);
+    window.addEventListener('resize', position);
+    currentInfoPopupClose = close;
 
     ensureTagTypes().then(function (map) {
-      var body = buildTagChipsHtml(tags, map);
-      dock.innerHTML = head + '<div class="sk-dock-body">' + body + '</div>';
-      wireTagChipClicks(dock);
+      if (!document.body.contains(pop)) return; // closed before this resolved
+      var chipsHtml = buildTagChipsHtml(tags, map);
+      pop.innerHTML = head + '<div class="sk-dock-body">' + chipsHtml + '</div>';
+      wireTagChipClicks(pop, close);
+      pop.querySelector('#sk-info-popup-close').onclick = close;
+      position(); // real content may be a different height than the loading state
     });
   }
 
@@ -1899,7 +1944,7 @@
     addCommentsSection(box, p);
   }
 
-  function buildCard(p, dock) {
+  function buildCard(p) {
     var card = document.createElement('div');
     card.className = 'sk-card';
     var thumb = p.preview_url || p.jpeg_url || p.sample_url;
@@ -1908,7 +1953,8 @@
     card.innerHTML =
       (thumb ? '<img loading="lazy" src="' + thumb + '">' : '') +
       (playable ? '<video muted loop playsinline preload="none"></video><div class="vidmark">▶ clip</div>' : '') +
-      '<div class="score">&#9650; ' + (p.score || 0) + '</div>';
+      '<div class="score">&#9650; ' + (p.score || 0) + '</div>' +
+      '<div class="info-badge" title="tags &amp; info">&#9432;</div>';
 
     var hoverVid = null;
     if (playable) {
@@ -1924,11 +1970,17 @@
       });
     }
 
-    card.addEventListener('mouseenter', function () {
-      clearTimeout(card._dockTimer);
-      card._dockTimer = setTimeout(function () { renderInfoDock(dock, p); }, 180);
+    // A floating popup anchored to this badge, rather than a dock inline in
+    // the results flow — the old version lived at the bottom of the whole
+    // grid and had to yank the scroll position to bring itself into view on
+    // every hover, which fought with normal browsing. This one just appears
+    // next to whatever you clicked and doesn't touch scroll position at all.
+    var infoBadge = card.querySelector('.info-badge');
+    infoBadge.addEventListener('click', function (e) {
+      e.stopPropagation(); // don't also trigger the card's own click-to-open
+      openInfoPopup(infoBadge, p);
     });
-    card.addEventListener('mouseleave', function () { clearTimeout(card._dockTimer); });
+
     card.title = (p.tags || '').slice(0, 200);
     card.onclick = function () {
       if (playable) {
@@ -1943,7 +1995,6 @@
 
   function paintSearchResults(cache) {
     var results = body.querySelector('#sk-results');
-    var dock = body.querySelector('#sk-info-dock');
     var facetHead = body.querySelector('#sk-facet-head');
     var facetGrid = body.querySelector('#sk-facet-grid');
     var toggle = body.querySelector('#sk-filter-toggle');
@@ -2019,7 +2070,7 @@
           'not a complete search, just what turned up while sampling this show.';
         grid.appendChild(note);
       }
-      visible.forEach(function (p) { grid.appendChild(buildCard(p, dock)); });
+      visible.forEach(function (p) { grid.appendChild(buildCard(p)); });
       results.innerHTML = '';
       results.appendChild(grid);
 
@@ -2717,8 +2768,7 @@
         '<span class="sk-caption" style="margin:0">' + esc(pool.name) + '</span>' +
         '<button class="sk-nav-btn" id="sk-lp-delete">Delete</button>' +
       '</div>' +
-      '<div class="sk-grid" id="sk-lp-grid"></div>' +
-      '<div class="sk-info-dock" id="sk-lp-dock" style="display:none"></div>';
+      '<div class="sk-grid" id="sk-lp-grid"></div>';
 
     view.querySelector('#sk-lp-back').onclick = function () { renderLocalPoolsList(view); };
     view.querySelector('#sk-lp-delete').onclick = function () {
@@ -2728,12 +2778,11 @@
     };
 
     var grid = view.querySelector('#sk-lp-grid');
-    var dock = view.querySelector('#sk-lp-dock');
     if (!pool.posts.length) {
       grid.innerHTML = '<div class="sk-empty">no clips yet</div>';
       return;
     }
-    pool.posts.forEach(function (p) { grid.appendChild(buildCard(p, dock)); });
+    pool.posts.forEach(function (p) { grid.appendChild(buildCard(p)); });
   }
 
   function renderPublicPoolsBrowse(view) {
@@ -2777,12 +2826,10 @@
         '<span class="sk-caption" style="margin:0">' + esc(poolName) + '</span>' +
         '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-media-viewpost">view on site ↗</a>' +
       '</div>' +
-      '<div id="sk-pp-grid" class="sk-grid"></div>' +
-      '<div class="sk-info-dock" id="sk-pp-dock" style="display:none"></div>';
+      '<div id="sk-pp-grid" class="sk-grid"></div>';
     view.querySelector('#sk-pp-back').onclick = function () { renderPoolsView(); };
 
     var grid = view.querySelector('#sk-pp-grid');
-    var dock = view.querySelector('#sk-pp-dock');
     grid.innerHTML = '<div class="sk-loading">loading posts…</div>';
 
     // pool:ID search on the standard post-search endpoint — reuses proven,
@@ -2796,7 +2843,7 @@
           return;
         }
         grid.innerHTML = '';
-        posts.forEach(function (p) { grid.appendChild(buildCard(p, dock)); });
+        posts.forEach(function (p) { grid.appendChild(buildCard(p)); });
       }).catch(function (err) {
         grid.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
       });
