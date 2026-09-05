@@ -801,7 +801,7 @@
       '</div>';
   }
 
-  function wireTagChipClicks(container) {
+  function wireTagChipClicks(container, onNavigate) {
     container.onclick = function (e) {
       var chipEl = e.target.closest && e.target.closest('.sk-mini-chip[data-tag]');
       if (!chipEl) return;
@@ -810,6 +810,7 @@
       searchViewMode = 'results';
       ensureResultsMarkup();
       runSearch();
+      if (onNavigate) onNavigate();
     };
   }
 
@@ -1247,7 +1248,13 @@
     var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
     ensureTagTypes().then(function (map) {
       container.innerHTML = buildTagChipsHtml(tags, map);
-      wireTagChipClicks(container);
+      // Unlike the hover dock (where nothing is covering the results, so
+      // updating search state in the background is fine), this is inside an
+      // open modal — leaving it open after the tag click meant the person
+      // never actually saw the new results, and the modal's own now-stale
+      // tag chips just sat there unchanged. Close it so the search that just
+      // ran is immediately visible.
+      wireTagChipClicks(container, function () { box._close(); });
     });
   }
 
@@ -1353,6 +1360,7 @@
     backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
     box.querySelector('#sk-media-close').onclick = close;
     box._onClose = function (fn) { extraCleanup.push(fn); };
+    box._close = close; // lets content appended to the box (e.g. a clicked tag) trigger a real close
     return box; // caller appends the actual <video> or <img>; can register box._onClose(fn) for cleanup
   }
 
