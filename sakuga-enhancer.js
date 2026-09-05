@@ -117,6 +117,9 @@
     'background:' + C.panel2 + ';}',
     '.sk-mini-chip.artist{background:' + C.amberDim + ';border-color:' + C.amber + ';color:' + C.amber + ';font-weight:bold;}',
     '.sk-mini-chip.other{color:' + C.dim + ';}',
+    '.sk-mini-chip.show{color:' + C.link + ';}',
+    '.sk-mini-chip.clickable{cursor:pointer;}',
+    '.sk-mini-chip.clickable:hover{border-color:' + C.amber + ';}',
     '.sk-facet-item{display:flex;align-items:center;gap:5px;font-size:11px;padding:4px 2px;',
     'border-radius:3px;cursor:pointer;color:' + C.text + ';min-width:0;}',
     '.sk-facet-item:hover{background:' + C.panel2 + ';}',
@@ -405,6 +408,33 @@
       });
   }
 
+  // Upvote-only, scoped conservatively — same reasoning as the native app:
+  // confirmed the endpoint exists directly from sakugabooru's own
+  // /help/api page ("The base URL is /post/vote.xml"), but the exact
+  // parameter format isn't backed by the same documentation level as
+  // comment-posting was, built against the general Danbooru-family
+  // convention (post_vote(post_id, score)) as the best-reasoned guess.
+  function voteUp(postId, username, passwordHash) {
+    var params = new URLSearchParams();
+    params.set('login', username);
+    params.set('password_hash', passwordHash);
+    params.set('id', String(postId));
+    params.set('score', '1');
+    return fetch('/post/vote.json', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    }).then(function (r) {
+      return r.text().then(function (text) {
+        var parsed = null;
+        try { parsed = JSON.parse(text); } catch (e) { /* non-JSON — fall through to generic HTTP check */ }
+        if (r.ok && (!parsed || parsed.success !== false)) return;
+        throw new Error((parsed && parsed.reason) || ('HTTP ' + r.status + ': ' + text.slice(0, 200)));
+      });
+    });
+  }
+
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   // Sakugabooru loads Prototype.js, which globally overwrites Array.prototype's
   // filter/map/sort/every/some/find with its own Ruby-Enumerable-style aliases
@@ -465,7 +495,9 @@
           '<input class="sk-input" id="sk-tag-input" placeholder="add tag, enter to confirm">' +
           '<select class="sk-select" id="sk-order">' +
             '<option value="score">top score</option>' +
+            '<option value="score_asc">lowest score</option>' +
             '<option value="date">newest</option>' +
+            '<option value="id_asc">oldest</option>' +
             '<option value="random">random</option>' +
           '</select>' +
         '</div>' +
@@ -771,22 +803,36 @@
     ensureTagTypes().then(function (map) {
       var artistTags = safeFilter(tags, function (t) { return map[t] === 1; });
       var otherTags = safeFilter(tags, function (t) { return map[t] !== 1; });
+      function chip(t, extraClass) {
+        return '<span class="sk-mini-chip clickable ' + extraClass + '" data-tag="' + esc(t) + '">' + esc(t) + '</span>';
+      }
       var body =
         '<div class="sk-dock-section">' +
           '<div class="sk-tagblock-label">' + (artistTags.length ? 'Animator' : 'Animator — untagged') + '</div>' +
           '<div class="sk-chipwrap">' +
             (artistTags.length
-              ? safeMap(artistTags, function (t) { return '<span class="sk-mini-chip artist">' + esc(t) + '</span>'; }).join('')
+              ? safeMap(artistTags, function (t) { return chip(t, 'artist'); }).join('')
               : '<span class="sk-mini-chip other">not credited on this post</span>') +
           '</div>' +
         '</div>' +
         '<div class="sk-dock-section">' +
           '<div class="sk-tagblock-label">Tags (' + otherTags.length + ')</div>' +
           '<div class="sk-chipwrap">' +
-            safeMap(otherTags, function (t) { return '<span class="sk-mini-chip other">' + esc(t) + '</span>'; }).join('') +
+            safeMap(otherTags, function (t) { return chip(t, map[t] === 3 ? 'show' : 'other'); }).join('') +
           '</div>' +
         '</div>';
       dock.innerHTML = head + '<div class="sk-dock-body">' + body + '</div>';
+      // Event delegation — the dock gets fully replaced via innerHTML above,
+      // so a listener on the dock itself avoids re-wiring one per chip.
+      dock.onclick = function (e) {
+        var chipEl = e.target.closest && e.target.closest('.sk-mini-chip[data-tag]');
+        if (!chipEl) return;
+        var tag = chipEl.getAttribute('data-tag');
+        searchState.tags = [tag];
+        searchViewMode = 'results';
+        ensureResultsMarkup();
+        runSearch();
+      };
     });
   }
 
@@ -1224,13 +1270,33 @@
     box.className = 'sk-media-box';
     box.innerHTML =
       '<div class="sk-media-top">' +
-        '<span class="sk-badge score">▲ ' + (p.score || 0) + '</span>' +
+        '<span class="sk-badge score" id="sk-vote-badge" style="cursor:pointer">▲ ' + (p.score || 0) + '</span>' +
         '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
         '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
     backdrop.appendChild(box);
     document.body.appendChild(backdrop); // attach to the real page body so it overlays everything, not just our small panel
+
+    var voted = false;
+    var voteBadge = box.querySelector('#sk-vote-badge');
+    voteBadge.onclick = function () {
+      if (voted) return;
+      var creds = getStoredCredentials();
+      if (!creds) { openLoginModal(function () { voteBadge.onclick(); }); return; }
+      voteBadge.textContent = '…';
+      voteUp(p.id, creds.username, creds.passwordHash).then(function () {
+        return getJSON('/post.json?tags=' + encodeURIComponent('id:' + p.id) + '&limit=1');
+      }).then(function (posts) {
+        var fresh = posts && posts[0];
+        voted = true;
+        voteBadge.textContent = '✓ ' + (fresh ? fresh.score : (p.score || 0) + 1);
+        voteBadge.style.cursor = 'default';
+      }).catch(function (err) {
+        voteBadge.textContent = '▲ ' + (p.score || 0);
+        alert('vote failed: ' + err.message);
+      });
+    };
 
     var extraCleanup = [];
     function close() {

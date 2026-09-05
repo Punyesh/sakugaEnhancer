@@ -1,9 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-const bookmarklet = fs.readFileSync(path.join(__dirname, 'bookmarklet.txt'), 'utf8');
-const escapedHref = bookmarklet.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-
 // Hosted via GitHub Pages — the Firefox loader bookmarklet stays tiny by
 // fetching the real script from here at click-time, instead of embedding
 // the whole ~80KB script in the bookmark's own URL (which Firefox has
@@ -97,19 +94,11 @@ const html = `<!doctype html>
   </p>
 
   <div class="bm-wrap">
-    <div class="bm-label">Chrome / Edge / Safari</div>
-    <a class="bm-link" href="${escapedHref}" onclick="alert('Drag this to your bookmarks bar — clicking it here won\\'t do anything since you\\'re not on sakugabooru.com.'); return false;">
+    <div class="bm-label">Chrome / Edge / Safari / Firefox</div>
+    <a class="bm-link" href="${loaderHref}" onclick="alert('Drag this to your bookmarks bar — clicking it here won\\'t do anything since you\\'re not on sakugabooru.com.'); return false;">
       🎞 Sakuga Enhancer
     </a>
     <div class="bm-hint">drag this button to your bookmarks bar</div>
-  </div>
-
-  <div class="bm-wrap alt">
-    <div class="bm-label">Firefox (shorter link)</div>
-    <a class="bm-link" href="${loaderHref}" onclick="alert('Drag this to your bookmarks bar — clicking it here won\\'t do anything since you\\'re not on sakugabooru.com.'); return false;">
-      🦊 Sakuga Enhancer
-    </a>
-    <div class="bm-hint">drag this one instead — Firefox has trouble saving the very long link above</div>
   </div>
 
   <ol>
@@ -128,11 +117,11 @@ const html = `<!doctype html>
       <span class="tag">/post.json</span> and <span class="tag">/artist.json</span> endpoints.
     </p>
     <p>
-      The Firefox bookmark works by fetching the actual script from
+      This bookmark works by fetching the actual script from
       <span class="tag">${HOSTED_JS_URL}</span> each time you click it, rather than storing the
-      whole thing in the bookmark itself. If sakugabooru.com's security policy ever blocks loading
-      scripts from other sites, this version may fail silently — if so, use the Chrome/Edge/Safari
-      button above instead, which doesn't depend on any external file.
+      whole thing in the bookmark itself — so it always runs whatever's currently published here,
+      no need to ever re-install after an update. If sakugabooru.com's security policy ever blocks
+      loading scripts from other sites, this may fail silently — if that happens, let me know.
     </p>
   </footer>
 </main>
