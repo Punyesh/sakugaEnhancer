@@ -1,3087 +1,1635 @@
-/*!
- * Sakuga Enhancer — bookmarklet overlay for sakugabooru.com
- * Runs same-origin, hits the site's own Moebooru JSON API (/post.json, /artist.json).
- * No external dependencies, no CDN calls (site CSP may block them anyway).
+/*
+ * KeyFrame Staff List — lookup + credit sheet organizer
+ * =========================================================================
+ * One small draggable panel. A link at the bottom switches it between two
+ * modes:
+ *   - Lookup: enter names, get formatted staff/credit info.
+ *   - Organizer: paste a raw credit sheet, verify every name/studio against
+ *     KeyFrame's live search, and get it organized by role.
+ * Results for the organizer open in a second small side-panel, never a new
+ * tab. Paste into your browser's Console (F12 -> Console) on
+ * keyframe-staff-list.com, or better, use the bookmarklet version.
  */
-(function () {
-  'use strict';
-  console.log('%c[sakuga-enhancer] build SF43 (crf 15 for accurate trim) loaded', 'color:#ffb020;font-weight:bold');
 
-  // Re-clicking the bookmarklet toggles the panel instead of double-injecting.
-  var EXISTING = document.getElementById('sk-enh-root');
-  if (EXISTING) {
-    console.log('[sakuga-enhancer] found existing panel — toggling only, NOT re-initializing. ' +
-      'If you need a fresh reload of the code, reload the page first (Ctrl/Cmd+Shift+R), then click the bookmark again.');
-    EXISTING.style.display = EXISTING.style.display === 'none' ? 'block' : 'none';
-    return;
+(() => {
+  document.getElementById("kfl-panel")?.remove();
+  document.getElementById("kfl-org-panel")?.remove();
+
+  let kflMode = "lookup"; // "lookup" | "organize"
+
+  // ---------- custom role dictionary (user-editable, persisted) ----------
+  // Lets the user add their own role terms/abbreviations without needing a
+  // code change every time an unrecognized credit shows up. Stored in
+  // localStorage so it survives across sessions. Custom entries take
+  // priority over the built-in dictionary, so a user can also override a
+  // built-in mapping if they disagree with it.
+  let customRoles = {};
+  try {
+    customRoles = JSON.parse(localStorage.getItem("kfl-custom-roles") || "{}");
+  } catch (e) {
+    customRoles = {};
   }
-
-  if (!/sakugabooru\.com$/.test(location.hostname)) {
-    alert('Sakuga Enhancer only works on sakugabooru.com — navigate there first.');
-    return;
+  let customRoleSet = {};
+  function rebuildCustomRoleSet() {
+    customRoleSet = {};
+    Object.keys(customRoles).forEach((k) => { customRoleSet[kflNorm(k)] = customRoles[k]; });
   }
-
-  // ---------- design tokens ----------
-  var C = {
-    bg: '#15130f',
-    panel: '#1c1a15',
-    panel2: '#242119',
-    line: '#3a3527',
-    text: '#eae4d3',
-    dim: '#9c9581',
-    amber: '#ffb020',
-    amberDim: '#7a5a1e',
-    red: '#d9634a',
-    link: '#6db3f2'
-  };
-
-  var css = [
-    '#sk-enh-root *{box-sizing:border-box;}',
-    '#sk-enh-root{position:fixed;z-index:2147483000;bottom:20px;right:20px;',
-    'font-family:"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif;color:' + C.text + ';}',
-    '#sk-enh-toggle{position:relative;z-index:2;width:52px;height:52px;border-radius:50%;background:' + C.panel + ';',
-    'border:1px solid ' + C.line + ';color:' + C.amber + ';font-size:20px;cursor:pointer;',
-    'box-shadow:0 4px 18px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;',
-    'font-family:"Courier New",monospace;letter-spacing:-1px;}',
-    '#sk-enh-toggle:hover{border-color:' + C.amber + ';}',
-    '#sk-enh-panel{position:fixed;z-index:1;background:' + C.panel + ';border:1px solid ' + C.line + ';border-radius:6px;',
-    'box-shadow:0 12px 40px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden;}',
-    '#sk-enh-head{display:flex;align-items:center;justify-content:space-between;',
-    'padding:10px 12px;border-bottom:1px solid ' + C.line + ';background:' + C.panel2 + ';',
-    'cursor:move;user-select:none;touch-action:none;}',
-    '#sk-enh-head .brand{font-family:"Courier New",monospace;font-size:12px;color:' + C.dim + ';letter-spacing:1px;}',
-    '#sk-enh-head .brand b{color:' + C.amber + ';}',
-    '.sk-icon-btn{width:24px;height:24px;border-radius:5px;border:1px solid ' + C.line + ';',
-    'background:transparent;color:' + C.dim + ';display:flex;align-items:center;justify-content:center;',
-    'cursor:pointer;font-size:13px;line-height:1;padding:0;font-family:inherit;}',
-    '.sk-icon-btn:hover:not(:disabled){border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-icon-btn.active{background:' + C.amberDim + ';border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-icon-btn:disabled{opacity:.35;cursor:default;}',
-    '.sk-resize-corner{position:absolute;width:14px;height:14px;z-index:5;touch-action:none;}',
-    '.sk-resize-corner.nw{top:0;left:0;cursor:nwse-resize;}',
-    '.sk-resize-corner.ne{top:0;right:0;cursor:nesw-resize;}',
-    '.sk-resize-corner.sw{bottom:0;left:0;cursor:nesw-resize;}',
-    '#sk-enh-resize-se{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;',
-    'touch-action:none;z-index:5;background:linear-gradient(135deg,transparent 0 40%,' + C.dim + ' 40% 46%,',
-    'transparent 46% 58%,' + C.dim + ' 58% 64%,transparent 64% 100%);opacity:.7;}',
-    '#sk-enh-resize-se:hover{opacity:1;}',
-    '.sk-resize-edge{position:absolute;z-index:4;touch-action:none;}',
-    '.sk-resize-edge.n{top:0;left:14px;right:14px;height:6px;cursor:ns-resize;}',
-    '.sk-resize-edge.s{bottom:0;left:14px;right:14px;height:6px;cursor:ns-resize;}',
-    '.sk-resize-edge.w{left:0;top:14px;bottom:14px;width:6px;cursor:ew-resize;}',
-    '.sk-resize-edge.e{right:0;top:14px;bottom:14px;width:6px;cursor:ew-resize;}',
-    '#sk-enh-tabs{display:flex;border-bottom:1px solid ' + C.line + ';}',
-    '.sk-tab{flex:1;padding:9px 0;text-align:center;font-size:12px;letter-spacing:.5px;',
-    'text-transform:uppercase;cursor:pointer;color:' + C.dim + ';border-bottom:2px solid transparent;}',
-    '.sk-tab.active{color:' + C.amber + ';border-bottom-color:' + C.amber + ';}',
-    '.sk-body{padding:12px;overflow-y:auto;flex:1;min-height:0;}',
-    '.sk-row{display:flex;gap:6px;margin-bottom:8px;}',
-    '.sk-input{flex:1;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
-    'padding:7px 9px;border-radius:4px;font-size:13px;outline:none;}',
-    '.sk-input:focus{border-color:' + C.amber + ';}',
-    '.sk-input[type=number]::-webkit-inner-spin-button,',
-    '.sk-input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}',
-    '.sk-input[type=number]{-moz-appearance:textfield;}',
-    '.sk-select{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
-    'padding:7px 6px;border-radius:4px;font-size:12px;}',
-    '.sk-btn{background:' + C.amberDim + ';border:1px solid ' + C.amber + ';color:' + C.amber + ';',
-    'padding:7px 12px;border-radius:4px;font-size:12px;cursor:pointer;white-space:nowrap;}',
-    '.sk-btn:hover{background:' + C.amber + ';color:#1a1509;}',
-    '.sk-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;min-height:0;}',
-    '.sk-suggest-list{background:' + C.panel + ';border:1px solid ' + C.line + ';border-radius:6px;',
-    'margin-bottom:8px;overflow:hidden;}',
-    '.sk-suggest-row{display:flex;justify-content:space-between;align-items:center;',
-    'padding:8px 10px;border-top:1px solid ' + C.line + ';cursor:pointer;font-size:12px;}',
-    '.sk-suggest-row:first-child{border-top:none;}',
-    '.sk-suggest-row:hover{background:' + C.panel2 + ';}',
-    '.sk-suggest-count{color:' + C.dim + ';font-size:11px;font-family:monospace;}',
-    '.sk-chip{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
-    'font-size:11px;padding:3px 7px;border-radius:20px;display:flex;align-items:center;gap:5px;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-chip span{cursor:pointer;color:' + C.red + ';font-weight:bold;}',
-    '.sk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}',
-    '#sk-enh-panel.sk-size-locked .sk-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}',
-    '.sk-card{position:relative;border:1px solid ' + C.line + ';border-radius:4px;overflow:hidden;',
-    'aspect-ratio:1/1;background:#000;cursor:pointer;}',
-    '.sk-card img,.sk-card video{width:100%;height:100%;object-fit:cover;display:block;opacity:.9;}',
-    '.sk-card:hover img,.sk-card:hover video{opacity:1;}',
-    '.sk-card video{position:absolute;top:0;left:0;}',
-    '.sk-card .score{position:absolute;top:3px;right:4px;background:rgba(0,0,0,.7);',
-    'color:' + C.amber + ';font-size:10px;padding:1px 5px;border-radius:8px;z-index:2;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-card .vidmark{position:absolute;top:3px;left:4px;background:rgba(0,0,0,.7);',
-    'color:' + C.text + ';font-size:9px;padding:1px 4px;border-radius:8px;z-index:2;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-meta{font-size:11px;color:' + C.dim + ';margin:8px 0 4px;font-family:"Courier New",monospace;}',
-    '.sk-card .info-badge{position:absolute;bottom:3px;right:4px;background:rgba(0,0,0,.7);',
-    'color:' + C.text + ';font-size:11px;width:18px;height:18px;border-radius:50%;',
-    'display:flex;align-items:center;justify-content:center;z-index:2;cursor:pointer;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-card .info-badge:hover{background:rgba(0,0,0,.9);color:' + C.amber + ';}',
-    '.sk-info-popup{position:fixed;z-index:2147483300;width:280px;max-height:320px;',
-    'overflow-y:auto;background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:6px;',
-    'box-shadow:0 10px 30px rgba(0,0,0,.6);}',
-    '.sk-info-popup .sk-dock-head{padding-right:26px;}',
-    '.sk-info-popup .sk-close{position:absolute;top:6px;right:8px;}',
-    '.sk-dock-head{display:flex;align-items:center;justify-content:space-between;',
-    'padding:8px 10px;background:' + C.panel2 + ';border-bottom:1px solid ' + C.line + ';}',
-    '.sk-dock-badges{display:flex;gap:6px;align-items:center;}',
-    '.sk-badge{font-family:"Courier New",monospace;font-size:11px;padding:2px 7px;',
-    'border-radius:10px;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';}',
-    '.sk-badge.score{color:' + C.amber + ';border-color:' + C.amberDim + ';}',
-    '.sk-stars{display:inline-flex;gap:2px;align-items:center;}',
-    '.sk-star{font-size:15px;color:' + C.dim + ';cursor:pointer;line-height:1;}',
-    '.sk-star.filled{color:' + C.amber + ';}',
-    '.sk-star-clear{font-size:12px;color:' + C.dim + ';cursor:pointer;margin-left:3px;opacity:.3;}',
-    '.sk-star-clear.active{opacity:.8;}',
-    '.sk-star-clear:hover{color:' + C.red + ';opacity:1;}',
-    '.sk-dock-head a{font-size:11px;color:' + C.amber + ';text-decoration:none;',
-    'border:1px solid ' + C.amberDim + ';padding:2px 8px;border-radius:10px;}',
-    '.sk-dock-head a:hover{background:' + C.amberDim + ';}',
-    '.sk-dock-body{padding:10px;}',
-    '.sk-dock-section + .sk-dock-section{margin-top:9px;}',
-    '.sk-tagblock-label{color:' + C.dim + ';font-size:10px;text-transform:uppercase;',
-    'letter-spacing:.6px;margin:0 0 5px;display:flex;align-items:center;gap:5px;}',
-    '.sk-tagblock-label:before{content:"";width:3px;height:3px;border-radius:50%;',
-    'background:' + C.dim + ';display:inline-block;}',
-    '.sk-chipwrap{display:flex;flex-wrap:wrap;gap:5px;max-height:110px;overflow-y:auto;}',
-    '.sk-mini-chip{display:inline-block;font-size:10px;padding:3px 8px;border-radius:10px;',
-    'margin:0 4px 4px 0;font-family:"Courier New",monospace;border:1px solid ' + C.line + ';',
-    'background:' + C.panel2 + ';}',
-    '.sk-mini-chip.artist{background:' + C.amberDim + ';border-color:' + C.amber + ';color:' + C.amber + ';font-weight:bold;}',
-    '.sk-mini-chip.other{color:' + C.dim + ';}',
-    '.sk-mini-chip.show{color:' + C.link + ';}',
-    '.sk-mini-chip.clickable{cursor:pointer;}',
-    '.sk-mini-chip.clickable:hover{border-color:' + C.amber + ';}',
-    '.sk-facet-item{display:flex;align-items:center;gap:5px;font-size:11px;padding:4px 2px;',
-    'border-radius:3px;cursor:pointer;color:' + C.text + ';min-width:0;}',
-    '.sk-facet-item:hover{background:' + C.panel2 + ';}',
-    '.sk-facet-item.off{color:' + C.dim + ';text-decoration:line-through;opacity:.6;}',
-    '.sk-facet-item input{accent-color:' + C.amber + ';flex-shrink:0;width:13px;height:13px;margin:0;}',
-    '.sk-facet-item .fname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-facet-item .fcount{flex-shrink:0;color:' + C.dim + ';font-family:"Courier New",monospace;font-size:10px;}',
-    '.sk-facet-item.is-artist .fname{color:' + C.amber + ';font-weight:bold;}',
-    '.sk-filter-toggle{display:inline-flex;align-items:center;gap:6px;background:transparent;',
-    'border:1px solid ' + C.line + ';color:' + C.text + ';padding:4px 10px;border-radius:14px;',
-    'font-size:11px;cursor:pointer;font-family:inherit;}',
-    '.sk-filter-toggle:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-filter-toggle .chev{font-size:8px;color:' + C.dim + ';transition:transform .15s ease;}',
-    '.sk-filter-toggle.open .chev{transform:rotate(180deg);}',
-    '.sk-filter-badge{background:' + C.amberDim + ';color:' + C.amber + ';border-radius:8px;',
-    'padding:0 6px;font-family:"Courier New",monospace;font-size:10px;line-height:1.5;}',
-    '.sk-mode-row{display:flex;gap:6px;margin-bottom:10px;}',
-    '.sk-mode-btn{flex:1;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.dim + ';',
-    'padding:7px 6px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;',
-    'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
-    '.sk-mode-btn:hover{border-color:' + C.amber + ';}',
-    '.sk-mode-btn.active{background:' + C.amberDim + ';border-color:' + C.amber + ';color:' + C.amber + ';font-weight:bold;}',
-    '.sk-facet-grid{border:1px solid ' + C.line + ';border-radius:6px;padding:8px 8px 6px;',
-    'margin:-2px 0 8px;background:' + C.bg + ';',
-    'display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:2px 10px;',
-    'max-height:220px;overflow-y:auto;overflow-x:hidden;}',
-    '.sk-caption{color:' + C.dim + ';font-size:10.5px;line-height:1.5;margin-bottom:10px;}',
-    '.sk-show-pick{display:flex;justify-content:space-between;align-items:center;padding:8px 9px;',
-    'border:1px solid ' + C.line + ';border-radius:5px;margin-bottom:5px;cursor:pointer;}',
-    '.sk-show-pick:hover{border-color:' + C.amber + ';background:' + C.panel2 + ';}',
-    '.sk-show-pick .name{font-family:"Courier New",monospace;font-size:12px;}',
-    '.sk-show-pick .cnt{color:' + C.dim + ';font-size:11px;}',
-    '.sk-show-pick.off{opacity:.5;cursor:default;}',
-    '.sk-show-pick.off:hover{border-color:' + C.line + ';background:none;}',
-    '.sk-show-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}',
-    '.sk-mini-toggle{background:transparent;border:1px solid ' + C.line + ';color:' + C.dim + ';',
-    'padding:3px 9px;border-radius:12px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap;}',
-    '.sk-mini-toggle:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-show-head .title{font-size:15px;color:' + C.amber + ';font-family:"Courier New",monospace;}',
-    '.sk-show-head a{font-size:11px;color:' + C.dim + ';text-decoration:none;}',
-    '.sk-show-head a:hover{color:' + C.amber + ';}',
-    '.sk-show-nav{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px;}',
-    '.sk-nav-btn{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
-    'padding:5px 10px;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;}',
-    '.sk-nav-btn:hover:not(:disabled){border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-nav-btn:disabled{opacity:.35;cursor:default;}',
-    '.sk-nav-crumb{flex:1;text-align:center;font-size:11px;color:' + C.dim + ';font-family:"Courier New",monospace;',
-    'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
-    '.sk-related-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}',
-    '.sk-chip.clickable{cursor:pointer;}',
-    '.sk-chip.clickable:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-ep-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}',
-    '.sk-ep-btn{background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:5px;',
-    'padding:8px 4px;text-align:center;cursor:pointer;}',
-    '.sk-ep-btn:hover{border-color:' + C.amber + ';}',
-    '.sk-ep-btn .num{display:block;font-family:"Courier New",monospace;color:' + C.amber + ';',
-    'font-size:13px;font-weight:bold;}',
-    '.sk-ep-btn .cnt{display:block;font-size:10px;color:' + C.dim + ';margin-top:2px;}',
-    '.sk-stat-big{font-size:34px;color:' + C.amber + ';font-family:"Courier New",monospace;',
-    'font-weight:bold;line-height:1;}',
-    '.sk-stat-label{font-size:11px;color:' + C.dim + ';text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}',
-    '.sk-stat-block{display:flex;gap:22px;margin:6px 0 14px;}',
-    '.sk-taglist{display:flex;flex-direction:column;gap:5px;}',
-    '.sk-tagrow{display:flex;align-items:center;gap:8px;font-size:12px;}',
-    '.sk-tagrow .name{width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + C.text + ';}',
-    '.sk-tagrow .bar{flex:1;height:6px;background:' + C.bg + ';border-radius:3px;overflow:hidden;}',
-    '.sk-tagrow .bar i{display:block;height:100%;background:' + C.amber + ';}',
-    '.sk-tagrow .n{width:28px;text-align:right;color:' + C.dim + ';font-family:"Courier New",monospace;font-size:11px;}',
-    '.sk-filmstrip{display:flex;align-items:flex-end;gap:2px;height:70px;margin:10px 0 4px;',
-    'border-bottom:1px solid ' + C.line + ';padding-bottom:2px;}',
-    '.sk-frame{flex:1;background:' + C.amberDim + ';border-radius:1px 1px 0 0;min-height:2px;position:relative;}',
-    '.sk-frame:hover{background:' + C.amber + ';}',
-    '.sk-frame .yr{position:absolute;bottom:-16px;left:0;right:0;text-align:center;',
-    'font-size:9px;color:' + C.dim + ';font-family:"Courier New",monospace;}',
-    '.sk-frame .ct{position:absolute;top:-15px;left:0;right:0;text-align:center;',
-    'font-size:9px;color:' + C.amber + ';font-family:"Courier New",monospace;opacity:0;}',
-    '.sk-frame:hover .ct{opacity:1;}',
-    '.sk-empty{color:' + C.dim + ';font-size:12px;text-align:center;padding:20px 0;}',
-    '.sk-loading{color:' + C.amber + ';font-size:12px;text-align:center;padding:20px 0;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-close{cursor:pointer;color:' + C.dim + ';font-size:16px;line-height:1;}',
-    '.sk-media-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2147483600;',
-    'display:flex;align-items:center;justify-content:center;padding:24px;}',
-    '.sk-media-box{max-width:760px;width:100%;max-height:90vh;background:' + C.panel + ';border:1px solid ' + C.line + ';',
-    'border-radius:8px;overflow-y:auto;overflow-x:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);}',
-    '.sk-media-box video,.sk-media-box img{width:100%;max-height:72vh;display:block;background:#000;',
-    'object-fit:contain;}',
-    '.sk-media-top{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:8px;padding:8px 10px;background:' + C.panel2 + ';}',
-    '.sk-media-viewpost{margin-left:auto;color:' + C.amber + ';font-size:12px;text-decoration:none;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-media-viewpost:hover{text-decoration:underline;}',
-    '.sk-media-close{cursor:pointer;color:' + C.dim + ';font-size:22px;line-height:1;padding:0 2px 2px;}',
-    '.sk-login-box{width:100%;max-width:320px;background:' + C.panel + ';border:1px solid ' + C.line + ';',
-    'border-radius:8px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.6);}',
-    '.sk-login-title{font-size:15px;font-weight:bold;color:' + C.text + ';margin-bottom:12px;}',
-    '.sk-login-box .sk-input{width:100%;margin-bottom:8px;}',
-    '.sk-login-cancel{display:block;text-align:center;margin-top:10px;color:' + C.dim + ';font-size:12px;cursor:pointer;}',
-    '.sk-comment-composer{background:' + C.panel2 + ';border:1px solid ' + C.line + ';border-radius:6px;',
-    'padding:8px;margin-bottom:10px;}',
-    '.sk-comment-loggedin{display:flex;justify-content:space-between;font-size:11px;color:' + C.dim + ';margin-bottom:6px;}',
-    '.sk-comment-logout{color:' + C.red + ';cursor:pointer;}',
-    '.sk-comment-textarea{width:100%;background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:6px;',
-    'color:' + C.text + ';padding:6px;font-size:12px;min-height:50px;resize:vertical;margin-bottom:6px;',
-    'font-family:inherit;}',
-    '.sk-comment-loginlink{color:' + C.amber + ';font-size:12px;font-weight:600;cursor:pointer;margin-bottom:10px;display:inline-block;}',
-    '.sk-media-close:hover{color:' + C.red + ';}',
-    '.sk-frame-bar{padding:8px 10px;background:' + C.panel2 + ';border-top:1px solid ' + C.line + ';}',
-    '.sk-frame-row{display:flex;align-items:center;gap:4px;}',
-    '.sk-frame-btn{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
-    'padding:5px 9px;border-radius:5px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap;}',
-    '.sk-frame-btn:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-frame-count{flex:1;text-align:center;font-size:13px;font-weight:bold;color:' + C.amber + ';',
-    'font-family:"Courier New",monospace;}',
-    '.sk-frame-time{text-align:center;font-size:11px;color:' + C.dim + ';margin-top:5px;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-trim-row{display:flex;align-items:center;gap:6px;padding:8px 10px 0;flex-wrap:wrap;}',
-    '.sk-trim-label{font-size:10px;color:' + C.dim + ';font-family:"Courier New",monospace;}',
-    '.sk-action-row{display:flex;gap:6px;padding:8px 10px;}',
-    '.sk-action-row .sk-frame-btn{flex:1;}',
-    '.sk-frame-btn:disabled{opacity:.35;cursor:default;}',
-    '.sk-frame-btn:disabled:hover{border-color:' + C.line + ';color:' + C.text + ';}',
-    '.sk-action-status{padding:0 10px 8px;font-size:11px;color:' + C.amber + ';',
-    'font-family:"Courier New",monospace;min-height:14px;}',
-    '.sk-load-more-wrap{text-align:center;margin-top:10px;}',
-    '.sk-load-more-wrap .sk-frame-btn{display:inline-block;padding:8px 16px;}',
-    '.sk-comments-row{padding:0 10px 8px;border-top:1px solid ' + C.line + ';padding-top:8px;}',
-    '.sk-comments-panel{max-height:220px;overflow-y:auto;padding:0 10px 10px;}',
-    '.sk-comment{padding:8px 0;border-top:1px solid ' + C.line + ';}',
-    '.sk-comment:first-child{border-top:none;}',
-    '.sk-comment-head{display:flex;justify-content:space-between;font-size:11px;color:' + C.amber + ';',
-    'font-family:"Courier New",monospace;margin-bottom:3px;}',
-    '.sk-comment-head span{color:' + C.dim + ';font-weight:normal;}',
-    '.sk-comment-body{font-size:12px;color:' + C.text + ';line-height:1.5;white-space:pre-wrap;}',
-    '.sk-comment-quote{border-left:3px solid ' + C.line + ';padding:4px 0 4px 8px;margin:4px 0;color:' + C.dim + ';}',
-    '.sk-comment-ts{color:' + C.amber + ';cursor:pointer;font-weight:bold;}',
-    '.sk-comment-ts:hover{text-decoration:underline;}',
-    '.sk-comment-postlink{color:' + C.link + ';cursor:pointer;text-decoration:underline;}',
-    '.sk-comment-link{color:' + C.link + ';text-decoration:underline;}',
-    '.sk-close:hover{color:' + C.red + ';}',
-    // Themed scrollbars for our own scrollable panels — scoped to these specific
-    // classes only, since these styles are injected globally into the host page
-    // and a broader selector would restyle sakugabooru's own scrollbars too.
-    '.sk-body,.sk-comments-panel,.sk-facet-grid,.sk-chipwrap,.sk-media-box{',
-    'scrollbar-width:thin;scrollbar-color:' + C.amberDim + ' ' + C.bg + ';}',
-    '.sk-body::-webkit-scrollbar,.sk-comments-panel::-webkit-scrollbar,',
-    '.sk-facet-grid::-webkit-scrollbar,.sk-chipwrap::-webkit-scrollbar,',
-    '.sk-media-box::-webkit-scrollbar{width:8px;}',
-    '.sk-body::-webkit-scrollbar-track,.sk-comments-panel::-webkit-scrollbar-track,',
-    '.sk-facet-grid::-webkit-scrollbar-track,.sk-chipwrap::-webkit-scrollbar-track,',
-    '.sk-media-box::-webkit-scrollbar-track{background:' + C.bg + ';}',
-    '.sk-body::-webkit-scrollbar-thumb,.sk-comments-panel::-webkit-scrollbar-thumb,',
-    '.sk-facet-grid::-webkit-scrollbar-thumb,.sk-chipwrap::-webkit-scrollbar-thumb,',
-    '.sk-media-box::-webkit-scrollbar-thumb{background:' + C.amberDim + ';border-radius:4px;}',
-    '.sk-body::-webkit-scrollbar-thumb:hover,.sk-comments-panel::-webkit-scrollbar-thumb:hover,',
-    '.sk-facet-grid::-webkit-scrollbar-thumb:hover,.sk-chipwrap::-webkit-scrollbar-thumb:hover,',
-    '.sk-media-box::-webkit-scrollbar-thumb:hover{background:' + C.amber + ';}'
-  ].join('');
-
-  var styleTag = document.createElement('style');
-  styleTag.textContent = css;
-  document.head.appendChild(styleTag);
-
-  var root = document.createElement('div');
-  root.id = 'sk-enh-root';
-  root.innerHTML =
-    '<div id="sk-enh-panel" style="display:none">' +
-      '<div id="sk-enh-head"><div class="brand">SAKUGA <b>ENHANCER</b></div>' +
-        '<div id="sk-enh-head-actions" style="display:flex;align-items:center;gap:6px">' +
-          '<button type="button" class="sk-icon-btn" id="sk-enh-lock-size" title="lock clip size — resizing the panel adds/removes clips per row instead of resizing them">&#9638;</button>' +
-          '<button type="button" class="sk-icon-btn" id="sk-enh-reset" title="reset size and position">&#8634;</button>' +
-          '<div class="sk-close" id="sk-enh-x">&times;</div>' +
-        '</div></div>' +
-      '<div id="sk-enh-tabs">' +
-        '<div class="sk-tab active" data-tab="search">Search</div>' +
-        '<div class="sk-tab" data-tab="shows">Shows</div>' +
-        '<div class="sk-tab" data-tab="pools">Pools</div>' +
-      '</div>' +
-      '<div class="sk-body" id="sk-enh-body"></div>' +
-      '<div class="sk-resize-corner nw" data-dir="nw" title="drag to resize"></div>' +
-      '<div class="sk-resize-corner ne" data-dir="ne" title="drag to resize"></div>' +
-      '<div class="sk-resize-corner sw" data-dir="sw" title="drag to resize"></div>' +
-      '<div id="sk-enh-resize-se" data-dir="se" title="drag to resize"></div>' +
-      '<div class="sk-resize-edge n" data-dir="n" title="drag to resize"></div>' +
-      '<div class="sk-resize-edge s" data-dir="s" title="drag to resize"></div>' +
-      '<div class="sk-resize-edge w" data-dir="w" title="drag to resize"></div>' +
-      '<div class="sk-resize-edge e" data-dir="e" title="drag to resize"></div>' +
-    '</div>' +
-    '<div id="sk-enh-toggle" title="Sakuga Enhancer">##</div>';
-  document.body.appendChild(root);
-
-  var panel = root.querySelector('#sk-enh-panel');
-  var body = root.querySelector('#sk-enh-body');
-  var head = root.querySelector('#sk-enh-head');
-
-  // ===================== PANEL GEOMETRY (drag + resize) =====================
-  // The panel used to be pinned via CSS (bottom-right, fixed width, 80vh cap).
-  // Now position/size are explicit px, tracked in `geom` and written straight
-  // to inline styles, so drag/resize math has one source of truth to clamp
-  // against instead of fighting the stylesheet.
-  var GEOM_KEY = 'sk-enh-geom';
-  var GEOM_MIN_W = 320, GEOM_MIN_H = 280, GEOM_MARGIN = 8;
-
-  function loadGeometry() {
-    try {
-      var raw = localStorage.getItem(GEOM_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
+  function saveCustomRoles() {
+    localStorage.setItem("kfl-custom-roles", JSON.stringify(customRoles));
+    rebuildCustomRoleSet();
   }
-  function saveGeometry(g) {
-    try { localStorage.setItem(GEOM_KEY, JSON.stringify(g)); } catch (e) { /* non-fatal */ }
-  }
-  function defaultGeometry() {
-    var width = 460;
-    var height = Math.min(640, Math.round(window.innerHeight * 0.8));
-    return {
-      width: width,
-      height: height,
-      left: window.innerWidth - width - 20,
-      top: window.innerHeight - height - 84 // clears the 52px toggle + its own gap
-    };
-  }
-  // Free to adjust both size AND position — used for the very first render
-  // and to recover a geometry that no longer fits (e.g. restored on a
-  // smaller screen than it was saved on).
-  function clampFull(g) {
-    var maxW = Math.max(GEOM_MIN_W, window.innerWidth - GEOM_MARGIN * 2);
-    var maxH = Math.max(GEOM_MIN_H, window.innerHeight - GEOM_MARGIN * 2);
-    var width = Math.min(Math.max(g.width, GEOM_MIN_W), maxW);
-    var height = Math.min(Math.max(g.height, GEOM_MIN_H), maxH);
-    var left = Math.min(Math.max(g.left, GEOM_MARGIN), Math.max(GEOM_MARGIN, window.innerWidth - width - GEOM_MARGIN));
-    var top = Math.min(Math.max(g.top, GEOM_MARGIN), Math.max(GEOM_MARGIN, window.innerHeight - height - GEOM_MARGIN));
-    return { left: left, top: top, width: width, height: height };
-  }
-  // Dragging by the header: size stays put, position is what's constrained.
-  function clampPosition(g) {
-    var left = Math.min(Math.max(g.left, GEOM_MARGIN), Math.max(GEOM_MARGIN, window.innerWidth - g.width - GEOM_MARGIN));
-    var top = Math.min(Math.max(g.top, GEOM_MARGIN), Math.max(GEOM_MARGIN, window.innerHeight - g.height - GEOM_MARGIN));
-    return { left: left, top: top, width: g.width, height: g.height };
-  }
-  // Resizing by any corner/edge handle: a handle's `dirs` string names which
-  // edge(s) it drags ('n'/'s'/'e'/'w', or a corner pair like 'se'). Whichever
-  // edge is being dragged is free to move; the opposite edge stays anchored,
-  // and everything is clamped to the viewport plus the min-size floor.
-  function clampResize(dirs, start, dx, dy) {
-    var left = start.left, top = start.top, width = start.width, height = start.height;
+  rebuildCustomRoleSet();
 
-    if (dirs.indexOf('e') !== -1) {
-      var maxW = Math.max(GEOM_MIN_W, window.innerWidth - start.left - GEOM_MARGIN);
-      width = Math.min(Math.max(start.width + dx, GEOM_MIN_W), maxW);
-    } else if (dirs.indexOf('w') !== -1) {
-      var rightEdge = start.left + start.width;
-      var newLeft = Math.max(start.left + dx, GEOM_MARGIN);
-      newLeft = Math.min(newLeft, rightEdge - GEOM_MIN_W);
-      left = newLeft;
-      width = rightEdge - left;
-    }
-
-    if (dirs.indexOf('s') !== -1) {
-      var maxH = Math.max(GEOM_MIN_H, window.innerHeight - start.top - GEOM_MARGIN);
-      height = Math.min(Math.max(start.height + dy, GEOM_MIN_H), maxH);
-    } else if (dirs.indexOf('n') !== -1) {
-      var bottomEdge = start.top + start.height;
-      var newTop = Math.max(start.top + dy, GEOM_MARGIN);
-      newTop = Math.min(newTop, bottomEdge - GEOM_MIN_H);
-      top = newTop;
-      height = bottomEdge - top;
-    }
-
-    return { left: left, top: top, width: width, height: height };
+  // ---------- ignore list (user-editable, persisted) ----------
+  // Terms to strip out entirely before parsing -- things like "?", "(?)",
+  // or "(PN)" that credit sheets use to flag an unconfirmed name or a pen
+  // name. These aren't part of the name itself and would otherwise corrupt
+  // the search query. Seeded with sensible defaults but fully editable.
+  let ignoreTerms = [];
+  try {
+    const stored = JSON.parse(localStorage.getItem("kfl-ignore-terms") || "null");
+    ignoreTerms = stored || ["?", "(?)", "(PN)"];
+  } catch (e) {
+    ignoreTerms = ["?", "(?)", "(PN)"];
   }
-  function applyGeometry(g) {
-    panel.style.left = g.left + 'px';
-    panel.style.top = g.top + 'px';
-    panel.style.width = g.width + 'px';
-    panel.style.height = g.height + 'px';
+  function saveIgnoreTerms() {
+    localStorage.setItem("kfl-ignore-terms", JSON.stringify(ignoreTerms));
   }
-
-  var geom = clampFull(loadGeometry() || defaultGeometry());
-  applyGeometry(geom);
-
-  // Window itself getting resized can invalidate a perfectly fine geometry
-  // (panel now bigger than the viewport, or hanging off an edge) — re-clamp
-  // automatically rather than leaving it stranded off-screen.
-  var geomSaveTimer = null;
-  window.addEventListener('resize', function () {
-    geom = clampFull(geom);
-    applyGeometry(geom);
-    clearTimeout(geomSaveTimer);
-    geomSaveTimer = setTimeout(function () { saveGeometry(geom); }, 300);
-  });
-
-  head.addEventListener('pointerdown', function (e) {
-    if (e.target.closest('#sk-enh-head-actions')) return; // don't start a drag from any header button
-    e.preventDefault();
-    var startX = e.clientX, startY = e.clientY;
-    var startLeft = geom.left, startTop = geom.top;
-    head.setPointerCapture(e.pointerId);
-    function onMove(ev) {
-      geom = clampPosition({ left: startLeft + (ev.clientX - startX), top: startTop + (ev.clientY - startY), width: geom.width, height: geom.height });
-      applyGeometry(geom);
-    }
-    function onUp() {
-      head.releasePointerCapture(e.pointerId);
-      head.removeEventListener('pointermove', onMove);
-      head.removeEventListener('pointerup', onUp);
-      saveGeometry(geom);
-    }
-    head.addEventListener('pointermove', onMove);
-    head.addEventListener('pointerup', onUp);
-  });
-
-  var resizeHandles = root.querySelectorAll('[data-dir]');
-  for (var ri = 0; ri < resizeHandles.length; ri++) {
-    (function (handleEl) {
-      var dirs = handleEl.getAttribute('data-dir');
-      handleEl.addEventListener('pointerdown', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var start = { left: geom.left, top: geom.top, width: geom.width, height: geom.height };
-        var startX = e.clientX, startY = e.clientY;
-        handleEl.setPointerCapture(e.pointerId);
-        function onMove(ev) {
-          geom = clampResize(dirs, start, ev.clientX - startX, ev.clientY - startY);
-          applyGeometry(geom);
-        }
-        function onUp() {
-          handleEl.releasePointerCapture(e.pointerId);
-          handleEl.removeEventListener('pointermove', onMove);
-          handleEl.removeEventListener('pointerup', onUp);
-          saveGeometry(geom);
-        }
-        handleEl.addEventListener('pointermove', onMove);
-        handleEl.addEventListener('pointerup', onUp);
-      });
-    })(resizeHandles[ri]);
-  }
-
-  root.querySelector('#sk-enh-toggle').onclick = function () {
-    panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
-  };
-  root.querySelector('#sk-enh-x').onclick = function () { panel.style.display = 'none'; };
-  root.querySelector('#sk-enh-reset').onclick = function () {
-    geom = clampFull(defaultGeometry());
-    applyGeometry(geom);
-    saveGeometry(geom);
-  };
-
-  // ===================== LOCK SIZE (fixed clip size vs. fixed column count) =====================
-  // Default grid behavior is a fixed 3 columns that stretch/shrink with the
-  // panel — resizing the panel resizes the clips. Locking flips that: clips
-  // stay a fixed size and the grid reflows more/fewer per row instead,
-  // via CSS Grid's auto-fill + minmax (the standard pattern for this).
-  var LOCK_KEY = 'sk-enh-lock-size';
-  function loadLockPref() {
-    try { return localStorage.getItem(LOCK_KEY) === '1'; } catch (e) { return false; }
-  }
-  function saveLockPref(locked) {
-    try { localStorage.setItem(LOCK_KEY, locked ? '1' : '0'); } catch (e) { /* non-fatal */ }
-  }
-  var lockBtn = root.querySelector('#sk-enh-lock-size');
-  var lockSize = loadLockPref();
-  function applyLockUI(locked) {
-    lockBtn.classList.toggle('active', locked);
-    panel.classList.toggle('sk-size-locked', locked);
-  }
-  applyLockUI(lockSize);
-  lockBtn.addEventListener('click', function () {
-    lockSize = !lockSize;
-    applyLockUI(lockSize);
-    saveLockPref(lockSize);
-  });
-
-  var tabs = root.querySelectorAll('.sk-tab');
-  function switchToTab(name) {
-    tabs.forEach(function (o) { o.classList.toggle('active', o.getAttribute('data-tab') === name); });
-    renderTab(name);
-  }
-  tabs.forEach(function (t) {
-    t.onclick = function () { switchToTab(t.getAttribute('data-tab')); };
-  });
-
-  // ---------- tiny fetch helper ----------
-  function getJSON(path) {
-    return fetch(path, { credentials: 'same-origin' }).then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
+  // Removes every occurrence of every ignore-term from a line, before any
+  // other parsing happens -- handles both space-separated ("Name (?)") and
+  // directly-attached ("Name(PN)") cases the same way.
+  function stripIgnoredTerms(text) {
+    let result = text;
+    const sortedTerms = ignoreTerms.slice().sort((a, b) => b.length - a.length);
+    sortedTerms.forEach((term) => {
+      if (!term) return;
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(escaped, "gi");
+      result = result.replace(re, " ");
     });
-  }
-
-  // ---------- auth & comment posting ----------
-  // Confirmed directly from sakugabooru's own /help/api page: "Simply
-  // hashing your plain password will NOT work since Danbooru salts its
-  // passwords. The actual string that is hashed is
-  // 'er@!$rjiajd0$!dkaopc350!Y%)--your-password--'." This is the classic
-  // Danbooru-v1/Moebooru convention this fork inherited — not a modern
-  // token-based auth scheme, just what the site itself actually uses.
-  var PASSWORD_SALT_PREFIX = 'er@!$rjiajd0$!dkaopc350!Y%)--';
-  var PASSWORD_SALT_SUFFIX = '--';
-  var CREDENTIALS_KEY = 'sk-enh-credentials';
-
-  function sha1Hex(str) {
-    var enc = new TextEncoder().encode(str);
-    return crypto.subtle.digest('SHA-1', enc).then(function (buf) {
-      var bytes = new Uint8Array(buf);
-      var hex = '';
-      for (var i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, '0');
-      return hex;
-    });
-  }
-
-  function hashSakugaPassword(password) {
-    return sha1Hex(PASSWORD_SALT_PREFIX + password + PASSWORD_SALT_SUFFIX);
-  }
-
-  // The raw password is never stored — only the hash, and only in
-  // localStorage, since browsers don't offer anything like a native OS
-  // keychain. That's a real step down from the mobile app's secure storage,
-  // worth knowing even though the principle (store the hash, not the
-  // password) is the same.
-  function saveCredentials(username, passwordHash) {
-    try { localStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ username: username, passwordHash: passwordHash })); }
-    catch (e) { /* storage full/blocked — non-fatal, login just won't persist */ }
-  }
-  function getStoredCredentials() {
-    try {
-      var raw = localStorage.getItem(CREDENTIALS_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
-  }
-  function clearCredentials() {
-    try { localStorage.removeItem(CREDENTIALS_KEY); } catch (e) { /* non-fatal */ }
-  }
-
-  function postCommentRaw(postId, bodyText, username, passwordHash) {
-    var params = new URLSearchParams();
-    params.set('login', username);
-    params.set('password_hash', passwordHash);
-    params.set('comment[post_id]', String(postId));
-    params.set('comment[body]', bodyText);
-
-    return fetch('/comment/create.json', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString()
-    }).then(function (r) {
-      return r.text().then(function (text) {
-        var parsed = null;
-        try { parsed = JSON.parse(text); } catch (e) { /* non-JSON response — fall through to generic HTTP result */ }
-        if (r.ok && (!parsed || parsed.success !== false)) return { success: true };
-        return { success: false, reason: (parsed && parsed.reason) || ('HTTP ' + r.status + ': ' + text.slice(0, 200)) };
-      });
-    });
-  }
-
-  function postComment(postId, bodyText, username, passwordHash) {
-    return postCommentRaw(postId, bodyText, username, passwordHash).then(function (result) {
-      if (!result.success) throw new Error(result.reason || 'failed to post comment');
-    });
-  }
-
-  // Verifies credentials against the real server WITHOUT posting a visible
-  // comment — attempts one on a deliberately out-of-range post id. A
-  // confirmed real response shape from this exact endpoint (tested live in
-  // the native app build of this same feature) is
-  // {"success":false,"reason":"access denied"} for bad credentials — any
-  // OTHER failure reason means auth itself succeeded and the failure is
-  // just that this post obviously doesn't exist.
-  function verifyLogin(username, passwordHash) {
-    return postCommentRaw(999999999, '(login verification — safe to ignore if visible)', username, passwordHash)
-      .then(function (result) {
-        if (result.success) return true;
-        var reason = (result.reason || '').toLowerCase();
-        return reason.indexOf('denied') === -1;
-      });
-  }
-
-  // Confirmed to actually be a 1–3 star rating (not a flat upvote) directly
-  // from the site's own post page — "Score: N ★★★ (vote up)", clickable
-  // per-star. `score` as the param name was already a correct guess (this
-  // worked when hardcoded to 1); this just stops assuming the value is
-  // always 1. There's still no way to check a rating cold on page load — no
-  // vote-check request fires then, and the site's own vote widget HTML is
-  // byte-identical across every rating state (confirmed by direct comparison).
-  // But the vote response ITSELF turns out to carry real, authoritative
-  // state: watching the site's own vote.coffee via DevTools showed the POST
-  // to /post/vote.json returns not just success/failure but the fresh post
-  // (with the real updated score) plus a `votes` map keyed by post id with
-  // *your account's own current vote value* on it, straight from the server
-  // — not an echo of what was just sent. So this now returns the parsed
-  // response instead of resolving void, letting the caller read that
-  // real state directly instead of doing a separate refetch afterward.
-  function castVote(postId, stars, username, passwordHash) {
-    var params = new URLSearchParams();
-    params.set('login', username);
-    params.set('password_hash', passwordHash);
-    params.set('id', String(postId));
-    params.set('score', String(stars));
-    return fetch('/post/vote.json', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString()
-    }).then(function (r) {
-      return r.text().then(function (text) {
-        var parsed = null;
-        try { parsed = JSON.parse(text); } catch (e) { /* non-JSON — fall through to generic HTTP check */ }
-        if (r.ok && (!parsed || parsed.success !== false)) return parsed;
-        throw new Error((parsed && parsed.reason) || ('HTTP ' + r.status + ': ' + text.slice(0, 200)));
-      });
-    });
-  }
-
-  // Real per-account vote state does exist and is fetchable after all — just
-  // not through the JSON API, a dedicated endpoint, or the DOM (all three
-  // came back empty/identical across every rating state when tested
-  // directly). It's embedded in the post page's own raw HTML, inside an
-  // inline `Post.register_resp({...})` script call, under a `votes` map
-  // keyed by post id — confirmed by diffing the actual fetched HTML text
-  // itself, not the rendered DOM (which never reflects it; the widget
-  // renders the same "off" markup regardless, then a separate inline
-  // `vote.updateWidget(...)` call paints the real state client-side from
-  // that same embedded data). This costs one extra page fetch per opened
-  // clip (not per thumbnail in a grid), which is the honest tradeoff for
-  // real accuracy instead of a per-device guess.
-  //
-  // Return value is three-way on purpose — collapsing "couldn't tell" and
-  // "confirmed no vote" into the same null caused a real bug in the app's
-  // version of this: a genuine 3-star rating would reopen showing empty
-  // stars, because a failed fetch and "you never voted" both came back as
-  // null, and the caller treated both as "the real vote is 0", silently
-  // overwriting a correct local rating with nothing.
-  //   - a number (1-3): confirmed real vote, straight from the server
-  //   - null: confirmed no vote — the votes map was read successfully and
-  //     this post genuinely isn't in it
-  //   - undefined: couldn't determine anything (network failure, page shape
-  //     unexpected) — callers must leave the existing local guess alone
-  //     rather than treating this as "no vote"
-  // Finds the JSON object literal starting right after `marker` and returns
-  // it as a substring, using real brace/string-aware scanning rather than a
-  // regex — needed because a naive "match up to the next }" (or even a
-  // targeted "votes":{...} pattern) can grab the WRONG object if the page
-  // embeds more than one thing that happens to look similar (e.g. a related
-  // post, sidebar widget, etc. also serialized somewhere earlier in the same
-  // page). This walks the actual object matching braces properly, so it's
-  // guaranteed to extract the exact argument passed to that specific call.
-  function extractJsonAfter(html, marker) {
-    var markerIdx = html.indexOf(marker);
-    if (markerIdx === -1) return null;
-    var start = html.indexOf('{', markerIdx);
-    if (start === -1) return null;
-    var depth = 0, inStr = false, strCh = '', escape = false;
-    for (var i = start; i < html.length; i++) {
-      var ch = html.charAt(i);
-      if (inStr) {
-        if (escape) { escape = false; }
-        else if (ch === '\\') { escape = true; }
-        else if (ch === strCh) { inStr = false; }
-        continue;
-      }
-      if (ch === '"' || ch === '\'') { inStr = true; strCh = ch; continue; }
-      if (ch === '{') { depth++; }
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) return html.slice(start, i + 1);
-      }
-    }
-    return null; // never closed — malformed/truncated, give up rather than guess
-  }
-
-  function fetchServerVote(postId) {
-    return fetch('/post/show/' + postId, { credentials: 'same-origin' })
-      .then(function (r) {
-        if (!r.ok) return undefined;
-        return r.text().then(function (html) {
-          var jsonStr = extractJsonAfter(html, 'Post.register_resp(');
-          if (!jsonStr) return undefined;
-          try {
-            var data = JSON.parse(jsonStr);
-            if (!data || typeof data.votes !== 'object' || data.votes === null) return undefined;
-            var v = data.votes[String(postId)];
-            return v === undefined ? null : v; // key present -> real value; key absent -> confirmed no vote
-          } catch (e) { return undefined; }
-        });
-      })
-      .catch(function () { return undefined; }); // network failure — unknown, not "no vote"
-  }
-
-
-  // Tracks which posts this browser has rated via the bookmarklet, and what
-  // rating was given (1-3 stars) — the badge's own "voted" state used to be
-  // a plain JS variable that reset on every page reload, showing the rating
-  // option again as if nothing happened. There's no confirmed server-side
-  // "what did I rate this" check to fall back on (no such request fires on
-  // page load — see castVote above), so this is a client-side memory of
-  // *this bookmarklet's own* successful ratings, not a true source of truth —
-  // rating via the site directly, another browser, etc. won't be reflected
-  // here until rated through the bookmarklet at least once.
-  var VOTED_KEY = 'sk-voted-posts';
-  function readVotedMap() {
-    try {
-      var raw = localStorage.getItem(VOTED_KEY);
-      if (!raw) return {};
-      var parsed = JSON.parse(raw);
-      // migrate the old boolean-array-of-ids shape from before star ratings existed
-      if (Array.isArray(parsed)) {
-        var migrated = {};
-        parsed.forEach(function (id) { migrated[id] = 1; });
-        return migrated;
-      }
-      return parsed || {};
-    } catch (e) { return {}; }
-  }
-  function getVoteRating(postId) {
-    var map = readVotedMap();
-    return map[postId] || null;
-  }
-  function setVoteRating(postId, stars) {
-    try {
-      var map = readVotedMap();
-      map[postId] = stars;
-      var keys = Object.keys(map);
-      if (keys.length > 2000) {
-        // keep this from growing forever — drop the oldest-inserted entries
-        var toDrop = keys.length - 2000;
-        for (var i = 0; i < toDrop; i++) delete map[keys[i]];
-      }
-      localStorage.setItem(VOTED_KEY, JSON.stringify(map));
-    } catch (e) { /* non-fatal — worst case the reminder just doesn't persist */ }
-  }
-
-  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-  // Sakugabooru loads Prototype.js, which globally overwrites Array.prototype's
-  // filter/map/sort/every/some/find with its own Ruby-Enumerable-style aliases
-  // (filter->findAll, map->collect, every->all, some->any, find->detect). These
-  // don't reliably behave like the native versions, so anywhere the RESULT is
-  // used for real logic, we use these hand-rolled versions instead — .push(),
-  // .slice(), and .forEach() are left alone since they weren't found aliased.
-  function safeFilter(arr, fn) {
-    var out = [];
-    for (var i = 0; i < arr.length; i++) { if (fn(arr[i], i)) out.push(arr[i]); }
-    return out;
-  }
-  function safeMap(arr, fn) {
-    var out = [];
-    for (var i = 0; i < arr.length; i++) { out.push(fn(arr[i], i)); }
-    return out;
-  }
-  function safeSort(arr, cmp) {
-    var a = arr.slice();
-    if (a.length <= 1) return a;
-    var mid = Math.floor(a.length / 2);
-    var left = safeSort(a.slice(0, mid), cmp);
-    var right = safeSort(a.slice(mid), cmp);
-    var result = [];
-    var i = 0, j = 0;
-    while (i < left.length && j < right.length) {
-      if (cmp(left[i], right[j]) <= 0) { result.push(left[i]); i++; }
-      else { result.push(right[j]); j++; }
-    }
-    while (i < left.length) { result.push(left[i]); i++; }
-    while (j < right.length) { result.push(right[j]); j++; }
     return result;
   }
 
-  function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) {
-    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
-  }); }
 
-  // ---------- cross-tab sync state ----------
-  // Keeps the two tabs in lockstep so switching tabs never requires re-searching.
-  var sync = { artistTag: null }; // canonical animator tag currently "in focus"
-  var searchCache = null; // { tags, order, posts, excluded, facetTags }
-  var searchOrigin = null; // e.g. {type:'shows'} — set right before a Shows-originated search, consumed by runSearch
-  var statsCache = null;  // { tagName, allPosts }
+  // ---------- main panel shell ----------
+  const panel = document.createElement("div");
+  panel.id = "kfl-panel";
+  const initialLeft = Math.max(20, window.innerWidth - 320 - 20);
+  panel.style.cssText = `
+    position: fixed; top: 20px; left: ${initialLeft}px; width: 320px;
+    background: #0b0d10; color: #e8e6e1; font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.5);
+    z-index: 999999; overflow: hidden; border: 1px solid #262b33;
+  `;
+  document.body.appendChild(panel);
 
-  // ===================== LOCAL POOLS (localStorage) =====================
-  // Real server-side pool CREATION requires an account-permission tier most
-  // accounts (including a freshly made test account) don't have — confirmed
-  // both via the API ("access denied") and by trying to create a pool
-  // directly on the site itself. So "My Pools" here is entirely on-device:
-  // no login, no server round-trip, same tradeoff as the companion app's
-  // AsyncStorage-based local pools, just backed by localStorage instead.
-  // Posts are stored as full snapshots at add-time — score etc. won't stay
-  // live-updated, matching the app's approach.
-  var LOCAL_POOLS_KEY = 'sk-local-pools-v1';
-
-  function readLocalPools() {
-    try {
-      var raw = localStorage.getItem(LOCAL_POOLS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) { return []; }
-  }
-  function writeLocalPools(pools) {
-    try { localStorage.setItem(LOCAL_POOLS_KEY, JSON.stringify(pools)); } catch (e) { /* non-fatal — worst case a save doesn't persist */ }
-  }
-  function getLocalPools() { return readLocalPools(); }
-  function getLocalPool(id) {
-    return safeFilter(readLocalPools(), function (p) { return p.id === id; })[0] || null;
-  }
-  function createLocalPool(name, description) {
-    var pools = readLocalPools();
-    var pool = { id: String(Date.now()), name: name, description: description || '', posts: [], createdAt: Date.now() };
-    pools.unshift(pool);
-    writeLocalPools(pools);
-    return pool;
-  }
-  function deleteLocalPool(id) {
-    writeLocalPools(safeFilter(readLocalPools(), function (p) { return p.id !== id; }));
-  }
-  function addPostToLocalPool(poolId, post) {
-    var pools = readLocalPools();
-    var pool = safeFilter(pools, function (p) { return p.id === poolId; })[0];
-    if (pool && !safeFilter(pool.posts, function (p) { return p.id === post.id; }).length) {
-      pool.posts.unshift(post);
-      writeLocalPools(pools);
-      return true;
-    }
-    return false;
-  }
-  function removePostFromLocalPool(poolId, postId) {
-    var pools = readLocalPools();
-    var pool = safeFilter(pools, function (p) { return p.id === poolId; })[0];
-    if (pool) {
-      pool.posts = safeFilter(pool.posts, function (p) { return p.id !== postId; });
-      writeLocalPools(pools);
-    }
-  }
-
-  // ===================== SEARCH TAB =====================
-  var searchState = { tags: [], order: 'score', rating: '' };
-  var searchViewMode = 'results'; // 'results' | 'stats'
-
-  function tagsEqual(a, b) {
-    return a.length === b.length && safeFilter(a, function (t, i) { return t === b[i]; }).length === a.length;
-  }
-
-  function renderSearch() {
-    body.innerHTML =
-      '<div id="sk-tag-controls">' +
-        '<div class="sk-row">' +
-          '<input class="sk-input" id="sk-tag-input" placeholder="add tag, enter to confirm">' +
-          '<select class="sk-select" id="sk-order">' +
-            '<option value="score">top score</option>' +
-            '<option value="score_asc">lowest score</option>' +
-            '<option value="date">newest</option>' +
-            '<option value="id">oldest</option>' +
-            '<option value="random">random</option>' +
-          '</select>' +
-        '</div>' +
-        '<div class="sk-chips" id="sk-chips"></div>' +
-        '<div class="sk-suggest-list" id="sk-tag-suggestions" style="display:none"></div>' +
-        '<div class="sk-row">' +
-          '<button class="sk-btn" id="sk-go" style="flex:1">Search</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="sk-mode-row">' +
-        '<button class="sk-mode-btn active" id="sk-mode-results" type="button">▤ Results</button>' +
-        '<button class="sk-mode-btn" id="sk-mode-stats" type="button">▥ Animator Stats</button>' +
-      '</div>' +
-      '<div id="sk-search-view"></div>';
-
-    renderChips();
-
-    body.querySelector('#sk-order').value = searchState.order;
-    body.querySelector('#sk-order').onchange = function (e) { searchState.order = e.target.value; };
-
-    var input = body.querySelector('#sk-tag-input');
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && input.value.trim()) {
-        commitPendingTag();
-      }
+  // Reusable drag-to-move, since the panel's innerHTML gets replaced on
+  // every mode switch (wiping old listeners) -- call this again each time.
+  function setupDrag(handleEl, target) {
+    let dragging = false, offsetX = 0, offsetY = 0;
+    handleEl.addEventListener("mousedown", (e) => {
+      if (e.target.dataset && e.target.dataset.noDrag) return;
+      dragging = true;
+      const rect = target.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+      e.preventDefault();
     });
-
-    // Live tag suggestions as you type — reuses the same cached full tag
-    // dictionary the Shows tab already builds, just filtered across all tag
-    // types instead of only type 3 (shows), no separate fetch mechanism
-    // needed. Selecting a suggestion runs the search immediately rather than
-    // just adding the chip, since picking a suggestion is how someone
-    // finishes specifying what they're looking for — no reason to also
-    // require a separate Search tap after. Manually typing a full tag and
-    // pressing Enter still just adds a chip without searching, since that
-    // path is more often used to string several tags together first.
-    var suggestWrap = body.querySelector('#sk-tag-suggestions');
-    var suggestDebounce = null;
-    input.addEventListener('input', function () {
-      clearTimeout(suggestDebounce);
-      var q = input.value.trim().toLowerCase().replace(/\s+/g, '_');
-      if (!q) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
-      suggestDebounce = setTimeout(function () {
-        ensureAllTags().then(function (list) {
-          var matches = safeFilter(list, function (t) { return t.name.indexOf(q) !== -1; });
-          matches = safeSort(matches, function (a, b) { return b.count - a.count; }).slice(0, 8);
-          if (!matches.length) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
-          suggestWrap.style.display = 'block';
-          suggestWrap.innerHTML = safeMap(matches, function (t) {
-            return '<div class="sk-suggest-row" data-name="' + esc(t.name) + '">' +
-              '<span>' + esc(t.name) + '</span><span class="sk-suggest-count">' + t.count + '</span></div>';
-          }).join('');
-          var rows = suggestWrap.querySelectorAll('.sk-suggest-row');
-          for (var i = 0; i < rows.length; i++) {
-            rows[i].onclick = function (e) {
-              var name = e.currentTarget.getAttribute('data-name');
-              searchState.tags.push(name);
-              input.value = '';
-              suggestWrap.style.display = 'none';
-              suggestWrap.innerHTML = '';
-              renderChips();
-              searchViewMode = 'results';
-              ensureResultsMarkup();
-              runSearch();
-            };
-          }
-        }).catch(function () { /* a failed suggestion lookup just shows nothing, not worth an error banner */ });
-      }, 150);
+    document.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const maxLeft = window.innerWidth - target.offsetWidth;
+      const maxTop = window.innerHeight - 40;
+      target.style.left = `${Math.min(Math.max(0, e.clientX - offsetX), maxLeft)}px`;
+      target.style.top = `${Math.min(Math.max(0, e.clientY - offsetY), maxTop)}px`;
     });
-
-    body.querySelector('#sk-go').onclick = function () {
-      commitPendingTag();
-      searchViewMode = 'results';
-      ensureResultsMarkup();
-      runSearch();
-    };
-
-    body.querySelector('#sk-mode-results').onclick = function () { searchViewMode = 'results'; renderSearchView(); };
-    body.querySelector('#sk-mode-stats').onclick = function () { searchViewMode = 'stats'; renderSearchView(); };
-
-    renderSearchView();
+    document.addEventListener("mouseup", () => { dragging = false; });
   }
 
-  function renderSearchView() {
-    var toggleResults = body.querySelector('#sk-mode-results');
-    var toggleStats = body.querySelector('#sk-mode-stats');
-    toggleResults.classList.toggle('active', searchViewMode === 'results');
-    toggleStats.classList.toggle('active', searchViewMode === 'stats');
-    toggleStats.textContent = sync.artistTag ? '▥ Stats: ' + sync.artistTag : '▥ Animator Stats';
-    // Tag-search controls only matter in Results mode — showing them in Stats
-    // mode too was exactly the "why two search fields" confusion.
-    body.querySelector('#sk-tag-controls').style.display = searchViewMode === 'stats' ? 'none' : 'block';
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const DELAY_MS = 3000; // between lookups, per KeyFrame's scraping policy
+  const VERIFY_DELAY_MS = 1000; // lighter delay for the organizer's search-only calls
 
-    var view = body.querySelector('#sk-search-view');
+  // Cache of already-fetched lookup results, keyed by normalized name.
+  // Persists for as long as this panel stays open.
+  const cache = {};
+  const cacheKey = (name) => name.trim().toLowerCase();
 
-    if (searchViewMode === 'stats') {
-      view.innerHTML =
-        '<div class="sk-row">' +
-          '<input class="sk-input" id="sk-artist-input" placeholder="animator name, e.g. yutaka_nakamura">' +
-          '<button class="sk-btn" id="sk-artist-go">Look up</button>' +
-        '</div>' +
-        '<div id="sk-stats-out"></div>';
+  const log = (msg) => {
+    const el = document.getElementById("kfl-log");
+    if (!el) return;
+    el.textContent += (el.textContent ? "\n" : "") + msg;
+    el.scrollTop = el.scrollHeight;
+  };
+  const updateCacheCount = () => {
+    const el = document.getElementById("kfl-cache-count");
+    if (!el) return;
+    const n = Object.keys(cache).length;
+    el.textContent = n > 0 ? `${n} cached` : "";
+  };
 
-      var input = view.querySelector('#sk-artist-input');
-      var go = function () {
-        var name = input.value.trim().replace(/\s+/g, '_').toLowerCase();
-        if (name) loadArtistStats(name);
-      };
-      view.querySelector('#sk-artist-go').onclick = go;
-      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
-
-      // Reuse the cached lookup if it's already for the animator currently "in focus".
-      if (statsCache && sync.artistTag && statsCache.tagName === sync.artistTag) {
-        input.value = statsCache.tagName;
-        renderArtistStats(view.querySelector('#sk-stats-out'), statsCache.tagName, statsCache.allPosts);
-      } else if (sync.artistTag && (!statsCache || statsCache.tagName !== sync.artistTag)) {
-        input.value = sync.artistTag;
-        loadArtistStats(sync.artistTag);
-      } else if (statsCache) {
-        input.value = statsCache.tagName;
-        renderArtistStats(view.querySelector('#sk-stats-out'), statsCache.tagName, statsCache.allPosts);
-      }
-      return;
-    }
-
-    ensureResultsMarkup();
-
-    // Reuse an exact cached result if nothing's changed since we last saw this tab.
-    if (searchCache && tagsEqual(searchCache.tags, searchState.tags) && searchCache.order === searchState.order) {
-      paintSearchResults(searchCache);
-    // Otherwise, if Stats just identified an animator we haven't searched yet, sync to it.
-    } else if (sync.artistTag && !(searchCache && searchCache.tags.indexOf(sync.artistTag) !== -1)) {
-      searchState.tags = [sync.artistTag];
-      renderChips();
-      runSearch();
-    }
+  function esc(s) {
+    if (s == null) return "";
+    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  function ensureResultsMarkup() {
-    var view = body.querySelector('#sk-search-view');
-    view.innerHTML =
-      '<div id="sk-back-to-shows" style="display:none"></div>' +
-      '<div id="sk-solo-row" style="display:none;margin-bottom:8px">' +
-        '<button type="button" class="sk-icon-btn" id="sk-solo-toggle">&#9312;</button>' +
-      '</div>' +
-      '<div class="sk-meta" id="sk-facet-head" style="display:none;justify-content:space-between;align-items:center">' +
-        '<button class="sk-filter-toggle" id="sk-filter-toggle" type="button">' +
-          'Filter <span class="sk-filter-badge" id="sk-filter-badge" style="display:none"></span>' +
-          '<span class="chev">▾</span></button>' +
-        '<span><a href="#" id="sk-facet-all" style="color:' + C.amber + '">reset</a></span>' +
-      '</div>' +
-      '<div class="sk-facet-grid" id="sk-facet-grid" style="display:none"></div>' +
-      '<div id="sk-results"></div>';
-  }
-
-  function commitPendingTag() {
-    var input = body.querySelector('#sk-tag-input');
-    if (!input) return;
-    var val = input.value.trim().toLowerCase();
-    if (val) {
-      searchState.tags.push(val.replace(/\s+/g, '_'));
-      input.value = '';
-      renderChips();
-    }
-  }
-
-  function renderChips() {
-    var wrap = body.querySelector('#sk-chips');
-    wrap.innerHTML = '';
-    searchState.tags.forEach(function (t, i) {
-      var chip = document.createElement('div');
-      chip.className = 'sk-chip';
-      chip.innerHTML = esc(t) + ' <span data-i="' + i + '">&times;</span>';
-      chip.querySelector('span').onclick = function () {
-        searchState.tags.splice(i, 1);
-        renderChips();
-      };
-      wrap.appendChild(chip);
-    });
-  }
-
-  // ---------- full tag dictionary (name, type, count) ----------
-  // Fetched once and reused everywhere: hover tooltips need type, the Shows
-  // tab needs it for real substring search since the server's name_pattern
-  // behavior turned out to be unreliable to guess at. Cached in localStorage
-  // so it survives page reloads — only slow the first time or after expiry.
-  var allTagsList = null;
-  var allTagsLoading = null;
-  var tagTypeMap = null;
-  var TAG_CACHE_KEY = 'sk-enh-tagdict-v1';
-  var TAG_CACHE_MAX_AGE = 6 * 60 * 60 * 1000; // 6 hours
-
-  function loadTagCache() {
-    try {
-      var raw = localStorage.getItem(TAG_CACHE_KEY);
-      if (!raw) return null;
-      var obj = JSON.parse(raw);
-      if (!obj || !obj.tags || !obj.fetchedAt) return null;
-      if (Date.now() - obj.fetchedAt > TAG_CACHE_MAX_AGE) return null;
-      return obj.tags;
-    } catch (e) { return null; }
-  }
-  function saveTagCache(tags) {
-    try { localStorage.setItem(TAG_CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), tags: tags })); }
-    catch (e) { /* storage full/blocked — non-fatal, just skip caching */ }
-  }
-
-  function fetchAllTagsPaged(onProgress) {
-    var all = [];
-    var PAGE_SIZE = 1000;
-    var CONCURRENCY = 5; // fetch several pages in parallel instead of one at a time
-    var MAX_TAG_PAGES = 150; // politeness/sanity cap — generous since real per-page size is unconfirmed
-    var nextPage = 1;
-
-    function fetchOne(n) {
-      return getJSON('/tag.json?limit=' + PAGE_SIZE + '&page=' + n + '&order=name')
-        .then(function (batch) {
-          if (!Array.isArray(batch)) throw new Error('unexpected /tag.json response shape');
-          return batch;
-        });
-    }
-
-    function runBatch() {
-      var pages = [];
-      for (var i = 0; i < CONCURRENCY && nextPage <= MAX_TAG_PAGES; i++) { pages.push(nextPage); nextPage++; }
-      if (!pages.length) return Promise.resolve();
-      return Promise.all(safeMap(pages, fetchOne)).then(function (batches) {
-        var reachedEnd = false;
-        for (var i = 0; i < batches.length; i++) {
-          all = all.concat(batches[i]);
-          if (batches[i].length === 0) reachedEnd = true;
-        }
-        if (onProgress) onProgress(all.length);
-        if (!reachedEnd && nextPage <= MAX_TAG_PAGES) {
-          return sleep(80).then(runBatch); // brief pause between batches, not between individual requests
-        }
-      });
-    }
-
-    return runBatch().then(function () { return all; });
-  }
-
-  function ensureAllTags(onProgress) {
-    if (allTagsList) return Promise.resolve(allTagsList);
-    if (allTagsLoading) return allTagsLoading;
-
-    var cached = loadTagCache();
-    if (cached && cached.length) {
-      allTagsList = cached;
-      window.__skDebugTags = cached;
-      tagTypeMap = {};
-      for (var i = 0; i < cached.length; i++) { tagTypeMap[cached[i].name] = cached[i].type; }
-      return Promise.resolve(allTagsList);
-    }
-
-    // Confirmed by direct testing: this fork's name_pattern parameter is a no-op
-    // (identical results regardless of pattern), and limit=0 silently returns a
-    // small default set rather than "everything" despite what the docs claim.
-    // So: real pagination with an explicit limit, no shortcuts.
-    allTagsLoading = fetchAllTagsPaged(onProgress)
-      .then(function (list) {
-        allTagsList = list;
-        window.__skDebugTags = list; // debug hook — check in console with:
-        // window.__skDebugTags.filter(t => t.name.includes('sometag'))
-        tagTypeMap = {};
-        for (var i = 0; i < list.length; i++) { tagTypeMap[list[i].name] = list[i].type; }
-        saveTagCache(list);
-        return allTagsList;
-      })
-      .catch(function (err) {
-        allTagsLoading = null; // allow retrying on the next call instead of sticking forever
-        tagTypeMap = tagTypeMap || {};
-        throw err;
-      });
-    return allTagsLoading;
-  }
-  function ensureTagTypes() { return ensureAllTags().then(function () { return tagTypeMap; }).catch(function () { return tagTypeMap || {}; }); }
-
-  function isVideoFile(url) { return /\.(webm|mp4|mov)(\?|$)/i.test(url || ''); }
-
-  // Shared between the hover-preview dock and the tag section inside an
-  // opened clip — both need the same chip rendering (color-coded by type)
-  // and the same click-to-search behavior, no reason to duplicate either.
-  function buildTagChipsHtml(tags, map) {
-    var artistTags = safeFilter(tags, function (t) { return map[t] === 1; });
-    var otherTags = safeFilter(tags, function (t) { return map[t] !== 1; });
-    function chip(t, extraClass) {
-      return '<span class="sk-mini-chip clickable ' + extraClass + '" data-tag="' + esc(t) + '">' + esc(t) + '</span>';
-    }
-    return '<div class="sk-dock-section">' +
-        '<div class="sk-tagblock-label">' + (artistTags.length ? 'Animator' : 'Animator — untagged') + '</div>' +
-        '<div class="sk-chipwrap">' +
-          (artistTags.length
-            ? safeMap(artistTags, function (t) { return chip(t, 'artist'); }).join('')
-            : '<span class="sk-mini-chip other">not credited on this post</span>') +
-        '</div>' +
-      '</div>' +
-      '<div class="sk-dock-section">' +
-        '<div class="sk-tagblock-label">Tags (' + otherTags.length + ')</div>' +
-        '<div class="sk-chipwrap">' +
-          safeMap(otherTags, function (t) { return chip(t, map[t] === 3 ? 'show' : 'other'); }).join('') +
-        '</div>' +
-      '</div>';
-  }
-
-  function wireTagChipClicks(container, onNavigate) {
-    container.onclick = function (e) {
-      var chipEl = e.target.closest && e.target.closest('.sk-mini-chip[data-tag]');
-      if (!chipEl) return;
-      var tag = chipEl.getAttribute('data-tag');
-      searchState.tags = [tag];
-      searchViewMode = 'results';
-      // switchToTab (not just ensureResultsMarkup) so this also rebuilds the
-      // chip pills from the tags array, and correctly switches away from
-      // Shows if that's where the clip was opened from — ensureResultsMarkup
-      // alone only rebuilds the results container, not the chips display.
-      switchToTab('search');
-      runSearch();
-      if (onNavigate) onNavigate();
-    };
-  }
-
-  var currentInfoPopupClose = null;
-  var currentInfoPopupAnchor = null;
-  function openInfoPopup(anchorEl, p) {
-    if (currentInfoPopupAnchor === anchorEl) {
-      // clicking the same badge that's already open toggles it closed
-      if (currentInfoPopupClose) currentInfoPopupClose();
-      return;
-    }
-    if (currentInfoPopupClose) currentInfoPopupClose();
-
-    var pop = document.createElement('div');
-    pop.id = 'sk-info-popup';
-    pop.className = 'sk-info-popup';
-    document.body.appendChild(pop);
-
-    var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
-    // The `source` field is often just descriptive text (e.g. "Attack_on_Titan #12"),
-    // not an actual URL — putting non-URL text straight into an href causes the
-    // browser to treat it as a same-page fragment link (the "#12" jumps nowhere real).
-    // Only render it as a clickable link when it's genuinely an absolute URL.
-    var isRealUrl = /^https?:\/\//i.test(p.source || '');
-    var sourceHtml = isRealUrl
-      ? '<a href="' + esc(p.source) + '" target="_blank" rel="noopener">source ↗</a>'
-      : (p.source ? '<span class="sk-badge" title="' + esc(p.source) + '">' + esc(p.source.slice(0, 22)) +
-          (p.source.length > 22 ? '…' : '') + '</span>' : '');
-    var linkHtml = sourceHtml + ' <a href="/post/show/' + p.id + '" target="_blank" rel="noopener">view post ↗</a>';
-    var head =
-      '<div class="sk-dock-head">' +
-        '<div class="sk-dock-badges">' +
-          '<span class="sk-badge score">▲ ' + (p.score || 0) + '</span>' +
-          '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
-        '</div>' + linkHtml +
-        '<span class="sk-close" id="sk-info-popup-close">&times;</span>' +
-      '</div>';
-
-    function position() {
-      var rect = anchorEl.getBoundingClientRect();
-      var popRect = pop.getBoundingClientRect();
-      var margin = 8;
-      var left = Math.min(Math.max(rect.left, margin), Math.max(margin, window.innerWidth - popRect.width - margin));
-      var top = rect.bottom + 6;
-      if (top + popRect.height > window.innerHeight - margin) {
-        top = rect.top - popRect.height - 6; // flip above the anchor if there's no room below
-        if (top < margin) top = margin; // neither fits — just clamp to the top edge
-      }
-      pop.style.left = left + 'px';
-      pop.style.top = top + 'px';
-    }
-
-    pop.innerHTML = head +
-      '<div class="sk-dock-body"><div class="sk-loading" style="padding:2px 0">loading tag info…</div></div>';
-    position();
-
-    function close() {
-      pop.remove();
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onOutside, true);
-      window.removeEventListener('resize', position);
-      if (currentInfoPopupClose === close) { currentInfoPopupClose = null; currentInfoPopupAnchor = null; }
-    }
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    function onOutside(e) { if (!pop.contains(e.target) && e.target !== anchorEl) close(); }
-    pop.querySelector('#sk-info-popup-close').onclick = close;
-    document.addEventListener('keydown', onKey);
-    // Deferred so the same click that opened the popup doesn't immediately
-    // register as an "outside" click and close it right back again.
-    setTimeout(function () { document.addEventListener('mousedown', onOutside, true); }, 0);
-    window.addEventListener('resize', position);
-    currentInfoPopupClose = close;
-    currentInfoPopupAnchor = anchorEl;
-
-    ensureTagTypes().then(function (map) {
-      if (!document.body.contains(pop)) return; // closed before this resolved
-      var chipsHtml = buildTagChipsHtml(tags, map);
-      pop.innerHTML = head + '<div class="sk-dock-body">' + chipsHtml + '</div>';
-      wireTagChipClicks(pop, close);
-      pop.querySelector('#sk-info-popup-close').onclick = close;
-      position(); // real content may be a different height than the loading state
-    });
-  }
-
-  function triggerDownload(url, filename) {
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
-  function triggerBlobDownload(blob, filename) {
-    var url = URL.createObjectURL(blob);
-    triggerDownload(url, filename);
-    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-  }
-
-  // ---------- ffmpeg.wasm (client-side, real trimming) ----------
-  // Uses the current 0.12.x API deliberately, not the older 0.11.x one: 0.12.x
-  // is specifically designed to let us fetch the core/wasm files ourselves and
-  // hand them over as same-origin blob: URLs, which avoids the cross-origin
-  // worker-loading problems that come from just pointing at a raw CDN URL from
-  // inside a bookmarklet running on someone else's page. Its single-threaded
-  // "core" package (not "core-mt") also genuinely doesn't reference
-  // SharedArrayBuffer at all, so there's no shim needed — sakugabooru.com
-  // doesn't send the cross-origin-isolation headers real SharedArrayBuffer
-  // needs, and the previous version's crash traced back to faking that
-  // reference rather than avoiding the need for it.
-  var FFMPEG_CONSENT_KEY = 'sk-enh-ffmpeg-consent';
-  var FFMPEG_PKG_BASE = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm';
-  var FFMPEG_PKG_URL = FFMPEG_PKG_BASE + '/index.js';
-  var FFMPEG_UTIL_URL = 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
-  var FFMPEG_CORE_BASE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-  var ffmpegInstance = null;
-  var ffmpegLoadPromise = null;
-
-  function withTimeout(promise, ms, message) {
-    return new Promise(function (resolve, reject) {
-      var timer = setTimeout(function () { reject(new Error(message)); }, ms);
-      promise.then(
-        function (v) { clearTimeout(timer); resolve(v); },
-        function (e) { clearTimeout(timer); reject(e); }
-      );
-    });
-  }
-
-  // worker.js (the "class worker" ffmpeg's main thread talks to) imports two
-  // sibling modules by relative path — './const.js' and './errors.js' — which
-  // can't resolve once worker.js itself is loaded from a blob: URL (blobs have
-  // no real path for relative imports to resolve against). So: fetch all three
-  // as text ourselves, blob the two dependencies first, then patch worker.js's
-  // own source text to point at those blob URLs before blobbing it too. This
-  // is a manual version of the workaround ffmpeg.wasm's own maintainers
-  // describe (see their GitHub issue #767) for the non-bundled single-file case.
-  function buildPatchedWorkerBlobURL() {
-    console.log('[sakuga-enhancer] ffmpeg: fetching worker.js + its dependencies…');
-    return Promise.all([
-      fetch(FFMPEG_PKG_BASE + '/worker.js').then(function (r) { return r.text(); }),
-      fetch(FFMPEG_PKG_BASE + '/const.js').then(function (r) { return r.text(); }),
-      fetch(FFMPEG_PKG_BASE + '/errors.js').then(function (r) { return r.text(); })
-    ]).then(function (texts) {
-      var workerSrc = texts[0], constSrc = texts[1], errorsSrc = texts[2];
-      var constBlobUrl = URL.createObjectURL(new Blob([constSrc], { type: 'text/javascript' }));
-      var errorsBlobUrl = URL.createObjectURL(new Blob([errorsSrc], { type: 'text/javascript' }));
-      var patched = workerSrc.split('./const.js').join(constBlobUrl).split('./errors.js').join(errorsBlobUrl);
-      console.log('[sakuga-enhancer] ffmpeg: patched worker.js imports, sizes —',
-        'worker:', workerSrc.length, 'const:', constSrc.length, 'errors:', errorsSrc.length);
-      return URL.createObjectURL(new Blob([patched], { type: 'text/javascript' }));
-    });
-  }
-
-  function ensureFfmpegLoaded(statusEl) {
-    if (ffmpegInstance) return Promise.resolve(ffmpegInstance);
-    if (ffmpegLoadPromise) return ffmpegLoadPromise;
-    ffmpegLoadPromise = (function () {
-      statusEl.textContent = 'loading video tool… (first time only, your browser caches it after this)';
-      console.log('[sakuga-enhancer] ffmpeg: importing wrapper + util modules…');
-      return Promise.all([import(FFMPEG_PKG_URL), import(FFMPEG_UTIL_URL)]).then(function (mods) {
-        console.log('[sakuga-enhancer] ffmpeg: modules imported, fetching core/wasm/worker…');
-        var FFmpeg = mods[0].FFmpeg;
-        var toBlobURL = mods[1].toBlobURL;
-        return Promise.all([
-          toBlobURL(FFMPEG_CORE_BASE + '/ffmpeg-core.js', 'text/javascript'),
-          toBlobURL(FFMPEG_CORE_BASE + '/ffmpeg-core.wasm', 'application/wasm'),
-          buildPatchedWorkerBlobURL()
-        ]).then(function (urls) {
-          console.log('[sakuga-enhancer] ffmpeg: all files ready, calling ffmpeg.load()…');
-          var ffmpeg = new FFmpeg();
-          try {
-            ffmpeg.on('log', function (e) { console.log('[ffmpeg]', e.message); });
-          } catch (e) { /* .on not available on this build — non-fatal */ }
-          var loadPromise = ffmpeg.load({ coreURL: urls[0], wasmURL: urls[1], classWorkerURL: urls[2] });
-          return withTimeout(loadPromise, 20000,
-            "video tool took too long to start (over 20s) — its worker likely failed silently. " +
-            "Check the console for [sakuga-enhancer]/[ffmpeg] messages to see where it stopped."
-          ).then(function () {
-            console.log('[sakuga-enhancer] ffmpeg: loaded successfully.');
-            ffmpegInstance = ffmpeg;
-            return ffmpeg;
-          });
-        });
-      });
-    })().catch(function (err) { ffmpegLoadPromise = null; throw err; });
-    return ffmpegLoadPromise;
-  }
-
-  function getFfmpegConsent(statusEl) {
-    if (localStorage.getItem(FFMPEG_CONSENT_KEY) === '1') return Promise.resolve();
-    return new Promise(function (resolve, reject) {
-      statusEl.innerHTML =
-        'trimming needs a one-time ~25–30MB download (your browser caches it afterward, so this only happens once) — ' +
-        '<a href="#" id="sk-ffmpeg-yes" style="color:' + C.amber + '">continue</a> · ' +
-        '<a href="#" id="sk-ffmpeg-no" style="color:' + C.dim + '">cancel</a>';
-      statusEl.querySelector('#sk-ffmpeg-yes').onclick = function (e) {
-        e.preventDefault();
-        localStorage.setItem(FFMPEG_CONSENT_KEY, '1');
-        statusEl.textContent = '';
-        resolve();
-      };
-      statusEl.querySelector('#sk-ffmpeg-no').onclick = function (e) {
-        e.preventDefault();
-        statusEl.textContent = '';
-        reject(new Error('cancelled'));
-      };
-    });
-  }
-
-  function performTrim(p, inTime, outTime, statusEl, accurate) {
-    return getFfmpegConsent(statusEl)
-      .then(function () { return ensureFfmpegLoaded(statusEl); })
-      .then(function (ffmpeg) {
-        statusEl.textContent = 'reading clip…';
-        return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
-          var inputName = 'input.' + (p.file_ext || 'webm');
-          var outputName = accurate ? 'output.mp4' : 'output.' + (p.file_ext || 'webm');
-          var startedAt = Date.now();
-          return ffmpeg.writeFile(inputName, new Uint8Array(buf)).then(function () {
-            var args;
-            if (accurate) {
-              statusEl.textContent = 'trimming (re-encoding for frame accuracy — slower)…';
-              // `-ss`/`-to` placed AFTER `-i`, with real encoders instead of `-c copy`:
-              // stream-copy can only cut on keyframe boundaries since it never decodes
-              // the video, so the actual start/end can drift from what was marked.
-              // Re-encoding is the only way to land on the exact requested frame —
-              // slower and a generation of quality loss, but genuinely frame-accurate.
-              args = ['-i', inputName, '-ss', String(inTime), '-to', String(outTime),
-                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-c:a', 'aac', outputName];
-            } else {
-              statusEl.textContent = 'trimming (fast mode)…';
-              // Fast stream-copy: no decoding, just remuxing existing compressed data —
-              // much quicker, but can only cut on the nearest keyframe, so the actual
-              // start/end may land a little before/after what was marked.
-              args = ['-ss', String(inTime), '-to', String(outTime), '-i', inputName, '-c', 'copy', outputName];
+  function buildRoleGroups(credits) {
+    const roleMaps = {};
+    for (const work of credits || []) {
+      for (const nameEntry of work.names || []) {
+        for (const cat of nameEntry.categories || []) {
+          for (const role of cat.roles || []) {
+            const roleName = role.role_en || cat.category || "Other";
+            if (!roleMaps[roleName]) roleMaps[roleName] = new Map();
+            const map = roleMaps[roleName];
+            if (!map.has(work.uuid)) {
+              map.set(work.uuid, {
+                work: work.stafflist_name, workJa: work.stafflist_name_ja,
+                year: work.seasonYear, slug: work.slug, studios: work.stafflist_studios,
+                status: work.status, kv: work.stafflist_kv, episodes: [],
+              });
             }
-            return ffmpeg.exec(args);
-          }).then(function () {
-            return ffmpeg.readFile(outputName);
-          }).then(function (data) {
-            var seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-            statusEl.textContent = 'done in ' + seconds + 's';
-            var ext = accurate ? 'mp4' : (p.file_ext || 'webm');
-            return { blob: new Blob([data.buffer], { type: 'video/' + ext }), ext: ext };
-          });
-        });
-      });
-  }
-
-  function formatCommentDate(raw) {
-    if (raw === null || raw === undefined || raw === '') return '';
-    var d;
-    if (typeof raw === 'number') {
-      d = new Date(raw * 1000); // most likely: unix seconds, matching post.json's created_at
-      if (isNaN(d.getTime())) d = new Date(raw); // fallback: maybe already milliseconds
-    } else {
-      d = new Date(raw); // fallback: maybe an ISO date string instead of a number
-    }
-    return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
-  }
-
-  // Splits a raw comment body into alternating quote / non-quote text
-  // segments on [quote]...[/quote] markers (case-insensitive, can span
-  // multiple lines) — quote segments get their own distinct styling.
-  function parseCommentSegments(raw) {
-    var segments = [];
-    var quoteRe = /\[quote\]([\s\S]*?)\[\/quote\]/gi;
-    var lastIndex = 0;
-    var m;
-    while ((m = quoteRe.exec(raw))) {
-      if (m.index > lastIndex) segments.push({ quote: false, text: raw.slice(lastIndex, m.index) });
-      segments.push({ quote: true, text: m[1] });
-      lastIndex = quoteRe.lastIndex;
-    }
-    if (lastIndex < raw.length) segments.push({ quote: false, text: raw.slice(lastIndex) });
-    return segments;
-  }
-
-  // Escapes a text segment, then finds timestamps (M:SS / MM:SS / H:MM:SS),
-  // sakugabooru post links, and other URLs, turning each into the
-  // appropriate clickable markup. A single combined regex + one replace()
-  // pass avoids the double-processing risk of running separate regexes in
-  // sequence (a generic-URL pass re-wrapping a post-link span, for example).
-  function linkifySegment(text) {
-    var escaped = esc(text);
-    var re = /(https?:\/\/[^\s]*\/post\/show\/(\d+)[^\s]*)|(\/post\/show\/(\d+)[^\s]*)|(https?:\/\/[^\s<]+)|(\b(?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d+)?\b)/g;
-    return escaped.replace(re, function (match, fullPostUrl, id1, relPostUrl, id2, plainUrl, timestamp) {
-      if (timestamp) {
-        return '<span class="sk-comment-ts" data-ts="' + match + '">' + match + '</span>';
-      }
-      // Strip common trailing punctuation (end-of-sentence periods, closing
-      // parens, etc.) that's more likely sentence punctuation than part of
-      // the actual URL, so a link doesn't swallow the punctuation after it.
-      var stripped = match.replace(/[.,;:!?)\]}'"]+$/, '');
-      var trailing = match.slice(stripped.length);
-      if (fullPostUrl || relPostUrl) {
-        var id = id1 || id2;
-        return '<span class="sk-comment-postlink" data-post-id="' + id + '">' + stripped + '</span>' + trailing;
-      }
-      if (plainUrl) {
-        return '<a href="' + stripped + '" target="_blank" rel="noopener" class="sk-comment-link">' + stripped + '</a>' + trailing;
-      }
-      return match;
-    });
-  }
-
-  function renderCommentBody(raw) {
-    var segments = parseCommentSegments(raw);
-    var html = '';
-    segments.forEach(function (seg) {
-      var inner = linkifySegment(seg.text).replace(/\n/g, '<br>');
-      html += seg.quote ? '<div class="sk-comment-quote">' + inner + '</div>' : inner;
-    });
-    return html;
-  }
-
-  // M:SS / MM:SS / H:MM:SS -> total seconds. Each ':'-separated part
-  // multiplies the running total by 60 and adds the next part.
-  function parseTimestampToSeconds(ts) {
-    var parts = ts.split(':');
-    var seconds = 0;
-    for (var i = 0; i < parts.length; i++) seconds = seconds * 60 + parseFloat(parts[i]);
-    return isNaN(seconds) ? null : seconds;
-  }
-
-  // Fetches a post by id and opens it in a new modal on top of whatever's
-  // currently open — the in-app equivalent of a comment's post link, rather
-  // than navigating the browser tab away to view it on the actual site.
-  function openPostById(id) {
-    getJSON('/post.json?tags=' + encodeURIComponent('id:' + id) + '&limit=1').then(function (posts) {
-      var p = posts && posts[0];
-      if (!p) { alert('post #' + id + ' not found'); return; }
-      if (isVideoFile(p.file_url)) openVideoModal(p); else openImageModal(p);
-    }).catch(function (err) {
-      alert('failed to open post: ' + err.message);
-    });
-  }
-
-  function renderComments(panel, comments, vid) {
-    if (!comments || !comments.length) {
-      panel.innerHTML = '<div class="sk-empty" style="padding:10px 0">no comments yet</div>';
-      return;
-    }
-    var html = '';
-    comments.forEach(function (c) {
-      var name = esc(c.creator || (c.creator_id ? 'user #' + c.creator_id : 'anonymous'));
-      var body = renderCommentBody(c.body || c.comment || '');
-      var when = formatCommentDate(c.created_at);
-      html += '<div class="sk-comment">' +
-        '<div class="sk-comment-head"><b>' + name + '</b><span>' + when + '</span></div>' +
-        '<div class="sk-comment-body">' + body + '</div>' +
-      '</div>';
-    });
-    panel.innerHTML = html;
-
-    // Event delegation rather than per-element listeners — the panel gets
-    // fully replaced via innerHTML above, so individual listeners would
-    // need re-wiring on every render anyway.
-    panel.onclick = function (e) {
-      var tsEl = e.target.closest && e.target.closest('.sk-comment-ts');
-      if (tsEl) {
-        var seconds = parseTimestampToSeconds(tsEl.getAttribute('data-ts'));
-        if (seconds !== null && vid) {
-          vid.currentTime = Math.min(seconds, vid.duration || seconds);
-          vid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        return;
-      }
-      var linkEl = e.target.closest && e.target.closest('.sk-comment-postlink');
-      if (linkEl) {
-        var id = linkEl.getAttribute('data-post-id');
-        if (id) openPostById(Number(id));
-      }
-    };
-  }
-
-
-  function openLoginModal(onSuccess) {
-    var backdrop = document.createElement('div');
-    backdrop.className = 'sk-media-backdrop';
-    var box = document.createElement('div');
-    box.className = 'sk-login-box';
-    box.innerHTML =
-      '<div class="sk-login-title">Log In</div>' +
-      '<input class="sk-input" id="sk-login-user" placeholder="username" autocomplete="username">' +
-      '<input class="sk-input" id="sk-login-pass" type="password" placeholder="password" autocomplete="current-password">' +
-      '<button class="sk-btn" id="sk-login-submit" style="width:100%">Log In</button>' +
-      '<div class="sk-action-status" id="sk-login-status"></div>' +
-      '<span class="sk-login-cancel" id="sk-login-cancel">cancel</span>';
-    backdrop.appendChild(box);
-    document.body.appendChild(backdrop);
-
-    function close() {
-      backdrop.remove();
-      document.removeEventListener('keydown', onKey);
-    }
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    document.addEventListener('keydown', onKey);
-    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
-    box.querySelector('#sk-login-cancel').onclick = close;
-
-    var userInput = box.querySelector('#sk-login-user');
-    var passInput = box.querySelector('#sk-login-pass');
-    var statusEl = box.querySelector('#sk-login-status');
-    var submitBtn = box.querySelector('#sk-login-submit');
-
-    function submit() {
-      var username = userInput.value.trim();
-      var password = passInput.value;
-      if (!username || !password) return;
-      submitBtn.disabled = true;
-      statusEl.textContent = 'checking…';
-      hashSakugaPassword(password).then(function (hash) {
-        return verifyLogin(username, hash).then(function (ok) {
-          if (!ok) {
-            statusEl.textContent = 'username or password is incorrect';
-            submitBtn.disabled = false;
-            return;
+            const entry = map.get(work.uuid);
+            for (const c of role.credits || []) {
+              if (c.episode) entry.episodes.push(c.episode);
+            }
           }
-          saveCredentials(username, hash);
-          close();
-          onSuccess({ username: username, passwordHash: hash });
+        }
+      }
+    }
+    const roles = {};
+    for (const [roleName, map] of Object.entries(roleMaps)) {
+      roles[roleName] = Array.from(map.values()).sort((a, b) => (b.year || 0) - (a.year || 0));
+    }
+    return roles;
+  }
+
+  // Groups by WORK instead of by role — one card per anime, with all of this
+  // person's roles on it listed together, each with its own episode list.
+  // This is what feeds the AniList-style poster grid view (as opposed to the
+  // role-first list view above).
+  function buildWorkGrid(credits) {
+    const map = new Map();
+    for (const work of credits || []) {
+      if (!map.has(work.uuid)) {
+        map.set(work.uuid, {
+          work: work.stafflist_name, workJa: work.stafflist_name_ja,
+          year: work.seasonYear, slug: work.slug, studios: work.stafflist_studios,
+          status: work.status, kv: work.stafflist_kv, roleMap: new Map(), // roleName -> episodes[]
         });
-      }).catch(function (err) {
-        statusEl.textContent = 'login failed: ' + err.message;
-        submitBtn.disabled = false;
-      });
-    }
-    submitBtn.onclick = submit;
-    passInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
-    userInput.focus();
-  }
-
-  function renderCommentComposer(container, p, onPosted) {
-    var creds = getStoredCredentials();
-    if (!creds) {
-      container.innerHTML = '<span class="sk-comment-loginlink" id="sk-login-open">Log in to comment</span>';
-      container.querySelector('#sk-login-open').onclick = function () {
-        openLoginModal(function () { renderCommentComposer(container, p, onPosted); });
-      };
-      return;
-    }
-    container.innerHTML =
-      '<div class="sk-comment-composer">' +
-        '<div class="sk-comment-loggedin"><span>logged in as ' + esc(creds.username) + '</span>' +
-        '<span class="sk-comment-logout" id="sk-comment-logout">log out</span></div>' +
-        '<textarea class="sk-comment-textarea" id="sk-comment-text" placeholder="write a comment…"></textarea>' +
-        '<button class="sk-btn" id="sk-comment-post" style="width:100%">Post Comment</button>' +
-        '<div class="sk-action-status" id="sk-comment-status"></div>' +
-      '</div>';
-    container.querySelector('#sk-comment-logout').onclick = function () {
-      clearCredentials();
-      renderCommentComposer(container, p, onPosted);
-    };
-    var textArea = container.querySelector('#sk-comment-text');
-    var postBtn = container.querySelector('#sk-comment-post');
-    var statusEl = container.querySelector('#sk-comment-status');
-    postBtn.onclick = function () {
-      var body = textArea.value.trim();
-      if (!body) return;
-      postBtn.disabled = true;
-      statusEl.textContent = 'posting…';
-      postComment(p.id, body, creds.username, creds.passwordHash).then(function () {
-        textArea.value = '';
-        statusEl.textContent = '';
-        postBtn.disabled = false;
-        onPosted();
-      }).catch(function (err) {
-        statusEl.textContent = 'failed to post: ' + err.message;
-        postBtn.disabled = false;
-      });
-    };
-  }
-
-  // Tags weren't visible anywhere inside an actually-opened clip before —
-  // only via the separate hover-preview dock shown before opening. This
-  // puts the same color-coded, clickable chip display directly in the
-  // modal itself, reusing the exact same rendering/click logic.
-  function addTagsSection(box, p) {
-    var container = document.createElement('div');
-    container.className = 'sk-dock-body';
-    container.style.borderTop = '1px solid ' + C.line;
-    container.innerHTML = '<div class="sk-loading" style="padding:8px 0">loading tag info…</div>';
-    box.appendChild(container);
-
-    var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
-    ensureTagTypes().then(function (map) {
-      container.innerHTML = buildTagChipsHtml(tags, map);
-      // Unlike the hover dock (where nothing is covering the results, so
-      // updating search state in the background is fine), this is inside an
-      // open modal — leaving it open after the tag click meant the person
-      // never actually saw the new results, and the modal's own now-stale
-      // tag chips just sat there unchanged. Close it so the search that just
-      // ran is immediately visible.
-      wireTagChipClicks(container, function () { box._close(); });
-    });
-  }
-
-  function addCommentsSection(box, p) {
-    var row = document.createElement('div');
-    row.className = 'sk-comments-row';
-    row.innerHTML = '<button class="sk-frame-btn" id="sk-comments-toggle">Comments</button>';
-    box.appendChild(row);
-
-    var panel = document.createElement('div');
-    panel.className = 'sk-comments-panel';
-    panel.style.display = 'none';
-    box.appendChild(panel);
-
-    var composerDiv = document.createElement('div');
-    panel.appendChild(composerDiv);
-    var listDiv = document.createElement('div');
-    panel.appendChild(listDiv);
-
-    var vid = box.querySelector('video'); // null for image posts — renderComments handles that gracefully
-    function loadComments() {
-      listDiv.innerHTML = '<div class="sk-loading" style="padding:10px 0">loading comments…</div>';
-      getJSON('/comment.json?post_id=' + p.id).then(function (comments) {
-        renderComments(listDiv, Array.isArray(comments) ? comments : null, vid);
-      }).catch(function (err) {
-        listDiv.innerHTML = '<div class="sk-empty" style="padding:10px 0">couldn\'t load comments — ' + esc(err.message) + '</div>';
-      });
-    }
-
-    var loaded = false;
-    row.querySelector('#sk-comments-toggle').onclick = function () {
-      var showing = panel.style.display !== 'none';
-      panel.style.display = showing ? 'none' : 'block';
-      if (showing) return;
-      renderCommentComposer(composerDiv, p, loadComments); // cheap to re-render each open; keeps login state current
-      if (loaded) return;
-      loaded = true;
-      loadComments();
-    };
-  }
-
-  function openAddToPoolModal(post) {
-    var backdrop = document.createElement('div');
-    backdrop.className = 'sk-media-backdrop';
-    var box = document.createElement('div');
-    box.className = 'sk-login-box';
-    backdrop.appendChild(box);
-    document.body.appendChild(backdrop);
-
-    function close() {
-      backdrop.remove();
-      document.removeEventListener('keydown', onKey);
-    }
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    document.addEventListener('keydown', onKey);
-    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
-
-    function render() {
-      var pools = getLocalPools();
-      box.innerHTML =
-        '<div class="sk-login-title">Add to Pool</div>' +
-        (pools.length
-          ? '<div id="sk-atp-list"></div>'
-          : '<div class="sk-caption">no pools yet</div>') +
-        '<div class="sk-row" style="margin-top:4px">' +
-          '<input class="sk-input" id="sk-atp-new-name" placeholder="new pool name">' +
-          '<button class="sk-btn" id="sk-atp-new-go">Create</button>' +
-        '</div>' +
-        '<span class="sk-login-cancel" id="sk-atp-cancel">close</span>';
-
-      box.querySelector('#sk-atp-cancel').onclick = close;
-
-      var listEl = box.querySelector('#sk-atp-list');
-      if (listEl) {
-        pools.forEach(function (pl) {
-          var already = !!safeFilter(pl.posts, function (x) { return x.id === post.id; }).length;
-          var item = document.createElement('div');
-          item.className = 'sk-show-pick' + (already ? ' off' : '');
-          item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + (already ? 'added' : pl.posts.length) + '</span>';
-          if (!already) {
-            item.onclick = function () {
-              addPostToLocalPool(pl.id, post);
-              render();
-            };
+      }
+      const entry = map.get(work.uuid);
+      for (const nameEntry of work.names || []) {
+        for (const cat of nameEntry.categories || []) {
+          for (const role of cat.roles || []) {
+            const roleName = role.role_en || cat.category || "Other";
+            if (!entry.roleMap.has(roleName)) entry.roleMap.set(roleName, []);
+            for (const c of role.credits || []) {
+              if (c.episode) entry.roleMap.get(roleName).push(c.episode);
+            }
           }
-          listEl.appendChild(item);
-        });
-      }
-
-      var nameInput = box.querySelector('#sk-atp-new-name');
-      box.querySelector('#sk-atp-new-go').onclick = function () {
-        var name = nameInput.value.trim();
-        if (!name) return;
-        var pool = createLocalPool(name, '');
-        addPostToLocalPool(pool.id, post);
-        render();
-      };
-      nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') box.querySelector('#sk-atp-new-go').onclick(); });
-    }
-    render();
-  }
-
-  function buildMediaShell(p) {
-    var backdrop = document.createElement('div');
-    backdrop.className = 'sk-media-backdrop';
-    var box = document.createElement('div');
-    box.className = 'sk-media-box';
-    box.innerHTML =
-      '<div class="sk-media-top">' +
-        '<span class="sk-badge score" id="sk-vote-score">' + (p.score || 0) + '</span>' +
-        '<span class="sk-stars" id="sk-stars" title="rate 1-3 stars — click again anytime to change your rating">' +
-          '<span class="sk-star" data-n="1">&#9733;</span>' +
-          '<span class="sk-star" data-n="2">&#9733;</span>' +
-          '<span class="sk-star" data-n="3">&#9733;</span>' +
-          '<span class="sk-star-clear" id="sk-star-clear" title="clear your rating">&times;</span>' +
-        '</span>' +
-        '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
-        '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
-        '<span class="sk-media-viewpost" id="sk-copy-link" style="cursor:pointer;margin-left:8px" title="copy a link to this post">Copy Link</span>' +
-        '<span class="sk-media-viewpost" id="sk-add-pool" style="cursor:pointer;margin-left:8px" title="add this clip to a pool">Add to Pool</span>' +
-        '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
-      '</div>';
-    backdrop.appendChild(box);
-    document.body.appendChild(backdrop); // attach to the real page body so it overlays everything, not just our small panel
-
-    var scoreEl = box.querySelector('#sk-vote-score');
-    var starsWrap = box.querySelector('#sk-stars');
-    var starEls = starsWrap.querySelectorAll('.sk-star');
-    var clearBtn = box.querySelector('#sk-star-clear');
-    var currentRating = getVoteRating(p.id) || 0;
-    var currentScoreValue = p.score || 0;
-    var submitting = false;
-
-    function paintStars(n) {
-      for (var i = 0; i < starEls.length; i++) {
-        starEls[i].classList.toggle('filled', (i + 1) <= n);
-      }
-      clearBtn.classList.toggle('active', n > 0);
-    }
-    paintStars(currentRating); // instant paint from the local guess, corrected below once real data loads
-
-    // The local guess above is only this browser's own memory — it can be
-    // wrong (voted from another device, or never voted despite a stale
-    // local entry). Fetch the real per-account state and silently correct
-    // the display if it disagrees, without blocking on it first.
-    fetchServerVote(p.id).then(function (serverVote) {
-      if (submitting) return; // don't clobber an in-flight vote the person just cast
-      if (serverVote === undefined) return; // couldn't determine anything real — leave the local guess alone
-      var real = serverVote || 0; // null (confirmed no vote) -> 0
-      if (real !== currentRating) {
-        currentRating = real;
-        setVoteRating(p.id, real);
-        paintStars(currentRating);
-      }
-    });
-
-    // Shared by both the 1-3 star clicks and the clear ("×") control below —
-    // clearing is just rating with n=0, inferred from the site's own vote
-    // widget markup (a distinct "star-0" control alongside stars 1-3,
-    // presumably clearing a vote) but not independently confirmed live the
-    // way every other piece of this feature was, so worth a real test.
-    function submitRating(n) {
-      // Real vote behavior turns out to be mutable — re-clicking a
-      // different star changes an existing rating rather than being
-      // rejected, so this only guards against a second click landing
-      // mid-request, not against re-rating in general.
-      if (submitting) return;
-      var creds = getStoredCredentials();
-      if (!creds) { openLoginModal(function () { submitRating(n); }); return; }
-      submitting = true;
-      castVote(p.id, n, creds.username, creds.passwordHash).then(function (result) {
-        var fresh = result && result.posts && result.posts[0];
-        // The vote response itself carries the server's own record of your
-        // current vote (result.votes[postId]) — trust that over the value
-        // we just sent, in case the server ever normalizes/rejects it
-        // differently than expected.
-        var myVote = result && result.votes && result.votes[String(p.id)];
-        var previousRating = currentRating;
-        currentRating = myVote || n;
-        setVoteRating(p.id, currentRating);
-        // Re-voting is delta-based (the server replaces your old star value
-        // rather than adding a new one) — confirmed directly (1★→2★ moved
-        // score by exactly +1) — so if the response is ever missing the
-        // fresh post for some reason, the fallback has to guess
-        // score + (new - old), not score + new.
-        currentScoreValue = fresh ? fresh.score : currentScoreValue + (n - previousRating);
-        scoreEl.textContent = currentScoreValue;
-        paintStars(currentRating);
-        // The results grid (or a pool grid) this clip was opened from
-        // already rendered its own card with the old score baked into
-        // static HTML — mutating p.score alone wouldn't touch that DOM, and
-        // there was no re-render to pick it up until a fresh search. Update
-        // both: the underlying object (so anything rendered *after* this
-        // point is correct) and any already-rendered card right now.
-        p.score = currentScoreValue;
-        var openCards = root.querySelectorAll('.sk-card[data-post-id="' + p.id + '"] .score');
-        for (var oc = 0; oc < openCards.length; oc++) {
-          openCards[oc].textContent = '\u25B2 ' + currentScoreValue;
         }
-      }).catch(function (err) {
-        paintStars(currentRating); // revert the hover-preview back to the real current rating
-        alert('rating failed: ' + err.message);
-      }).then(function () { submitting = false; });
-    }
-
-    for (var si = 0; si < starEls.length; si++) {
-      (function (starEl) {
-        var n = parseInt(starEl.getAttribute('data-n'), 10);
-        starEl.addEventListener('mouseenter', function () {
-          if (!submitting) paintStars(n);
-        });
-        starEl.addEventListener('click', function () { submitRating(n); });
-      })(starEls[si]);
-    }
-    clearBtn.addEventListener('mouseenter', function () {
-      if (!submitting) paintStars(0);
-    });
-    clearBtn.addEventListener('click', function () {
-      if (currentRating === 0) return; // nothing to clear
-      submitRating(0);
-    });
-    starsWrap.addEventListener('mouseleave', function () {
-      if (!submitting) paintStars(currentRating);
-    });
-
-    var copyLinkBtn = box.querySelector('#sk-copy-link');
-    copyLinkBtn.onclick = function () {
-      var url = location.origin + '/post/show/' + p.id;
-      var originalText = copyLinkBtn.textContent;
-      function showCopied() {
-        copyLinkBtn.textContent = '✓ copied';
-        setTimeout(function () { copyLinkBtn.textContent = originalText; }, 1500);
       }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(showCopied).catch(function () { prompt('copy this link:', url); });
-      } else {
-        prompt('copy this link:', url);
-      }
-    };
-
-    box.querySelector('#sk-add-pool').onclick = function () {
-      openAddToPoolModal(p);
-    };
-
-    var extraCleanup = [];
-    function close() {
-      var vid = box.querySelector('video');
-      if (vid) vid.pause();
-      backdrop.remove();
-      document.removeEventListener('keydown', onKey);
-      extraCleanup.forEach(function (fn) { fn(); });
     }
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    document.addEventListener('keydown', onKey);
-    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
-    box.querySelector('#sk-media-close').onclick = close;
-    box._onClose = function (fn) { extraCleanup.push(fn); };
-    box._close = close; // lets content appended to the box (e.g. a clicked tag) trigger a real close
-    return box; // caller appends the actual <video> or <img>; can register box._onClose(fn) for cleanup
+    return Array.from(map.values())
+      .map((w) => ({
+        work: w.work, workJa: w.workJa, year: w.year, slug: w.slug,
+        studios: w.studios, status: w.status, kv: w.kv,
+        roles: Array.from(w.roleMap.entries()).map(([name, episodes]) => ({ name, episodes })),
+      }))
+      .sort((a, b) => (b.year || 0) - (a.year || 0));
   }
 
-  function openVideoModal(p) {
-    var box = buildMediaShell(p);
-    var vid = document.createElement('video');
-    vid.controls = true;
-    vid.autoplay = true;
-    vid.playsInline = true;
-    vid.src = p.file_url;
-    box.appendChild(vid);
+  async function searchName(name) {
+    const searchRes = await fetch(`/api/search/?q=${encodeURIComponent(name)}&type=all`, { credentials: "include" });
+    if (!searchRes.ok) return { error: `Search failed (status ${searchRes.status})` };
+    const matches = (await searchRes.json()).staff || [];
+    if (matches.length === 0) return { error: "No matching staff found" };
+    return { matches };
+  }
 
-    // Frame-accurate review is the whole point of sakuga — add frame stepping.
-    // fps comes from the post data if this fork exposes it, else a common
-    // anime-standard fallback; either way, browser seeking is only approximate
-    // (it can't guarantee landing on an exact decoded frame), so treat this as
-    // "close enough for review," not a frame-perfect scrubber.
-    var fps = Number(p.frame_rate || p.framerate) || 24;
-    var MED_STEP = 10;
-    var bigStep = Math.max(1, Math.round(fps)); // ~1 second worth of frames
+  async function fetchProfile(name, staffId, allMatches) {
+    const result = { query: name, found: false, allSearchMatches: allMatches };
 
-    var frameBar = document.createElement('div');
-    frameBar.className = 'sk-frame-bar';
-    frameBar.innerHTML =
-      '<div class="sk-frame-row">' +
-        '<button class="sk-frame-btn" id="sk-fb-bigback" title="back ~1s">«</button>' +
-        '<button class="sk-frame-btn" id="sk-fb-medback" title="back ' + MED_STEP + ' frames">‹‹</button>' +
-        '<button class="sk-frame-btn" id="sk-fb-back" title="previous frame ( , )">‹</button>' +
-        '<span class="sk-frame-count" id="sk-frame-count">0 / 0</span>' +
-        '<button class="sk-frame-btn" id="sk-fb-fwd" title="next frame ( . )">›</button>' +
-        '<button class="sk-frame-btn" id="sk-fb-medfwd" title="forward ' + MED_STEP + ' frames">››</button>' +
-        '<button class="sk-frame-btn" id="sk-fb-bigfwd" title="forward ~1s">»</button>' +
-      '</div>' +
-      '<div class="sk-frame-time" id="sk-frame-time">0:00.0 / 0:00.0</div>';
-    box.appendChild(frameBar);
+    const profileRes = await fetch(`/api/person/show.php?id=${staffId}&type=person`, { credentials: "include" });
+    if (!profileRes.ok) { result.error = `Profile fetch failed (status ${profileRes.status})`; return result; }
+    const data = await profileRes.json();
+    const staff = data.staff || {};
+    const credits = data.credits || [];
 
-    var countEl = frameBar.querySelector('#sk-frame-count');
-    var timeEl = frameBar.querySelector('#sk-frame-time');
+    result.found = true;
+    result.id = staff.id;
+    result.nameEn = staff.en;
+    result.nameJa = staff.ja;
+    result.jobs = data.jobs || [];
+    result.studios = data.studios || {};
+    result.creditCount = credits.length;
+    result.roles = buildRoleGroups(credits);
+    result.workGrid = buildWorkGrid(credits);
 
-    function formatTime(t) {
-      var m = Math.floor(t / 60);
-      var s = t - m * 60;
-      var sStr = s.toFixed(1);
-      if (s < 10) sStr = '0' + sStr;
-      return m + ':' + sStr;
-    }
-    function updateDisplay() {
-      var total = Math.round((vid.duration || 0) * fps);
-      var cur = Math.round(vid.currentTime * fps);
-      countEl.textContent = cur + ' / ' + total;
-      timeEl.textContent = formatTime(vid.currentTime) + ' / ' + formatTime(vid.duration || 0);
-    }
-    function step(deltaFrames) {
-      vid.pause();
-      var next = vid.currentTime + deltaFrames / fps;
-      vid.currentTime = Math.max(0, Math.min(vid.duration || next, next));
-    }
-    vid.addEventListener('loadedmetadata', updateDisplay);
-    vid.addEventListener('timeupdate', updateDisplay);
+    return result;
+  }
 
-    frameBar.querySelector('#sk-fb-back').onclick = function () { step(-1); };
-    frameBar.querySelector('#sk-fb-fwd').onclick = function () { step(1); };
-    frameBar.querySelector('#sk-fb-medback').onclick = function () { step(-MED_STEP); };
-    frameBar.querySelector('#sk-fb-medfwd').onclick = function () { step(MED_STEP); };
-    frameBar.querySelector('#sk-fb-bigback').onclick = function () { step(-bigStep); };
-    frameBar.querySelector('#sk-fb-bigfwd').onclick = function () { step(bigStep); };
+  // Shows candidate buttons in the panel and resolves with the chosen match
+  // (or null if the user clicks Skip). Pauses the run loop until answered.
+  function promptForMatch(name, matches) {
+    return new Promise((resolve) => {
+      const box = document.getElementById("kfl-select");
+      box.style.display = "flex";
+      box.innerHTML = `<div style="color:#8a8f98; font-size:11.5px; margin-bottom:2px;">Multiple matches for "${esc(name)}" — pick one:</div>`;
 
-    function onFrameKey(e) {
-      if (e.key === ',') step(-1);
-      else if (e.key === '.') step(1);
-    }
-    document.addEventListener('keydown', onFrameKey);
-    box._onClose(function () { document.removeEventListener('keydown', onFrameKey); });
+      matches.forEach((m, i) => {
+        const btn = document.createElement("button");
+        const jobsPreview = (m.jobs || []).slice(0, 2).join(", ");
+        const studioTag = m.is_studio ? "[Studio] " : "";
+        btn.textContent = `${studioTag}${m.en || m.ja || "Unnamed"}${m.ja ? ` (${m.ja})` : ""}${jobsPreview ? ` — ${jobsPreview}` : ""}`;
+        btn.style.cssText = m.is_studio
+          ? "text-align:left; background:#1c2028; color:#f5a623; border:1px solid #3a3020; border-radius:6px; padding:6px 8px; cursor:pointer; font-size:11.5px;"
+          : "text-align:left; background:#1c2028; color:#e8e6e1; border:1px solid #262b33; border-radius:6px; padding:6px 8px; cursor:pointer; font-size:11.5px;";
+        btn.onclick = () => { box.style.display = "none"; box.innerHTML = ""; resolve(matches[i]); };
+        box.appendChild(btn);
+      });
 
-    // ---- trim range + download/share ----
-    // There's no server here, so trimming runs entirely client-side via
-    // ffmpeg.wasm (loaded on first use, see below) — a real re-encode, not a
-    // stream copy, since stream-copy can only cut on keyframe boundaries and
-    // frame-accurate trimming needs an actual decode/re-encode of the range.
-    var inTime = null, outTime = null;
-
-    var trimCaption = document.createElement('div');
-    trimCaption.className = 'sk-caption';
-    trimCaption.style.padding = '8px 10px 0';
-    trimCaption.textContent = 'optional: use the frame controls above to find a start/end point, mark them below, ' +
-      'then Download/Share Trim will cut exactly that range.';
-    box.appendChild(trimCaption);
-
-    var trimRow = document.createElement('div');
-    trimRow.className = 'sk-trim-row';
-    trimRow.innerHTML =
-      '<button class="sk-frame-btn" id="sk-mark-in" title="set the trim start to the current playhead position">Mark In</button>' +
-      '<span class="sk-trim-label" id="sk-trim-in">in: —</span>' +
-      '<button class="sk-frame-btn" id="sk-mark-out" title="set the trim end to the current playhead position">Mark Out</button>' +
-      '<span class="sk-trim-label" id="sk-trim-out">out: —</span>' +
-      '<button class="sk-frame-btn" id="sk-trim-clear" title="clear the marked range — buttons below go back to acting on the full clip">✕</button>';
-    box.appendChild(trimRow);
-
-    var accuracyRow = document.createElement('div');
-    accuracyRow.className = 'sk-trim-row';
-    accuracyRow.innerHTML =
-      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:' + C.dim + ';cursor:pointer">' +
-        '<input type="checkbox" id="sk-accurate-trim" style="accent-color:' + C.amber + '">' +
-        'frame-accurate (re-encodes — slower, but exact; unchecked is a fast copy that may drift a few frames)' +
-      '</label>';
-    box.appendChild(accuracyRow);
-
-    var actionRow = document.createElement('div');
-    actionRow.className = 'sk-action-row';
-    actionRow.innerHTML =
-      '<button class="sk-frame-btn" id="sk-dl-full" title="downloads the original file, unmodified">⬇ Download Full</button>' +
-      '<button class="sk-frame-btn" id="sk-dl-trim" disabled title="mark a range above first — trims to it and downloads the result (takes a moment)">⬇ Download Trim</button>';
-    box.appendChild(actionRow);
-
-    var statusEl = document.createElement('div');
-    statusEl.className = 'sk-action-status';
-    box.appendChild(statusEl);
-
-    var inLabel = trimRow.querySelector('#sk-trim-in');
-    var outLabel = trimRow.querySelector('#sk-trim-out');
-    var dlTrimBtn = actionRow.querySelector('#sk-dl-trim');
-    var accurateCheckbox = accuracyRow.querySelector('#sk-accurate-trim');
-
-    function updateTrimBtn() {
-      var hasTrim = inTime !== null && outTime !== null && outTime > inTime;
-      dlTrimBtn.disabled = !hasTrim;
-      dlTrimBtn.title = hasTrim
-        ? 'trims to your marked range and downloads the result (takes a moment)'
-        : 'mark a range above first — trims to it and downloads the result (takes a moment)';
-    }
-    updateTrimBtn(); // set initial button state (no trim range yet)
-
-    trimRow.querySelector('#sk-mark-in').onclick = function () {
-      inTime = vid.currentTime;
-      inLabel.textContent = 'in: ' + formatTime(inTime);
-      updateTrimBtn();
-    };
-    trimRow.querySelector('#sk-mark-out').onclick = function () {
-      outTime = vid.currentTime;
-      outLabel.textContent = 'out: ' + formatTime(outTime);
-      updateTrimBtn();
-    };
-    trimRow.querySelector('#sk-trim-clear').onclick = function () {
-      inTime = null; outTime = null;
-      inLabel.textContent = 'in: —';
-      outLabel.textContent = 'out: —';
-      updateTrimBtn();
-    };
-
-    box._onClose(function () {
-      // ffmpeg.wasm 0.11.x has no clean mid-job cancel; if a trim is running when the
-      // modal closes it'll just finish silently in the background rather than error out.
+      const skipBtn = document.createElement("button");
+      skipBtn.textContent = "Skip this name";
+      skipBtn.style.cssText = "background:#2a1414; color:#f2a; border:1px solid #4a1f1f; border-radius:6px; padding:6px 8px; cursor:pointer; font-size:11.5px;";
+      skipBtn.onclick = () => { box.style.display = "none"; box.innerHTML = ""; resolve(null); };
+      box.appendChild(skipBtn);
     });
-
-    actionRow.querySelector('#sk-dl-full').onclick = function () {
-      triggerDownload(p.file_url, 'sakuga_' + p.id + '.' + (p.file_ext || 'webm'));
-    };
-
-    dlTrimBtn.onclick = function () {
-      if (dlTrimBtn.disabled) return;
-      dlTrimBtn.disabled = true;
-      performTrim(p, inTime, outTime, statusEl, accurateCheckbox.checked).then(function (res) {
-        triggerBlobDownload(res.blob, 'sakuga_' + p.id + '_trim.' + res.ext);
-        updateTrimBtn();
-      }).catch(function (err) {
-        if (err.message !== 'cancelled') statusEl.textContent = 'trim failed: ' + err.message;
-        updateTrimBtn();
-      });
-    };
-
-    addTagsSection(box, p);
-    addCommentsSection(box, p);
   }
 
-  function openImageModal(p) {
-    var box = buildMediaShell(p);
-    var img = document.createElement('img');
-    var src = p.sample_url || p.jpeg_url || p.file_url || p.preview_url;
-    img.src = src;
-    box.appendChild(img);
+  async function lookupName(name) {
+    const searchResult = await searchName(name);
+    if (searchResult.error) return { query: name, found: false, error: searchResult.error };
 
-    var actionRow = document.createElement('div');
-    actionRow.className = 'sk-action-row';
-    actionRow.innerHTML =
-      '<button class="sk-frame-btn" id="sk-img-dl">⬇ Download</button>';
-    box.appendChild(actionRow);
-    var statusEl = document.createElement('div');
-    statusEl.className = 'sk-action-status';
-    box.appendChild(statusEl);
+    const matches = searchResult.matches;
+    const allMatches = matches.map((m) => ({ id: m.anilist_id, en: m.en, ja: m.ja, jobs: m.jobs, isStudio: !!m.is_studio }));
 
-    actionRow.querySelector('#sk-img-dl').onclick = function () {
-      triggerDownload(p.file_url || src, 'sakuga_' + p.id + '.' + (p.file_ext || 'jpg'));
-    };
-
-    addTagsSection(box, p);
-    addCommentsSection(box, p);
-  }
-
-  function buildCard(p) {
-    var card = document.createElement('div');
-    card.className = 'sk-card';
-    card.setAttribute('data-post-id', String(p.id)); // lets a vote cast later find this exact card and refresh its score without a full re-render
-    var thumb = p.preview_url || p.jpeg_url || p.sample_url;
-    var clipUrl = p.file_url;
-    var playable = isVideoFile(clipUrl);
-    card.innerHTML =
-      (thumb ? '<img loading="lazy" src="' + thumb + '">' : '') +
-      (playable ? '<video muted loop playsinline preload="none"></video><div class="vidmark">▶ clip</div>' : '') +
-      '<div class="score">&#9650; ' + (p.score || 0) + '</div>' +
-      '<div class="info-badge" title="tags &amp; info">&#9432;</div>';
-
-    var hoverVid = null;
-    if (playable) {
-      hoverVid = card.querySelector('video');
-      card.addEventListener('mouseenter', function () {
-        hoverVid.src = clipUrl;
-        hoverVid.play().catch(function () {});
-      });
-      card.addEventListener('mouseleave', function () {
-        hoverVid.pause();
-        hoverVid.removeAttribute('src');
-        hoverVid.load();
-      });
-    }
-
-    // A floating popup anchored to this badge, rather than a dock inline in
-    // the results flow — the old version lived at the bottom of the whole
-    // grid and had to yank the scroll position to bring itself into view on
-    // every hover, which fought with normal browsing. This one just appears
-    // next to whatever you clicked and doesn't touch scroll position at all.
-    var infoBadge = card.querySelector('.info-badge');
-    infoBadge.addEventListener('click', function (e) {
-      e.stopPropagation(); // don't also trigger the card's own click-to-open
-      openInfoPopup(infoBadge, p);
-    });
-
-    card.title = (p.tags || '').slice(0, 200);
-    card.onclick = function () {
-      if (playable) {
-        if (hoverVid) hoverVid.pause();
-        openVideoModal(p);
-      } else {
-        openImageModal(p);
-      }
-    };
-    return card;
-  }
-
-  function paintSearchResults(cache) {
-    var results = body.querySelector('#sk-results');
-    var facetHead = body.querySelector('#sk-facet-head');
-    var facetGrid = body.querySelector('#sk-facet-grid');
-    var toggle = body.querySelector('#sk-filter-toggle');
-    var badge = body.querySelector('#sk-filter-badge');
-    var backWrap = body.querySelector('#sk-back-to-shows');
-
-    if (cache.origin && cache.origin.type === 'shows') {
-      backWrap.style.display = 'block';
-      backWrap.innerHTML = '<a href="#" id="sk-back-to-shows-link" class="sk-mini-toggle" style="display:inline-block;margin-bottom:8px">← back to episode list</a>';
-      backWrap.querySelector('#sk-back-to-shows-link').onclick = function (e) {
-        e.preventDefault();
-        switchToTab('shows');
-      };
+    let chosen;
+    if (matches.length === 1) {
+      chosen = matches[0];
     } else {
-      backWrap.style.display = 'none';
-      backWrap.innerHTML = '';
+      log(`  -> ${matches.length} matches found, pick one in the panel...`);
+      chosen = await promptForMatch(name, matches);
+      if (!chosen) return { query: name, found: false, error: "Skipped by user (multiple matches)", allSearchMatches: allMatches };
     }
 
-    var soloRow = body.querySelector('#sk-solo-row');
-    var soloBtn = body.querySelector('#sk-solo-toggle');
-    if (cache.posts.length) {
-      soloRow.style.display = 'block';
-      // Contradicts a search that already requires 2+ animators to all be
-      // credited together (every result would necessarily have 2+ animator
-      // tags, so "exactly 1" could never match anything) — disable rather
-      // than let someone hit a silently-empty result.
-      var soloDisabled = safeFilter(cache.tags, function (t) { return tagTypeMap && tagTypeMap[t] === 1; }).length > 1;
-      if (soloDisabled && cache.soloOnly) cache.soloOnly = false;
-      soloBtn.disabled = soloDisabled;
-      soloBtn.classList.toggle('active', !!cache.soloOnly);
-      soloBtn.title = soloDisabled
-        ? 'solo cuts only — disabled, this search already requires 2+ animators'
-        : (cache.soloOnly ? 'showing solo cuts only (exactly one animator) — click to show all' : 'solo cuts only — exactly one animator credited');
-      soloBtn.onclick = function () {
-        if (soloBtn.disabled) return;
-        cache.soloOnly = !cache.soloOnly;
-        paintSearchResults(cache);
-      };
-    } else {
-      soloRow.style.display = 'none';
+    if (chosen.is_studio) {
+      return { query: name, found: false, error: "That match is a studio, not a staff member — studio profiles aren't supported by this tool", allSearchMatches: allMatches };
     }
 
-    // Solo cut = exactly one animator-type tag on the post. Same client-side
-    // approach as the exclude-tags filter below, since there's no server-side
-    // tag syntax for "exactly one of type X" — reuses the same tagTypeMap
-    // already populated after every search.
-    var visible = safeFilter(cache.posts, function (p) {
-      var tags = (p.tags || '').split(/\s+/);
-      for (var i = 0; i < tags.length; i++) {
-        if (cache.excluded[tags[i]]) return false;
-      }
-      if (cache.soloOnly) {
-        var animatorCount = 0;
-        for (var j = 0; j < tags.length; j++) {
-          if (tagTypeMap && tagTypeMap[tags[j]] === 1) animatorCount++;
+    // Staff not linked to an AniList entry have anilist_id: null. The site
+    // falls back to addressing them by name instead — id=ja:<name> or
+    // id=en:<name> (confirmed via captured request: show.php?id=en:Christina).
+    // Only the name portion gets percent-encoded; the "ja:"/"en:" prefix and
+    // colon stay literal.
+    let staffId = chosen.anilist_id;
+    if (staffId == null) {
+      if (chosen.ja) staffId = "ja:" + encodeURIComponent(chosen.ja);
+      else if (chosen.en) staffId = "en:" + encodeURIComponent(chosen.en);
+    }
+
+    if (staffId == null) return { query: name, found: false, error: "Chosen match had no id or name to look up", allSearchMatches: allMatches };
+
+    return fetchProfile(name, staffId, allMatches);
+  }
+  // ---------- results page builder ----------
+  let uid = 0;
+  function renderPerson(r) {
+    if (!r.found) {
+      return `<div class="person"><div class="error-card"><span class="q">${esc(r.query)}</span> — ${esc(r.error || "not found")}</div></div>`;
+    }
+    const jobs = (r.jobs || []).map((j) => `<span class="badge">${esc(j)}</span>`).join("");
+    const studioNames = Object.keys(r.studios || {});
+    const studiosHtml = studioNames.length
+      ? `<div class="studio-affiliations">Studio affiliations: ${studioNames.map((s) => esc(s)).join(", ")}</div>`
+      : "";
+    const roles = r.roles || {};
+    const roleNames = Object.keys(roles).sort((a, b) => roles[b].length - roles[a].length);
+
+    const rolesHtml = roleNames.map((roleName) => {
+      const works = roles[roleName];
+      const sectionId = `kfl-role-${uid++}`;
+      return `
+        <div class="role-section" id="${sectionId}">
+          <div class="role-head" onclick="document.getElementById('${sectionId}').classList.toggle('open')">
+            <span class="role-arrow">▶</span>
+            <span class="role-title">${esc(roleName)}</span>
+            <span class="role-count">${works.length}</span>
+          </div>
+          <div class="role-works">
+            ${works.map((w) => `
+              <div class="role-work">
+                ${w.kv ? `<img class="role-work-thumb" src="${esc(w.kv)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
+                <div class="role-work-text">
+                  <div class="role-work-title">${esc(w.work || w.slug)}</div>
+                  <div class="role-work-meta">
+                    <span class="year">${esc(w.year ?? "—")}</span>
+                    ${w.studios ? `<span>${esc(w.studios)}</span>` : ""}
+                    ${w.episodes && w.episodes.length ? `<span>${esc(w.episodes.join(", "))}</span>` : ""}
+                  </div>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="person">
+        <div class="person-head">
+          <div class="person-name">${esc(r.nameEn || r.query)}${r.nameJa ? `<span class="ja">${esc(r.nameJa)}</span>` : ""}</div>
+          <div class="badges">${jobs}</div>
+          ${studiosHtml}
+        </div>
+        <div>${rolesHtml || '<div style="padding:16px 22px; color:var(--muted); font-size:13px;">No credits listed.</div>'}</div>
+      </div>
+    `;
+  }
+
+  function renderPersonGrid(r) {
+    if (!r.found) {
+      return `<div class="person"><div class="error-card"><span class="q">${esc(r.query)}</span> — ${esc(r.error || "not found")}</div></div>`;
+    }
+    const jobs = (r.jobs || []).map((j) => `<span class="badge">${esc(j)}</span>`).join("");
+    const studioNames = Object.keys(r.studios || {});
+    const studiosHtml = studioNames.length
+      ? `<div class="studio-affiliations">Studio affiliations: ${studioNames.map((s) => esc(s)).join(", ")}</div>`
+      : "";
+    const works = r.workGrid || [];
+
+    const cardsHtml = works.map((w) => `
+      <div class="grid-card">
+        ${w.kv
+          ? `<img class="grid-card-img" src="${esc(w.kv)}" alt="" loading="lazy" onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='flex';">`
+          : ""}
+        <div class="grid-card-placeholder" style="${w.kv ? "display:none;" : ""}">${esc((w.work || w.slug || "?").slice(0, 1))}</div>
+        <div class="grid-card-title">${esc(w.work || w.slug)}</div>
+        <div class="grid-card-year">${esc(w.year ?? "—")}</div>
+        <div class="grid-role-pills">${w.roles.map((r) => `<span class="grid-role-pill">${esc(r.name)}${r.episodes.length ? ` <span class="ep">${esc(r.episodes.join(", "))}</span>` : ""}</span>`).join("")}</div>
+      </div>
+    `).join("");
+
+    const GRID_PREVIEW_ROWS = 2; // how many full rows to show before collapsing
+    const TOGGLE_THRESHOLD = 8; // rough cutoff to decide whether a toggle is worth showing at all
+    const needsToggle = works.length > TOGGLE_THRESHOLD;
+    const gridId = `kfl-grid-${uid++}`;
+
+    // Toggle link sits in the header (not below the grid) and stays sticky
+    // while scrolling, so collapsing is always reachable. The exact number
+    // of cards to hide is computed at runtime (see the script at the bottom
+    // of buildResultsPage) since it depends on how many columns actually fit
+    // the screen — that's the only way to guarantee full rows, never a
+    // cropped one.
+    const toggleLink = needsToggle
+      ? `<span class="grid-toggle-link" id="${gridId}-btn" onclick="
+          const el = document.getElementById('${gridId}');
+          el.classList.toggle('expanded');
+          document.getElementById('${gridId}-btn').textContent = el.classList.contains('expanded') ? 'Show less' : 'Show all ${works.length}';
+          window.kflRefreshGridPreviews();
+        ">Show all ${works.length}</span>`
+      : "";
+
+    return `
+      <div class="person">
+        <div class="person-head person-head-split">
+          <div>
+            <div class="person-name">${esc(r.nameEn || r.query)}${r.nameJa ? `<span class="ja">${esc(r.nameJa)}</span>` : ""}</div>
+            <div class="badges">${jobs}</div>
+            ${studiosHtml}
+          </div>
+          ${toggleLink}
+        </div>
+        <div class="work-grid-wrap${needsToggle ? "" : " expanded"}" id="${gridId}" data-preview-rows="${GRID_PREVIEW_ROWS}">
+          <div class="work-grid">${cardsHtml || '<div style="padding:16px 22px; color:var(--muted); font-size:13px;">No credits listed.</div>'}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildResultsPage(results) {
+    const doneMsg = `${results.filter((r) => r.found).length}/${results.length} found`;
+    const bodyHtmlList = results.map(renderPerson).join("");
+    const bodyHtmlGrid = results.map(renderPersonGrid).join("");
+    // Escape '<' so a "</script" sequence inside any bio/title text can't
+    // break out of the embedded JSON script tag below.
+    const rawDataJson = JSON.stringify(results).replace(/</g, "\\u003c");
+    return `
+      <!DOCTYPE html><html><head><meta charset="UTF-8"><title>KeyFrame Lookup — Results</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+      <style>
+        :root { --bg:#0b0d10; --panel:#15181d; --panel-2:#1c2028; --line:#262b33; --text:#e8e6e1; --muted:#8a8f98; --amber:#f5a623; --cyan:#4fd1c5; }
+        * { box-sizing: border-box; }
+        body { margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
+        header { padding: 28px 24px 18px; border-bottom: 1px solid var(--line); display:flex; align-items:center; gap:14px; }
+        .slate-mark { width:30px; height:30px; background: repeating-linear-gradient(45deg, var(--amber), var(--amber) 6px, #111 6px, #111 12px); border-radius:4px; flex-shrink:0; }
+        h1 { font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:700; margin:0; }
+        h1 span { color: var(--amber); }
+        .sub { color:var(--muted); font-size:13px; margin-top:2px; }
+        main { max-width: 900px; margin:0 auto; padding: 28px 24px 80px; }
+        .person { background:var(--panel); border:1px solid var(--line); border-radius:10px; margin-bottom:20px; }
+        .person-head { padding:18px 22px; border-bottom:1px solid var(--line); }
+        .person-name { font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700; }
+        .person-name .ja { font-family:'Inter',sans-serif; font-weight:400; color:var(--muted); font-size:13px; margin-left:8px; }
+        .badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+        .studio-affiliations { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); margin-top:8px; }
+        .badge { font-size:11px; padding:4px 9px; border-radius:20px; background:var(--panel-2); border:1px solid var(--line); color:var(--cyan); font-family:'JetBrains Mono',monospace; }
+        .role-section { border-bottom:1px solid var(--line); }
+        .role-section:last-child { border-bottom:none; }
+        .role-head { padding:12px 22px; display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+        .role-head:hover { background:var(--panel-2); }
+        .role-arrow { color:var(--amber); font-size:11px; transition:transform .15s ease; width:10px; flex-shrink:0; }
+        .role-section.open .role-arrow { transform: rotate(90deg); }
+        .role-title { font-weight:600; font-size:14px; flex:1; }
+        .role-count { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber); background:rgba(245,166,35,.1); padding:2px 8px; border-radius:20px; }
+        .role-works { display:none; padding:0 22px 12px 46px; }
+        .role-section.open .role-works { display:block; }
+        .role-work { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px dashed var(--line); }
+        .role-work:last-child { border-bottom:none; }
+        .role-work-thumb { width:42px; height:58px; object-fit:cover; border-radius:4px; flex-shrink:0; background:var(--panel-2); }
+        .role-work-text { flex:1; min-width:0; }
+        .role-work-title { font-weight:600; font-size:14px; }
+        .role-work-meta { margin-top:3px; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; }
+        .role-work-meta .year { color:var(--cyan); }
+        .error-card { padding:16px 22px; color:var(--muted); font-size:13px; }
+        .error-card .q { color:var(--text); font-weight:600; }
+        footer { text-align:center; color:var(--muted); font-size:12px; padding:20px; }
+        footer a { color:var(--amber); }
+
+        /* view toggle */
+        .view-toggle { display:flex; gap:6px; margin-left:auto; }
+        .view-toggle button {
+          font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600;
+          background:var(--panel-2); color:var(--muted); border:1px solid var(--line);
+          border-radius:6px; padding:7px 14px; cursor:pointer;
         }
-        if (animatorCount !== 1) return false;
-      }
-      return true;
-    });
+        .view-toggle button.active { background:var(--amber); color:#14171c; border-color:var(--amber); }
 
-    if (!visible.length) {
-      results.innerHTML = '<div class="sk-empty">' +
-        (cache.posts.length ? 'no clips left after filtering' : 'no posts matched those tags') + '</div>';
-    } else {
-      var grid = document.createElement('div');
-      grid.className = 'sk-grid';
-      if (cache.sampledOnly) {
-        var note = document.createElement('div');
-        note.className = 'sk-caption';
-        note.style.gridColumn = '1/-1';
-        note.textContent = 'showing ' + visible.length + ' sampled post(s) with non-standard source text — ' +
-          'not a complete search, just what turned up while sampling this show.';
-        grid.appendChild(note);
-      }
-      visible.forEach(function (p) { grid.appendChild(buildCard(p)); });
-      results.innerHTML = '';
-      results.appendChild(grid);
-
-      if (cache.hasMore || cache.loadMoreError) {
-        var moreWrap = document.createElement('div');
-        moreWrap.className = 'sk-load-more-wrap';
-        if (cache.loadMoreError) {
-          moreWrap.innerHTML = '<div class="sk-empty">couldn\'t load more: ' + esc(cache.loadMoreError) + '</div>' +
-            '<button class="sk-frame-btn" id="sk-load-more">retry</button>';
-        } else {
-          moreWrap.innerHTML = '<button class="sk-frame-btn" id="sk-load-more"' +
-            (cache.loadingMore ? ' disabled' : '') + '>' +
-            (cache.loadingMore ? 'loading…' : 'Load more (' + cache.posts.length + ' so far)') + '</button>';
+        /* AniList-style poster grid */
+        #kfl-view-grid { display:none; }
+        body[data-view="grid"] #kfl-view-list { display:none; }
+        body[data-view="grid"] #kfl-view-grid { display:block; }
+        .work-grid {
+          display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
+          gap:16px; padding:18px 22px;
         }
-        moreWrap.querySelector('#sk-load-more').onclick = function () { loadMoreResults(cache); };
-        results.appendChild(moreWrap);
-      }
-    }
+        .grid-card { display:flex; flex-direction:column; }
+        .grid-card-img {
+          width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:6px;
+          background:var(--panel-2); box-shadow:0 2px 10px rgba(0,0,0,.4);
+        }
+        .grid-card-placeholder {
+          width:100%; aspect-ratio:2/3; border-radius:6px; background:var(--panel-2);
+          display:flex; align-items:center; justify-content:center;
+          font-family:'Space Grotesk',sans-serif; font-size:28px; font-weight:700; color:var(--line);
+        }
+        .grid-card-title {
+          font-size:12.5px; font-weight:600; line-height:1.3; margin-top:7px;
+          display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+        }
+        .grid-card-year { font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--cyan); margin-top:3px; }
+        .grid-role-pills { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+        .grid-role-pill {
+          font-size:9px; background:var(--panel-2); border:1px solid var(--line);
+          padding:2px 6px; border-radius:20px; color:var(--muted);
+        }
+        .grid-role-pill .ep { color:var(--cyan); font-family:'JetBrains Mono',monospace; }
 
-    var activeCount = safeFilter(Object.keys(cache.excluded), function (t) { return cache.excluded[t]; }).length;
-    if (activeCount) { badge.style.display = 'inline'; badge.textContent = activeCount; }
-    else { badge.style.display = 'none'; }
+        .person-head-split {
+          display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;
+          position:sticky; top:0; z-index:5; background:var(--panel); border-radius:10px 10px 0 0;
+        }
+        .grid-toggle-link {
+          font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber);
+          cursor:pointer; white-space:nowrap; padding-top:3px; user-select:none;
+        }
+        .grid-toggle-link:hover { text-decoration:underline; }
 
-    toggle.onclick = function () {
-      var open = facetGrid.style.display !== 'none';
-      facetGrid.style.display = open ? 'none' : 'block';
-      toggle.classList.toggle('open', !open);
-    };
-
-    if (cache.facetTags.length) {
-      facetHead.style.display = 'flex';
-      facetGrid.innerHTML = '<div class="sk-loading" style="padding:4px 0">loading tag info…</div>';
-      ensureTagTypes().then(function (map) {
-        var sorted = safeSort(cache.facetTags, function (a, b) {
-          var aArtist = map[a] === 1 ? 0 : 1;
-          var bArtist = map[b] === 1 ? 0 : 1;
-          return aArtist - bArtist;
-        });
-        facetGrid.innerHTML = '<div class="sk-caption" style="grid-column:1/-1">' +
-          'hides clips carrying an unchecked tag — most clips carry several, so unchecking ' +
-          'just one still leaves the rest visible</div>';
-        sorted.forEach(function (t) {
-          var count = safeFilter(visible, function (p) { return (' ' + p.tags + ' ').indexOf(' ' + t + ' ') !== -1; }).length;
-          var item = document.createElement('label');
-          item.className = 'sk-facet-item' + (cache.excluded[t] ? ' off' : '') + (map[t] === 1 ? ' is-artist' : '');
-          item.innerHTML =
-            '<input type="checkbox" ' + (cache.excluded[t] ? '' : 'checked') + '> ' +
-            '<span class="fname" title="' + esc(t) + '">' + esc(t) + '</span>' +
-            '<span class="fcount">' + count + '</span>';
-          item.querySelector('input').addEventListener('change', function (e) {
-            cache.excluded[t] = !e.target.checked;
-            paintSearchResults(cache);
+        /* Cards past the computed preview count are hidden via inline style,
+           set at runtime by the script at the bottom of this page — see
+           kflRefreshGridPreviews(). This guarantees whole rows only. */
+      </style>
+      <link rel="icon" href="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><pattern id="s" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#f5a623"/><rect width="4" height="8" fill="#111111"/></pattern></defs><rect width="32" height="32" rx="6" fill="url(#s)"/></svg>')}">
+      </head>
+      <body data-view="list">
+        <header>
+          <div class="slate-mark"></div>
+          <div><h1>KEY<span>FRAME</span> RESULTS</h1><div class="sub">${esc(doneMsg)}</div></div>
+          <div class="view-toggle">
+            <button id="kfl-btn-list" class="active" onclick="document.body.dataset.view='list';document.getElementById('kfl-btn-list').classList.add('active');document.getElementById('kfl-btn-grid').classList.remove('active');">☰ List</button>
+            <button id="kfl-btn-grid" onclick="document.body.dataset.view='grid';document.getElementById('kfl-btn-grid').classList.add('active');document.getElementById('kfl-btn-list').classList.remove('active');window.kflRefreshGridPreviews();">▦ Grid</button>
+            <button id="kfl-copy-md" onclick="window.kflCopyMarkdown();">📋 Copy Markdown</button>
+          </div>
+        </header>
+        <main>
+          <div id="kfl-view-list">${bodyHtmlList}</div>
+          <div id="kfl-view-grid">${bodyHtmlGrid}</div>
+        </main>
+        <footer>Data via <a href="https://keyframe-staff-list.com" target="_blank">KeyFrame Staff List</a></footer>
+        <script type="application/json" id="kfl-raw-data">${rawDataJson}</script>
+        <script>
+          // Hides grid cards past N full rows, where N (rows-per-preview) is
+          // fixed but the column count is measured live -- guarantees the
+          // preview always ends on a complete row regardless of screen width.
+          // Only runs meaningfully while Grid view is actually visible, since
+          // hidden elements can't be measured (offsetTop is always 0).
+          window.kflRefreshGridPreviews = function () {
+            if (document.body.dataset.view !== "grid") return;
+            document.querySelectorAll(".work-grid-wrap").forEach(function (wrap) {
+              var cards = wrap.querySelectorAll(".grid-card");
+              if (!cards.length) return;
+              if (wrap.classList.contains("expanded")) {
+                cards.forEach(function (c) { c.style.display = ""; });
+                return;
+              }
+              var firstTop = cards[0].offsetTop;
+              var columns = 0;
+              for (var i = 0; i < cards.length; i++) {
+                if (cards[i].offsetTop === firstTop) columns++; else break;
+              }
+              if (columns < 1) columns = 1;
+              var rows = parseInt(wrap.dataset.previewRows || "2", 10);
+              var previewCount = columns * rows;
+              cards.forEach(function (c, i) { c.style.display = i < previewCount ? "" : "none"; });
+            });
+          };
+          var kflResizeTimer;
+          window.addEventListener("resize", function () {
+            clearTimeout(kflResizeTimer);
+            kflResizeTimer = setTimeout(window.kflRefreshGridPreviews, 150);
           });
-          facetGrid.appendChild(item);
-        });
-      });
-      body.querySelector('#sk-facet-all').onclick = function (e) {
-        e.preventDefault(); cache.excluded = {}; paintSearchResults(cache);
-      };
-    } else {
-      facetHead.style.display = 'none';
-      facetGrid.innerHTML = '';
-    }
+
+          function kflEsc(s) { return s == null ? "" : String(s); }
+
+          // Discord's Markdown subset has no headers (# / ##) -- bold/italic/
+          // lists only. Using __**bold underline**__ for the top-level name
+          // so it stands out from role labels below it.
+          window.kflBuildMarkdown = function (results) {
+            var lines = [];
+            results.forEach(function (r) {
+              if (!r.found) {
+                lines.push("__**" + kflEsc(r.query) + "**__ — not found (" + kflEsc(r.error || "") + ")");
+                lines.push("");
+                return;
+              }
+              lines.push("__**" + kflEsc(r.nameEn || r.query) + "**__" + (r.nameJa ? " (" + kflEsc(r.nameJa) + ")" : ""));
+              if (r.jobs && r.jobs.length) lines.push("*Jobs:* " + r.jobs.join(", "));
+              lines.push("");
+
+              var roleNames = Object.keys(r.roles || {}).sort(function (a, b) {
+                return r.roles[b].length - r.roles[a].length;
+              });
+              roleNames.forEach(function (roleName) {
+                var works = r.roles[roleName];
+                lines.push("**" + kflEsc(roleName) + "** (" + works.length + ")");
+                works.forEach(function (w) {
+                  var eps = w.episodes && w.episodes.length ? " — " + w.episodes.join(", ") : "";
+                  lines.push("- " + kflEsc(w.work || w.slug) + " (" + kflEsc(w.year ?? "—") + ")" + eps);
+                });
+                lines.push("");
+              });
+            });
+            lines.push("_Data via KeyFrame Staff List (keyframe-staff-list.com)_");
+            return lines.join("\\n");
+          };
+
+          window.kflCopyMarkdown = function () {
+            var raw = JSON.parse(document.getElementById("kfl-raw-data").textContent);
+            var md = window.kflBuildMarkdown(raw);
+            navigator.clipboard.writeText(md).catch(function () {});
+
+            document.getElementById("kfl-md-modal")?.remove();
+            var overlay = document.createElement("div");
+            overlay.id = "kfl-md-modal";
+            overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999999;display:flex;align-items:center;justify-content:center;padding:24px;";
+            overlay.innerHTML =
+              '<div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;max-width:640px;width:100%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">' +
+                '<div style="padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;">' +
+                  '<strong style="font-family:Space Grotesk,sans-serif;">Copied to clipboard — formatted for Discord</strong>' +
+                  '<span style="cursor:pointer;color:var(--muted);" onclick="document.getElementById(\\\'kfl-md-modal\\\').remove()">✕</span>' +
+                "</div>" +
+                '<textarea readonly style="flex:1;min-height:320px;background:#111;color:var(--text);border:none;padding:16px;font-family:JetBrains Mono,monospace;font-size:12px;line-height:1.6;resize:none;box-sizing:border-box;"></textarea>' +
+              "</div>";
+            document.body.appendChild(overlay);
+            var ta = overlay.querySelector("textarea");
+            ta.value = md;
+            ta.focus();
+            ta.select();
+          };
+        </script>
+      </body></html>
+    `;
   }
 
-  function runSearch() {
-    var results = body.querySelector('#sk-results');
-    results.innerHTML = '<div class="sk-loading">fetching…</div>';
-    body.querySelector('#sk-facet-head').style.display = 'none';
-    body.querySelector('#sk-facet-grid').innerHTML = '';
-    body.querySelector('#sk-facet-grid').style.display = 'none';
-    body.querySelector('#sk-filter-toggle').classList.remove('open');
-    var tagsSnapshot = searchState.tags.slice();
-    var orderSnapshot = searchState.order;
-    var tagQuery = tagsSnapshot.join(' ') + ' order:' + orderSnapshot;
-    var PAGE_SIZE = 24;
+  let lastResults = null;
 
-    return getJSON('/post.json?limit=' + PAGE_SIZE + '&tags=' + encodeURIComponent(tagQuery.trim()))
-      .then(function (posts) {
-        searchCache = {
-          tags: tagsSnapshot, order: orderSnapshot, posts: posts, excluded: {}, soloOnly: false,
-          facetTags: computeFacetTags(posts, tagsSnapshot),
-          page: 1, pageSize: PAGE_SIZE, hasMore: posts.length === PAGE_SIZE, loadingMore: false,
-          origin: searchOrigin
+  // =========================================================================
+  // Credit sheet organizer logic
+  // =========================================================================
+  // Takes messy raw credit-sheet text (role headers, studio names, and
+  // names -- sometimes multiple per line), splits it into candidate tokens,
+  // then verifies every name/studio live against KeyFrame's own search API.
+  // Studio-vs-person is resolved via the API's own is_studio flag rather
+  // than guessing from text shape.
+
+  var ROLE_MAP = {
+    // Directing
+    "総監督": "Chief Director", "chief director": "Chief Director", "general director": "Chief Director",
+    "監督": "Director", "director": "Director",
+    "副監督": "Assistant Director", "助監督": "Assistant Director", "assistant director": "Assistant Director", "vice director": "Assistant Director",
+    "各話演出": "Episode Director", "episode director": "Episode Director", "ed": "Episode Director",
+    "演出": "Unit Director", "unit director": "Unit Director",
+    "演出補佐": "Assistant Episode Director", "assistant episode director": "Assistant Episode Director", "assistant unit director": "Assistant Episode Director",
+    "チーフ演出": "Chief Episode Director", "chief episode director": "Chief Episode Director",
+    "シリーズディレクター": "Series Director", "series director": "Series Director",
+    // Writing
+    "脚本": "Script", "script": "Script", "screenplay": "Script",
+    "シリーズ構成": "Series Composition", "series composition": "Series Composition",
+    "脚本協力": "Script Cooperation", "script cooperation": "Script Cooperation",
+    "脚本監修": "Script Supervision", "script supervision": "Script Supervision", "script supervisor": "Script Supervision",
+    // Storyboard
+    "コンテ": "Storyboard", "絵コンテ": "Storyboard", "storyboard": "Storyboard", "storyboarder": "Storyboard", "sb": "Storyboard",
+    "コンテ協力": "Storyboard Cooperation", "絵コンテ協力": "Storyboard Cooperation", "storyboard cooperation": "Storyboard Cooperation",
+    // Animation direction
+    "総作画監督": "Chief Animation Director", "chief animation director": "Chief Animation Director", "general animation director": "Chief Animation Director", "cad": "Chief Animation Director",
+    "総作画監督補佐": "Assistant Chief Animation Director", "assistant chief animation director": "Assistant Chief Animation Director",
+    "作画監督": "Animation Director", "animation director": "Animation Director", "ad": "Animation Director",
+    "作画監督補佐": "Assistant Animation Director", "assistant animation director": "Assistant Animation Director", "ass. ad": "Assistant Animation Director", "asst. ad": "Assistant Animation Director",
+    "作画監督協力": "Animation Direction Cooperation", "animation direction cooperation": "Animation Direction Cooperation",
+    "作画監督補正": "Animation Direction Correction",
+    "キャラクター作画監督": "Character Animation Director", "character animation director": "Character Animation Director",
+    "アクション作画監督": "Action Animation Director", "action animation director": "Action Animation Director",
+    "メカ作画監督": "Mecha Animation Director", "メカニック作画監督": "Mechanical Animation Director",
+    "mecha animation director": "Mecha Animation Director", "mechanical animation director": "Mechanical Animation Director",
+    // Key / in-between animation
+    "第一原画": "1st Key Animation", "1st key animation": "1st Key Animation",
+    "第二原画": "2nd Key Animation", "2nd key animation": "2nd Key Animation",
+    "原画": "Key Animation", "key animation": "Key Animation", "ka": "Key Animation",
+    "原画協力": "Key Animation Cooperation", "key animation cooperation": "Key Animation Cooperation",
+    "動画": "In-Between Animation", "in-between animation": "In-Between Animation",
+    "動画検査": "In-Between Check", "動画チェック": "In-Between Check", "in-between check": "In-Between Check", "in-between animation check": "In-Between Check",
+    "動画協力": "In-Between Cooperation", "in-between cooperation": "In-Between Cooperation",
+    // Design
+    "キャラクターデザイン": "Character Design", "character design": "Character Design",
+    "サブキャラクターデザイン": "Sub Character Design", "sub character design": "Sub Character Design",
+    "ゲストキャラデザイン": "Guest Character Design", "guest character design": "Guest Character Design",
+    "メカニックデザイン": "Mechanical Design", "mechanical design": "Mechanical Design",
+    "メカデザイン": "Mecha Design", "mecha design": "Mecha Design",
+    "プロップデザイン": "Prop Design", "prop design": "Prop Design",
+    "モンスターデザイン": "Monster Design", "monster design": "Monster Design",
+    "美術設定": "Art Setting", "art setting": "Art Setting",
+    "総設定": "General Setting", "general setting": "General Setting",
+    "設定": "Setting", "setting": "Setting",
+    // Art / background
+    "美術監督": "Art Director", "art director": "Art Director",
+    "美術監督補佐": "Assistant Art Director", "assistant art director": "Assistant Art Director",
+    "美術": "Art", "art": "Art",
+    "背景": "Background", "background": "Background",
+    "美術ボード": "Art Board", "art board": "Art Board",
+    // Color
+    "色彩設計": "Color Design", "color design": "Color Design",
+    "色彩設計補佐": "Assistant Color Design", "assistant color design": "Assistant Color Design",
+    "色指定": "Color Specification", "color specification": "Color Specification",
+    "色彩": "Color", "color": "Color",
+    // Photography / CG
+    "撮影監督": "Director of Photography", "director of photography": "Director of Photography",
+    "撮影": "Photography", "photography": "Photography",
+    "撮影協力": "Photography Cooperation", "photography cooperation": "Photography Cooperation",
+    "CGディレクター": "CG Director", "cg director": "CG Director",
+    "3DCG監督": "3DCG Director", "3dcg director": "3DCG Director",
+    "3DCG": "3DCG", "3dcg": "3DCG",
+    // Editing
+    "編集": "Editing", "editing": "Editing",
+    "編集助手": "Assistant Editor", "assistant editor": "Assistant Editor",
+    // Sound
+    "音響監督": "Sound Director", "sound director": "Sound Director",
+    "音響効果": "Sound Effects", "sound effects": "Sound Effects",
+    "音響制作": "Sound Production", "sound production": "Sound Production",
+    "録音": "Recording", "recording": "Recording",
+    "整音": "Sound Mixing", "sound mixing": "Sound Mixing",
+    // Music
+    "音楽": "Music", "music": "Music",
+    "音楽プロデューサー": "Music Producer", "music producer": "Music Producer",
+    "主題歌": "Theme Song", "theme song": "Theme Song",
+    // Production
+    "プロデューサー": "Producer", "producer": "Producer",
+    "アニメーションプロデューサー": "Animation Producer", "animation producer": "Animation Producer",
+    "アシスタントプロデューサー": "Assistant Producer", "assistant producer": "Assistant Producer",
+    "制作": "Production", "production": "Production",
+    "制作進行": "Production Coordinator", "production assistant": "Production Coordinator", "production coordinator": "Production Coordinator",
+    "制作デスク": "Production Desk", "production desk": "Production Desk",
+    "制作協力": "Production Cooperation", "production cooperation": "Production Cooperation",
+    "進行": "Progress", "progress": "Progress",
+    // Finishing
+    "仕上げ": "Finishing", "finishing": "Finishing", "ink and paint": "Finishing",
+    "仕上げ検査": "Finish Check", "finish check": "Finish Check",
+    "検査": "Inspection", "inspection": "Inspection", "check": "Inspection",
+    // Misc
+    "タイムシート": "Timesheet", "timesheet": "Timesheet",
+  };
+
+  function kflNorm(s) { return (s || "").trim().toLowerCase().replace(/[.\s]+/g, ""); }
+  const ROLE_SET = {};
+  Object.keys(ROLE_MAP).forEach((k) => { ROLE_SET[kflNorm(k)] = ROLE_MAP[k]; });
+  function isRoleHeader(line) { const k = kflNorm(line); return !!(customRoleSet[k] || ROLE_SET[k]); }
+  function roleLabel(line) { const k = kflNorm(line); return customRoleSet[k] || ROLE_SET[k] || line; }
+
+  // Unified tokenizer -- works the same regardless of raw-text format
+  // (role on its own line, "role： names" inline, "role names" inline with
+  // just a space, "role: name, name, name" comma-separated, or any mix of
+  // these within one paste). Colons are normalized to whitespace so every
+  // format reduces to the same "stream of words" representation. Commas are
+  // treated as a DEFINITIVE person/studio boundary (unlike plain whitespace,
+  // which is ambiguous) -- each comma-separated segment becomes its own
+  // buffer, never merged with its neighbors. Role terms are detected by
+  // matching words/short phrases against the dictionary, checking up to 4
+  // words at a time (covers multi-word English terms and abbreviations like
+  // "chief animation director" / "CAD"). Everything that isn't a recognized
+  // role becomes a "namebuffer": the actual person/studio boundaries within
+  // it (when there's no comma to rely on) are NOT guessed from whitespace
+  // count -- that's resolved later via live search verification (see
+  // verifyTokens/trySplitFallback), which is far more reliable than any
+  // text-shape heuristic. Line boundaries still flush buffers, since studios
+  // and name-pairs are reliably one-per-line even when role labels aren't.
+  function parseCreditSheet(raw) {
+    const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
+    const tokens = [];
+    let currentRole = null;
+
+    lines.forEach((line) => {
+      const strippedLine = stripIgnoredTerms(line).trim();
+      if (!strippedLine) return;
+      const normalizedLine = strippedLine.replace(/[：:]/g, " ");
+      const commaSegments = normalizedLine.split(",").map((s) => s.trim()).filter(Boolean);
+
+      commaSegments.forEach((segment) => {
+        const words = segment.split(/\s+/).map((w) => w.trim()).filter(Boolean);
+
+        let buffer = [];
+        const flushBuffer = () => {
+          if (buffer.length === 0) return;
+          tokens.push({ kind: "namebuffer", text: buffer.join(" "), role: currentRole });
+          buffer = [];
         };
-        searchOrigin = null; // consumed — only applies to the search that was pending when set
-        paintSearchResults(searchCache);
 
-        // Figure out if this query is "about" a specific animator, so Stats can sync to it.
-        ensureTagTypes().then(function (map) {
-          var found = safeFilter(tagsSnapshot, function (t) { return map[t] === 1; })[0] || null;
-          sync.artistTag = found;
-          var statsBtn = body.querySelector('#sk-mode-stats');
-          if (statsBtn) statsBtn.textContent = sync.artistTag ? '▥ Stats: ' + sync.artistTag : '▥ Animator Stats';
-        });
-        return posts.length;
-      })
-      .catch(function (err) {
-        results.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+        let i = 0;
+        while (i < words.length) {
+          let matchedRole = null;
+          let matchedLen = 0;
+          for (let len = Math.min(4, words.length - i); len >= 1; len--) {
+            const phrase = words.slice(i, i + len).join(" ");
+            if (isRoleHeader(phrase)) {
+              matchedRole = roleLabel(phrase);
+              matchedLen = len;
+              break;
+            }
+          }
+          if (matchedRole) {
+            flushBuffer();
+            currentRole = matchedRole;
+            tokens.push({ kind: "role", text: currentRole });
+            i += matchedLen;
+          } else {
+            buffer.push(words[i]);
+            i += 1;
+          }
+        }
+        flushBuffer(); // flush at end of each comma segment -- keeps names from merging across commas
       });
+    });
+
+    return tokens;
   }
 
-  // Different shows' taggers use different, unpredictable source-text conventions
-  // ("#357" vs "#0357" zero-padded vs "Episode 357" vs bare "357"), and even the
-  // exact matching behavior of the site's own source: search isn't fully known
-  // (a confirmed real case: "#0357" matched neither "#357" nor bare "357" — so
-  // it isn't a simple raw substring match either). Rather than guess once, try
-  // several realistic candidates in order and stop at the first that hits.
-  function buildEpisodeCandidates(num, observedToken) {
-    var plain = String(num);
-    var pad3 = plain.length < 3 ? ('00' + plain).slice(-3) : plain;
-    var pad4 = plain.length < 4 ? ('000' + plain).slice(-4) : plain;
-    var seen = {};
-    var out = [];
-    function add(tok) { if (tok && !seen[tok]) { seen[tok] = true; out.push(tok); } }
-    add(observedToken); // the exact raw text we actually saw, if we have it — try this first
-    [plain, pad3, pad4].forEach(function (r) { add('#' + r); add(r); });
+  // Exact text match on either name -> unambiguous (studio or person).
+  // No exact match but exactly one non-studio candidate -> treat as a likely
+  // spelling variant (resolved automatically, English name preferred).
+  // No exact match but 2+ non-studio candidates -> genuinely ambiguous,
+  // needs the user to pick (see promptForOrgMatch).
+  function classifyMatch(candidateText, matches) {
+    const norm = (s) => (s || "").trim();
+    const candidateNorm = norm(candidateText);
+
+    for (const m of matches) {
+      if (m.is_studio && (norm(m.en) === candidateNorm || norm(m.ja) === candidateNorm)) {
+        return { verdict: "studio", match: m };
+      }
+    }
+    for (const m of matches) {
+      if (!m.is_studio && (norm(m.en) === candidateNorm || norm(m.ja) === candidateNorm)) {
+        return { verdict: "person-exact", match: m };
+      }
+    }
+    const candidates = matches.filter((m) => !m.is_studio);
+    if (candidates.length === 0) return { verdict: "not-found", match: null };
+    if (candidates.length === 1) return { verdict: "person-diff", match: candidates[0] };
+    return { verdict: "ambiguous", candidates };
+  }
+
+  // Shows candidate buttons inside the small panel (organize mode) and
+  // resolves with the chosen match, or null if "keep as typed" is clicked.
+  // Pauses the verify loop until answered -- same pattern as the lookup
+  // mode's promptForMatch, just targeting the organizer's own box.
+  function promptForOrgMatch(name, matches) {
+    return new Promise((resolve) => {
+      const box = document.getElementById("org-select");
+      box.style.display = "flex";
+      box.innerHTML = `<div style="color:#8a8f98; font-size:11.5px; margin-bottom:2px;">Multiple matches for "${esc(name)}" — pick one:</div>`;
+
+      matches.forEach((m) => {
+        const btn = document.createElement("button");
+        const jobsPreview = (m.jobs || []).slice(0, 2).join(", ");
+        btn.textContent = `${m.en || m.ja || "Unnamed"}${m.ja ? ` (${m.ja})` : ""}${jobsPreview ? ` — ${jobsPreview}` : ""}`;
+        btn.style.cssText = "text-align:left; background:#1c2028; color:#e8e6e1; border:1px solid #262b33; border-radius:6px; padding:6px 8px; cursor:pointer; font-size:11.5px;";
+        btn.onclick = () => { box.style.display = "none"; box.innerHTML = ""; resolve(m); };
+        box.appendChild(btn);
+      });
+
+      const keepBtn = document.createElement("button");
+      keepBtn.textContent = `Keep as typed: "${name}"`;
+      keepBtn.style.cssText = "background:#2a1414; color:#f2a; border:1px solid #4a1f1f; border-radius:6px; padding:6px 8px; cursor:pointer; font-size:11.5px;";
+      keepBtn.onclick = () => { box.style.display = "none"; box.innerHTML = ""; resolve(null); };
+      box.appendChild(keepBtn);
+    });
+  }
+
+  // When a candidate comes back not-found as a whole, it might actually be
+  // several people accidentally joined by single spaces (looks identical to
+  // a real multi-word name in plain text -- there's no way to tell apart
+  // from shape alone). Greedily searches for the LONGEST word-prefix that
+  // independently exists on KeyFrame, consumes it, and repeats on the rest
+  // -- preferring to keep multi-word names together (e.g. "山下 悟" as one
+  // person) over over-splitting. Only ever suggests a split backed by real
+  // search evidence for every resulting piece.
+  async function trySplitFallback(text) {
+    const words = text.trim().split(/\s+/);
+    if (words.length < 2) return null;
+
+    const parts = [];
+    let remaining = words.slice();
+
+    while (remaining.length > 0) {
+      let matched = false;
+      for (let len = remaining.length; len >= 1; len--) {
+        const candidate = remaining.slice(0, len).join(" ");
+        let matches = [];
+        try {
+          const res = await fetch(`/api/search/?q=${encodeURIComponent(candidate)}&type=all`, { credentials: "include" });
+          const body = res.ok ? await res.json() : null;
+          matches = (body && body.staff) || [];
+        } catch (e) {
+          matches = [];
+        }
+        if (matches.length > 0) {
+          parts.push({ text: candidate, matches });
+          remaining = remaining.slice(len);
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) return null; // some leftover chunk doesn't resolve to anything -- give up, not confident enough to suggest a split
+    }
+
+    return parts.length >= 2 ? parts : null; // only useful if it actually found more than one person
+  }
+
+  function promptSplitConfirm(original, parts) {
+    return new Promise((resolve) => {
+      const box = document.getElementById("org-select");
+      box.style.display = "flex";
+      const partsPreview = parts.map((p) => `"${p.text}"`).join(", ");
+      box.innerHTML = `<div style="color:#8a8f98; font-size:11.5px; margin-bottom:2px;">"${esc(original)}" wasn't found as one entry, but ${esc(partsPreview)} each exist separately — split into ${parts.length} people?</div>`;
+
+      const splitBtn = document.createElement("button");
+      splitBtn.textContent = `Split into: ${partsPreview}`;
+      splitBtn.style.cssText = "text-align:left; background:#1c2028; color:#89c37a; border:1px solid #2a3a26; border-radius:6px; padding:6px 8px; cursor:pointer; font-size:11.5px;";
+      splitBtn.onclick = () => { box.style.display = "none"; box.innerHTML = ""; resolve(true); };
+      box.appendChild(splitBtn);
+
+      const keepBtn = document.createElement("button");
+      keepBtn.textContent = `Keep as one: "${original}" (not found)`;
+      keepBtn.style.cssText = "background:#2a1414; color:#f2a; border:1px solid #4a1f1f; border-radius:6px; padding:6px 8px; cursor:pointer; font-size:11.5px;";
+      keepBtn.onclick = () => { box.style.display = "none"; box.innerHTML = ""; resolve(false); };
+      box.appendChild(keepBtn);
+    });
+  }
+
+  // Resolution for one piece of a confirmed split. If that piece is itself
+  // unambiguous, resolves directly; if it's ambiguous too (e.g. multiple
+  // "Christine"s), shows the same picker as the normal flow rather than
+  // silently guessing the first match.
+  async function resolveSplitHalf(text, role, matches) {
+    const cls = classifyMatch(text, matches);
+    if (cls.verdict === "studio" || cls.verdict === "person-exact" || cls.verdict === "person-diff") {
+      return { kind: "candidate", text, role, verdict: cls.verdict, match: cls.match };
+    }
+    if (cls.verdict === "ambiguous") {
+      const chosen = await promptForOrgMatch(text, cls.candidates);
+      return {
+        kind: "candidate", text, role,
+        verdict: chosen ? "person-diff" : "not-found",
+        match: chosen,
+      };
+    }
+    return { kind: "candidate", text, role, verdict: "not-found", match: null };
+  }
+
+  async function verifyTokens(tokens, onProgress) {
+    const out = [];
+    const buffers = tokens.filter((t) => t.kind === "namebuffer");
+    let done = 0;
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t.kind === "role") { out.push(t); continue; }
+      done++;
+      onProgress(done, buffers.length, t.text);
+      try {
+        const res = await fetch(`/api/search/?q=${encodeURIComponent(t.text)}&type=all`, { credentials: "include" });
+        const body = res.ok ? await res.json() : null;
+        const matches = (body && body.staff) || [];
+        const cls = classifyMatch(t.text, matches);
+
+        if (cls.verdict === "ambiguous") {
+          onProgress(done, buffers.length, `${t.text} — pick a match in the panel...`);
+          const chosen = await promptForOrgMatch(t.text, cls.candidates);
+          out.push({
+            kind: "candidate", text: t.text, role: t.role,
+            verdict: chosen ? "person-diff" : "not-found",
+            match: chosen,
+          });
+        } else if (cls.verdict === "not-found") {
+          // KeyFrame likely stores Japanese names with no internal space
+          // (e.g. "山下悟"), while raw sheets often write them with one
+          // ("山下 悟"). Before assuming this is several different people
+          // joined together, try the same text with spaces removed -- if
+          // that resolves, it's one person, not a split.
+          let noSpaceResolved = false;
+          if (/\s/.test(t.text)) {
+            const noSpaceText = t.text.replace(/\s+/g, "");
+            try {
+              const res2 = await fetch(`/api/search/?q=${encodeURIComponent(noSpaceText)}&type=all`, { credentials: "include" });
+              const body2 = res2.ok ? await res2.json() : null;
+              const matches2 = (body2 && body2.staff) || [];
+              const cls2 = classifyMatch(noSpaceText, matches2);
+              if (cls2.verdict === "studio" || cls2.verdict === "person-exact" || cls2.verdict === "person-diff") {
+                out.push({ kind: "candidate", text: t.text, role: t.role, verdict: cls2.verdict, match: cls2.match });
+                noSpaceResolved = true;
+              } else if (cls2.verdict === "ambiguous") {
+                onProgress(done, buffers.length, `${t.text} — pick a match in the panel...`);
+                const chosen2 = await promptForOrgMatch(t.text, cls2.candidates);
+                out.push({
+                  kind: "candidate", text: t.text, role: t.role,
+                  verdict: chosen2 ? "person-diff" : "not-found",
+                  match: chosen2,
+                });
+                noSpaceResolved = true;
+              }
+            } catch (e) {
+              // fall through to the split-fallback path below
+            }
+          }
+
+          if (noSpaceResolved) {
+            // handled above
+          } else {
+            const splitParts = await trySplitFallback(t.text);
+            if (splitParts) {
+              onProgress(done, buffers.length, `${t.text} — possible split found, confirm in panel...`);
+              const doSplit = await promptSplitConfirm(t.text, splitParts);
+              if (doSplit) {
+                for (const part of splitParts) {
+                  out.push(await resolveSplitHalf(part.text, t.role, part.matches));
+                }
+              } else {
+                out.push({ kind: "candidate", text: t.text, role: t.role, verdict: "not-found", match: null });
+              }
+            } else {
+              out.push({ kind: "candidate", text: t.text, role: t.role, verdict: "not-found", match: null });
+            }
+          }
+        } else {
+          out.push({ kind: "candidate", text: t.text, role: t.role, verdict: cls.verdict, match: cls.match });
+        }
+      } catch (e) {
+        out.push({ kind: "candidate", text: t.text, role: t.role, verdict: "error", match: null });
+      }
+      if (i < tokens.length - 1) await sleep(VERIFY_DELAY_MS);
+    }
     return out;
   }
 
-  function searchEpisodeWithFallback(showTag, candidates) {
-    searchState.order = 'date';
-    searchViewMode = 'results';
-    sync.artistTag = null;
-    var i = 0;
-    function tryNext() {
-      if (i >= candidates.length) return;
-      searchState.tags = [showTag, 'source:' + candidates[i]];
-      searchOrigin = { type: 'shows', showTag: showTag };
-      if (i === 0) { switchToTab('search'); } else { renderChips(); }
-      var attempt = i;
-      runSearch().then(function (count) {
-        if (count === 0 && attempt + 1 < candidates.length) {
-          i = attempt + 1;
-          tryNext();
+  function reconstruct(verifiedTokens) {
+    const roles = [];
+    let currentRoleObj = null;
+    let currentGroup = null;
+
+    function ensureGroup() {
+      if (!currentGroup) {
+        currentGroup = { studio: null, people: [] };
+        currentRoleObj.groups.push(currentGroup);
+      }
+      return currentGroup;
+    }
+
+    verifiedTokens.forEach((t) => {
+      if (t.kind === "role") {
+        currentRoleObj = { role: t.text, groups: [] };
+        roles.push(currentRoleObj);
+        currentGroup = null;
+        return;
+      }
+      if (!currentRoleObj) {
+        currentRoleObj = { role: "Unlabeled", groups: [] };
+        roles.push(currentRoleObj);
+        currentGroup = null;
+      }
+      if (t.verdict === "studio") {
+        const studioName = t.match ? (t.match.en || t.match.ja || t.text) : t.text;
+        currentGroup = { studio: studioName, people: [] };
+        currentRoleObj.groups.push(currentGroup);
+        return;
+      }
+      const group = ensureGroup();
+      const official = t.match ? (t.match.en || t.match.ja || null) : null;
+      group.people.push({
+        original: t.text,
+        verdict: t.verdict,
+        official: official,
+        chosen: official ? "official" : "original",
+      });
+    });
+    return roles;
+  }
+
+  // Matches the style of well-established credit-sheet posts: a plain
+  // "Role: Name, Name" line when a role has just one group, or "Role:" on
+  // its own line followed by blank-line-separated studio blocks when a
+  // role spans multiple studios/groups. Minimal decoration -- no emoji,
+  // no per-name flags beyond a trailing "?" for not-found.
+  function buildOrgMarkdown(roles) {
+    const lines = [];
+
+    function nameListFor(group) {
+      return group.people
+        .map((p) => {
+          const name = p.chosen === "official" && p.official ? p.official : p.original;
+          return p.verdict === "not-found" ? `${name}?` : name;
+        })
+        .join(", ");
+    }
+
+    roles.forEach((roleObj) => {
+      const groups = roleObj.groups.filter((g) => g.people.length > 0);
+      if (groups.length === 0) return;
+
+      if (groups.length === 1) {
+        const g = groups[0];
+        const studioLabel = g.studio ? ` (${g.studio})` : "";
+        lines.push(`**${roleObj.role}**${studioLabel}: ${nameListFor(g)}`);
+        lines.push("");
+      } else {
+        lines.push(`**${roleObj.role}:**`);
+        groups.forEach((g) => {
+          if (g.studio) lines.push(g.studio);
+          lines.push(nameListFor(g));
+          lines.push("");
+        });
+      }
+    });
+
+    // trim the trailing blank line
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    return lines.join("\n");
+  }
+
+  // Full standalone HTML document -- real, selectable DOM (not a rasterized
+  // image). Used by "View as Page" (opens in a new tab) and "Download HTML"
+  // (saves as a portable file you can host, embed, or attach anywhere).
+  function buildSharePage(roles) {
+    let body = "";
+    roles.forEach((roleObj) => {
+      const hasContent = roleObj.groups.some((g) => g.people.length > 0);
+      if (!hasContent) return;
+      body += `<div class="role-block"><div class="role-name">${esc(roleObj.role)}</div>`;
+      roleObj.groups.forEach((g) => {
+        if (g.people.length === 0) return;
+        if (g.studio) body += `<div class="studio-label">🏢 ${esc(g.studio)}</div>`;
+        body += `<div class="chip-row">`;
+        g.people.forEach((p) => {
+          const name = p.chosen === "official" && p.official ? p.official : p.original;
+          const notFound = p.verdict === "not-found";
+          body += `<span class="chip${notFound ? " not-found" : ""}">${esc(name)}${notFound ? ' <span class="q">?</span>' : ""}</span>`;
+        });
+        body += `</div>`;
+      });
+      body += `</div>`;
+    });
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Credit Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><pattern id="s" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#f5a623"/><rect width="4" height="8" fill="#111111"/></pattern></defs><rect width="32" height="32" rx="6" fill="url(#s)"/></svg>')}">
+<style>
+:root{--bg:#0b0d10;--panel:#15181d;--line:#262b33;--text:#e8e6e1;--muted:#8a8f98;--amber:#f5a623;--cyan:#4fd1c5;--red:#e06c75;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,sans-serif;min-height:100vh;}
+.wrap{max-width:760px;margin:0 auto;padding:40px 24px 60px;}
+.header{display:flex;align-items:center;gap:14px;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--line);}
+.mark{width:32px;height:32px;background:repeating-linear-gradient(45deg,var(--amber),var(--amber) 6px,#111 6px,#111 12px);border-radius:5px;flex-shrink:0;}
+.title{font-family:Space Grotesk,sans-serif;font-weight:700;font-size:22px;}
+.role-block{margin-bottom:24px;}
+.role-name{font-family:Space Grotesk,sans-serif;font-weight:700;font-size:15px;color:var(--amber);margin-bottom:10px;}
+.studio-label{font-family:JetBrains Mono,monospace;font-size:11.5px;color:var(--cyan);margin:10px 0 6px;}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 12px;font-size:13px;}
+.chip.not-found{opacity:.6;}
+.chip .q{color:var(--red);font-size:10px;}
+.footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);}
+.footer a{color:var(--amber);}
+</style></head><body>
+<div class="wrap">
+<div class="header"><div class="mark"></div><div class="title">Credit Sheet</div></div>
+${body}
+<div class="footer">Verified via <a href="https://keyframe-staff-list.com" target="_blank">KeyFrame Staff List</a></div>
+</div></body></html>`;
+  }
+
+  let kflOrgData = null;
+
+  // ---------- organizer results: second small side-panel ----------
+  function renderOrgResultsHtml(roles) {
+    let html = "";
+    let orgUid = 0; // dedicated counter, always starts fresh -- must match buildOrgMarkdownFromDom's read order
+    roles.forEach((roleObj) => {
+      const hasContent = roleObj.groups.some((g) => g.people.length > 0);
+      if (!hasContent) return;
+      html += `<div class="korg-role"><div class="korg-role-head">${esc(roleObj.role)}</div>`;
+      roleObj.groups.forEach((g) => {
+        if (g.people.length === 0) return;
+        html += `<div class="korg-group">`;
+        html += g.studio
+          ? `<div class="korg-studio">🏢 ${esc(g.studio)}</div>`
+          : `<div class="korg-freelance">No studio listed</div>`;
+        html += `<div class="korg-chip-row">`;
+        g.people.forEach((p) => {
+          const gid = orgUid++;
+          const initialText = p.chosen === "official" && p.official ? p.official : p.original;
+          html += `<div class="korg-person">`;
+          html += `<span class="korg-person-name" id="korg-name-${gid}">${esc(initialText)}</span>`;
+          if (p.verdict === "not-found" || p.verdict === "error") {
+            html += `<span class="korg-tag notfound">not found</span>`;
+          } else if (p.official && p.official !== p.original) {
+            html += `<span class="korg-toggle" id="korg-toggle-${gid}" data-official="${esc(p.official)}" data-original="${esc(p.original)}" data-chosen="${p.chosen}">↔ as typed: ${esc(p.original)}</span>`;
+          } else {
+            html += `<span class="korg-tag ok">✓ verified</span>`;
+          }
+          html += `</div>`;
+        });
+        html += `</div>`; // close korg-chip-row
+        html += `</div>`; // close korg-group
+      });
+      html += `</div>`;
+    });
+    return html || `<div style="color:#8a8f98; padding:16px 0; font-size:12.5px;">Nothing parsed — check the pasted text.</div>`;
+  }
+
+  function showOrgResultsPanel(roles) {
+    document.getElementById("kfl-org-panel")?.remove();
+
+    const orgPanel = document.createElement("div");
+    orgPanel.id = "kfl-org-panel";
+    const mainRect = panel.getBoundingClientRect();
+    const leftPos = Math.max(20, mainRect.left - 420);
+    orgPanel.style.cssText = `
+      position: fixed; top: 20px; left: ${leftPos}px; width: 400px; max-height: 88vh;
+      background: #0b0d10; color: #e8e6e1; font-family: 'Inter', system-ui, sans-serif;
+      font-size: 13px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.5);
+      z-index: 999998; overflow: hidden; border: 1px solid #262b33;
+      display: flex; flex-direction: column;
+    `;
+
+    orgPanel.innerHTML = `
+      <style>
+        #kfl-org-panel .korg-role { border-bottom: 1px solid #262b33; }
+        #kfl-org-panel .korg-role:last-child { border-bottom: none; }
+        #kfl-org-panel .korg-role-head { font-weight: 700; font-size: 13px; padding: 10px 14px 4px; }
+        #kfl-org-panel .korg-group { padding: 6px 14px 10px; }
+        #kfl-org-panel .korg-studio { font-family: monospace; font-size: 11px; color: #f5a623; margin-bottom: 6px; }
+        #kfl-org-panel .korg-freelance { font-family: monospace; font-size: 10.5px; color: #8a8f98; margin-bottom: 6px; }
+        #kfl-org-panel .korg-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+        #kfl-org-panel .korg-person {
+          display: flex; align-items: center; gap: 6px; font-size: 12.5px;
+          background: #1c2028; border: 1px solid #262b33; border-radius: 20px;
+          padding: 4px 10px;
         }
+        #kfl-org-panel .korg-tag { font-family: monospace; font-size: 9.5px; padding: 1px 6px; border-radius: 20px; white-space: nowrap; }
+        #kfl-org-panel .korg-tag.ok { background: rgba(137,195,122,.15); color: #89c37a; }
+        #kfl-org-panel .korg-tag.notfound { background: rgba(224,108,117,.15); color: #e06c75; }
+        #kfl-org-panel .korg-toggle { font-family: monospace; font-size: 10px; color: #4fd1c5; cursor: pointer; text-decoration: underline dotted; white-space: nowrap; }
+      </style>
+      <div id="korg-drag-handle" style="padding:10px 14px; background:#7e4ea0; font-weight:600; display:flex; justify-content:space-between; align-items:center; cursor:move; user-select:none; flex-shrink:0;">
+        <span>Credit Sheet Results</span>
+        <span id="korg-close" data-no-drag="1" style="cursor:pointer; opacity:.8;">✕</span>
+      </div>
+      <div style="padding:10px 14px; overflow-y:auto; flex:1;">
+        <div id="korg-results">${renderOrgResultsHtml(roles)}</div>
+        <div style="margin-top:16px; font-weight:700; font-size:12.5px; margin-bottom:6px;">Shareable output</div>
+        <textarea id="korg-preview" readonly style="width:100%; height:160px; box-sizing:border-box; background:#111; color:#e8e6e1; border:1px solid #262b33; border-radius:6px; padding:8px; font-family:monospace; font-size:11.5px; resize:vertical;">${esc(buildOrgMarkdown(roles))}</textarea>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button id="korg-copy" style="flex:1; background:#7e4ea0; color:#fff; border:none; border-radius:6px; padding:8px; cursor:pointer; font-weight:600; font-size:12.5px;">📋 Copy Markdown</button>
+          <button id="korg-viewpage" style="flex:1; background:#1c2028; color:#e8e6e1; border:1px solid #262b33; border-radius:6px; padding:8px; cursor:pointer; font-weight:600; font-size:12.5px;">🌐 View as Page</button>
+        </div>
+        <button id="korg-savehtml" style="width:100%; margin-top:6px; background:#1c2028; color:#e8e6e1; border:1px solid #262b33; border-radius:6px; padding:8px; cursor:pointer; font-weight:600; font-size:12.5px;">⬇️ Download HTML</button>
+      </div>
+    `;
+
+    document.body.appendChild(orgPanel);
+    setupDrag(document.getElementById("korg-drag-handle"), orgPanel);
+    document.getElementById("korg-close").onclick = () => orgPanel.remove();
+
+    document.getElementById("korg-copy").onclick = () => {
+      const md = document.getElementById("korg-preview").value;
+      const btn = document.getElementById("korg-copy");
+      const original = btn.textContent;
+      navigator.clipboard.writeText(md).then(() => {
+        btn.textContent = "✓ Copied!";
+        setTimeout(() => { btn.textContent = original; }, 1500);
+      }).catch(() => {
+        btn.textContent = "Copy failed";
+        setTimeout(() => { btn.textContent = original; }, 1500);
       });
-    }
-    tryNext();
-  }
-
-  function searchEpisodeNumber(showTag, num) {
-    searchEpisodeWithFallback(showTag, buildEpisodeCandidates(num, null));
-  }
-
-  function computeFacetTags(posts, tagsSnapshot) {
-    var freq = {};
-    posts.forEach(function (p) {
-      (p.tags || '').split(/\s+/).forEach(function (t) {
-        if (!t || tagsSnapshot.indexOf(t) !== -1) return;
-        freq[t] = (freq[t] || 0) + 1;
-      });
-    });
-    return safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 24);
-  }
-
-  function loadMoreResults(cache) {
-    if (cache.loadingMore || !cache.hasMore) return;
-    cache.loadingMore = true;
-    paintSearchResults(cache); // repaint immediately so the button shows a loading state
-    var nextPage = cache.page + 1;
-    var tagQuery = cache.tags.join(' ') + ' order:' + cache.order;
-    getJSON('/post.json?limit=' + cache.pageSize + '&page=' + nextPage + '&tags=' + encodeURIComponent(tagQuery.trim()))
-      .then(function (posts) {
-        cache.posts = cache.posts.concat(posts);
-        cache.page = nextPage;
-        cache.hasMore = posts.length === cache.pageSize;
-        cache.loadingMore = false;
-        cache.facetTags = computeFacetTags(cache.posts, cache.tags);
-        paintSearchResults(cache);
-      })
-      .catch(function (err) {
-        cache.loadingMore = false;
-        cache.loadMoreError = err.message;
-        paintSearchResults(cache);
-      });
-  }
-
-  // ===================== STATS TAB =====================
-  var MAX_PAGES = 5; // politeness cap: up to 500 posts per animator
-  var PAGE_DELAY = 350; // ms between paginated requests
-
-  function loadArtistStats(tagName) {
-    var out = body.querySelector('#sk-stats-out');
-    out.innerHTML = '<div class="sk-loading">pulling posts… (paced, may take a few seconds)</div>';
-
-    var allPosts = [];
-    function fetchPage(page) {
-      return getJSON('/post.json?limit=100&page=' + page + '&tags=' + encodeURIComponent(tagName))
-        .then(function (posts) {
-          allPosts = allPosts.concat(posts);
-          if (posts.length === 100 && page < MAX_PAGES) {
-            return sleep(PAGE_DELAY).then(function () { return fetchPage(page + 1); });
-          }
-        });
-    }
-
-    fetchPage(1).then(function () {
-      if (!allPosts.length) {
-        out.innerHTML = '<div class="sk-empty">no posts found for tag "' + esc(tagName) + '" — check the exact tag spelling on the site\'s artist page</div>';
-        return;
-      }
-      statsCache = { tagName: tagName, allPosts: allPosts };
-      sync.artistTag = tagName;
-      var statsBtn = body.querySelector('#sk-mode-stats');
-      if (statsBtn) statsBtn.textContent = '▥ Stats: ' + tagName;
-      renderArtistStats(out, tagName, allPosts);
-    }).catch(function (err) {
-      out.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
-    });
-  }
-
-  function renderArtistStats(out, tagName, posts) {
-    var total = posts.length;
-    var scoreSum = 0;
-    var tagFreq = {};
-    var yearCounts = {};
-
-    posts.forEach(function (p) {
-      scoreSum += (p.score || 0);
-      (p.tags || '').split(/\s+/).forEach(function (t) {
-        if (!t || t === tagName) return;
-        tagFreq[t] = (tagFreq[t] || 0) + 1;
-      });
-      if (p.created_at) {
-        var y = new Date(p.created_at * 1000).getFullYear();
-        yearCounts[y] = (yearCounts[y] || 0) + 1;
-      }
-    });
-
-    var topTags = safeSort(Object.keys(tagFreq), function (a, b) { return tagFreq[b] - tagFreq[a]; })
-      .slice(0, 10);
-    var maxTagCount = topTags.length ? tagFreq[topTags[0]] : 1;
-
-    var years = safeSort(Object.keys(yearCounts), function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
-    var maxYearCount = years.reduce(function (m, y) { return Math.max(m, yearCounts[y]); }, 1);
-    var avgScore = total ? (scoreSum / total).toFixed(1) : '0';
-    var note = total >= MAX_PAGES * 100
-      ? '<div class="sk-meta">capped at ' + (MAX_PAGES * 100) + ' most relevant posts to keep this quick &amp; light on the server</div>'
-      : '';
-
-    out.innerHTML =
-      '<div class="sk-meta">tag: <b style="color:' + C.amber + '">' + esc(tagName) + '</b> · ' +
-        '<a href="#" id="sk-goto-search" style="color:' + C.amber + '">← back to results</a></div>' +
-      '<div class="sk-stat-block">' +
-        '<div><div class="sk-stat-big">' + total + '</div><div class="sk-stat-label">cuts found</div></div>' +
-        '<div><div class="sk-stat-big">' + avgScore + '</div><div class="sk-stat-label">avg score</div></div>' +
-      '</div>' +
-      '<div class="sk-meta" title="Based on when each post was added/tagged on sakugabooru, not when the original episode aired — a 2005 cut uploaded in 2021 shows up as 2021 here.">upload year ⓘ</div>' +
-      '<div class="sk-filmstrip" id="sk-strip"></div>' +
-      '<div style="height:18px"></div>' +
-      '<div class="sk-meta">most frequent co-tags &mdash; use Search\'s filter grid to narrow by these</div>' +
-      '<div class="sk-taglist" id="sk-taglist"></div>' +
-      note;
-
-    var strip = out.querySelector('#sk-strip');
-    years.forEach(function (y) {
-      var f = document.createElement('div');
-      f.className = 'sk-frame';
-      f.style.height = Math.max(4, (yearCounts[y] / maxYearCount) * 68) + 'px';
-      f.innerHTML = '<span class="ct">' + yearCounts[y] + '</span><span class="yr">' + String(y).slice(2) + '</span>';
-      strip.appendChild(f);
-    });
-
-    var tl = out.querySelector('#sk-taglist');
-    topTags.forEach(function (t) {
-      var row = document.createElement('div');
-      row.className = 'sk-tagrow';
-      row.innerHTML =
-        '<div class="name" title="' + esc(t) + '">' + esc(t) + '</div>' +
-        '<div class="bar"><i style="width:' + ((tagFreq[t] / maxTagCount) * 100) + '%"></i></div>' +
-        '<div class="n">' + tagFreq[t] + '</div>';
-      tl.appendChild(row);
-    });
-
-    out.querySelector('#sk-goto-search').onclick = function (e) {
-      e.preventDefault();
-      searchViewMode = 'results';
-      renderSearchView();
-    };
-  }
-
-  // ===================== SHOWS TAB =====================
-  // Episode grouping is a best-effort parse of each post's free-text `source`
-  // field (there's no structured season/episode data in the API) — accurate
-  // wherever taggers followed the site's own "Title #12" convention, rougher
-  // where they didn't. Show search reuses the same paginated tag dictionary
-  // as the hover/filter features, since this fork's name_pattern parameter
-  // and limit=0 are both confirmed no-ops — real pagination + client-side
-  // filtering is the only approach that's actually been verified to work.
-  //
-  // Navigation is a simple back/forward history stack, like a browser:
-  // each entry is either {type:'results', query, showsList} (a season/title
-  // search) or {type:'episodes', showTag, entry, query} (an episode grid).
-  var showsCache = {}; // showTag -> { totalSampled, related: [...], episodes: [...] }
-  var SHOW_SAMPLE_PAGES = 3; // politeness cap: sample up to 300 posts to build the episode index
-  var navStack = [];
-  var navIndex = -1;
-
-  function pushNav(snapshot) {
-    navStack = navStack.slice(0, navIndex + 1);
-    navStack.push(snapshot);
-    navIndex = navStack.length - 1;
-    renderNavCurrent();
-  }
-  function goBack() { if (navIndex > 0) { navIndex--; renderNavCurrent(); } }
-  function goForward() { if (navIndex < navStack.length - 1) { navIndex++; renderNavCurrent(); } }
-
-  function parseEpisodeKey(source) {
-    var s = (source || '').trim();
-    if (!s) return { key: 'unsorted', label: 'No source listed', sortNum: 1e9, token: null };
-    var m = s.match(/#\s?(\d{1,4})/);
-    if (m) return { key: 'ep:' + (+m[1]), label: 'Episode ' + (+m[1]), sortNum: +m[1], token: '#' + m[1] };
-    m = s.match(/\bep(?:isode)?\.?\s?(\d{1,4})\b/i);
-    if (m) return { key: 'ep:' + (+m[1]), label: 'Episode ' + (+m[1]), sortNum: +m[1], token: '#' + m[1] };
-    if (/\bmovie\b/i.test(s)) return { key: 'movie', label: 'Movie', sortNum: 1e6 + 1, token: 'movie' };
-    if (/\bova\b/i.test(s)) return { key: 'ova', label: 'OVA', sortNum: 1e6 + 2, token: 'OVA' };
-    if (/\b(opening|op\d*)\b/i.test(s)) return { key: 'op', label: 'Opening', sortNum: 1e6 + 3, token: 'OP' };
-    if (/\b(ending|ed\d*)\b/i.test(s)) return { key: 'ed', label: 'Ending', sortNum: 1e6 + 4, token: 'ED' };
-    if (/\b(pv|trailer)\b/i.test(s)) return { key: 'pv', label: 'PV / Trailer', sortNum: 1e6 + 5, token: 'PV' };
-    // Anything else (individual Twitter/X credit links, one-off free text, etc.) isn't a
-    // real episode marker — group it all into one bucket instead of one card per unique URL.
-    return { key: 'other', label: 'Other / uncategorized', sortNum: 1e6 + 6, token: null };
-  }
-
-  function normalizeRelated(resp, showTag) {
-    try {
-      var arr = Array.isArray(resp) ? resp : (resp && (resp[showTag] || resp.tags)) || [];
-      var mapped = safeMap(arr, function (x) {
-        if (Array.isArray(x)) return { name: x[0], count: x[1] || 0 };
-        if (x && x.name) return { name: x.name, count: x.count || 0 };
-        return null;
-      });
-      return safeFilter(mapped, function (x) { return x && x.name !== showTag; }).slice(0, 8);
-    } catch (e) { return []; }
-  }
-
-  function renderShows() {
-    body.innerHTML =
-      '<div class="sk-row"><input class="sk-input" id="sk-show-input" placeholder="search a show or movie title"></div>' +
-      '<div class="sk-show-nav" id="sk-show-nav" style="display:none">' +
-        '<button class="sk-nav-btn" id="sk-nav-back" type="button">← Back</button>' +
-        '<span class="sk-nav-crumb" id="sk-nav-crumb"></span>' +
-        '<button class="sk-nav-btn" id="sk-nav-forward" type="button">Forward →</button>' +
-      '</div>' +
-      '<div id="sk-show-content"></div>';
-
-    var input = body.querySelector('#sk-show-input');
-    var debounceTimer = null;
-    input.addEventListener('input', function () {
-      clearTimeout(debounceTimer);
-      var q = input.value.trim();
-      if (!q) return;
-      debounceTimer = setTimeout(function () { searchShowTags(q); }, 300);
-    });
-
-    body.querySelector('#sk-nav-back').onclick = goBack;
-    body.querySelector('#sk-nav-forward').onclick = goForward;
-
-    // Restore wherever we left off if this tab was visited before this session.
-    if (navStack.length) renderNavCurrent();
-  }
-
-  function updateNavChrome() {
-    var navBar = body.querySelector('#sk-show-nav');
-    var backBtn = body.querySelector('#sk-nav-back');
-    var fwdBtn = body.querySelector('#sk-nav-forward');
-    var crumb = body.querySelector('#sk-nav-crumb');
-    if (!navStack.length) { navBar.style.display = 'none'; return; }
-    navBar.style.display = 'flex';
-    backBtn.disabled = navIndex <= 0;
-    fwdBtn.disabled = navIndex >= navStack.length - 1;
-    var cur = navStack[navIndex];
-    crumb.textContent = cur.type === 'episodes' ? cur.showTag : ('"' + cur.query + '"');
-  }
-
-  function renderNavCurrent() {
-    updateNavChrome();
-    var content = body.querySelector('#sk-show-content');
-    var cur = navStack[navIndex];
-    var input = body.querySelector('#sk-show-input');
-    if (!cur) { content.innerHTML = ''; return; }
-    input.value = cur.type === 'episodes' ? cur.showTag : cur.query;
-    if (cur.type === 'results') paintShowResults(content, cur.showsList);
-    else paintShowDetail(content, cur.showTag, cur.entry);
-  }
-
-  function searchShowTags(q) {
-    var content = body.querySelector('#sk-show-content');
-    content.innerHTML = '<div class="sk-loading">loading tag dictionary…</div>';
-    var norm = q.trim().toLowerCase().replace(/\s+/g, '_');
-
-    ensureAllTags(function (n) {
-      if (!allTagsList) content.innerHTML = '<div class="sk-loading">loading tag dictionary… (' + n + ' so far)</div>';
-    }).then(function (list) {
-      if (!list.length) {
-        content.innerHTML = '<div class="sk-empty">couldn\'t load sakugabooru\'s tag list right now — try again in a moment</div>';
-        return;
-      }
-      var direct = safeFilter(list, function (t) { return t.type === 3 && t.name.indexOf(norm) !== -1; });
-      var showsList = direct;
-      if (!showsList.length) {
-        // Multi-word query rarely matches one contiguous tag name — try each word.
-        var words = safeFilter(norm.split('_'), function (w) { return w.length >= 3; });
-        var seen = {};
-        showsList = [];
-        words.forEach(function (w) {
-          list.forEach(function (t) {
-            if (t.type === 3 && t.name.indexOf(w) !== -1 && !seen[t.name]) {
-              seen[t.name] = true;
-              showsList.push(t);
-            }
-          });
-        });
-      }
-      showsList = safeSort(showsList, function (a, b) { return b.count - a.count; }).slice(0, 15);
-
-      if (!showsList.length) {
-        content.innerHTML = '<div class="sk-empty">no tags contain "' + esc(q) +
-          '" — sakugabooru search is substring-based, not fuzzy, so try the full ' +
-          'romanized title rather than a nickname or abbreviation</div>';
-        return;
-      }
-      pushNav({ type: 'results', query: q, showsList: showsList });
-    }).catch(function (err) {
-      content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
-    });
-  }
-
-  function paintShowResults(content, showsList) {
-    content.innerHTML = '';
-    showsList.forEach(function (t) {
-      var item = document.createElement('div');
-      item.className = 'sk-show-pick';
-      item.innerHTML = '<span class="name">' + esc(t.name) + '</span><span class="cnt">' + t.count + ' posts</span>';
-      item.onclick = function () {
-        content.innerHTML = '<div class="sk-loading">loading ' + esc(t.name) + '…</div>';
-        getShowEntry(t.name).then(function (entry) {
-          pushNav({ type: 'episodes', showTag: t.name, entry: entry });
-        }).catch(function (err) {
-          content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
-        });
-      };
-      content.appendChild(item);
-    });
-  }
-
-  function getShowEntry(showTag, targetPages) {
-    targetPages = targetPages || SHOW_SAMPLE_PAGES;
-    var cached = showsCache[showTag];
-    if (cached && (cached.pagesFetched >= targetPages || cached.exhausted)) return Promise.resolve(cached);
-
-    var startPage = cached ? cached.pagesFetched + 1 : 1;
-    var priorPosts = cached ? cached.posts : [];
-    var relatedPromise = cached ? Promise.resolve(cached.related) :
-      getJSON('/tag/related.json?tags=' + encodeURIComponent(showTag) + '&type=copyright')
-        .then(function (r) { return normalizeRelated(r, showTag); })
-        .catch(function () { return []; });
-
-    var newPosts = [];
-    var reachedEnd = false;
-    function fetchPage(page) {
-      return getJSON('/post.json?limit=100&page=' + page + '&tags=' + encodeURIComponent(showTag) + '+order:date')
-        .then(function (batch) {
-          newPosts = newPosts.concat(batch);
-          if (batch.length < 100) { reachedEnd = true; return; } // genuinely out of posts, not just hit our cap
-          if (page < targetPages) {
-            return sleep(PAGE_DELAY).then(function () { return fetchPage(page + 1); });
-          }
-        });
-    }
-
-    return Promise.all([relatedPromise, fetchPage(startPage)]).then(function (res) {
-      var related = res[0];
-      var allPosts = priorPosts.concat(newPosts);
-      if (!allPosts.length) return { totalSampled: 0, related: related, episodes: [], posts: [], pagesFetched: targetPages, exhausted: reachedEnd };
-      var groups = {};
-      allPosts.forEach(function (p) {
-        var g = parseEpisodeKey(p.source);
-        if (!groups[g.key]) groups[g.key] = { label: g.label, sortNum: g.sortNum, token: g.token, count: 0, posts: [] };
-        groups[g.key].count++;
-        groups[g.key].posts.push(p);
-      });
-      var episodes = safeSort(safeMap(Object.keys(groups), function (k) { return groups[k]; }),
-        function (a, b) { return a.sortNum - b.sortNum; });
-      var entry = {
-        totalSampled: allPosts.length, related: related, episodes: episodes,
-        posts: allPosts, pagesFetched: targetPages, exhausted: reachedEnd
-      };
-      showsCache[showTag] = entry;
-      return entry;
-    });
-  }
-
-  function paintShowDetail(content, showTag, entry) {
-    window.__skDebugShowEntry = entry; // debug hook — inspect real source text in console, see README
-    if (!entry.totalSampled) {
-      content.innerHTML = '<div class="sk-empty">no posts sampled for "' + esc(showTag) + '"</div>';
-      return;
-    }
-    content.innerHTML =
-      '<div class="sk-show-head">' +
-        '<span class="title">' + esc(showTag) + '</span>' +
-        (entry.related.length ? '<button class="sk-mini-toggle" id="sk-related-toggle">related (' + entry.related.length + ') ▾</button>' : '') +
-        '<button class="sk-mini-toggle" id="sk-info-toggle">ⓘ how this works</button>' +
-      '</div>' +
-      (entry.related.length ? '<div class="sk-related-row" id="sk-related-row" style="display:none"></div>' : '') +
-      '<div class="sk-caption" id="sk-show-info" style="display:none">episode grouping below is parsed from each post\'s source text (the ' +
-        '"Title #12" convention), sampled from the ' + entry.totalSampled + ' most <b>recently tagged</b> posts — ' +
-        'not chronological by episode, so which numbers show up is down to tagging activity, not air order ' +
-        '(that\'s why the list might skip straight from Episode 357 to 1056 instead of starting at 1). ' +
-        'Anything that isn\'t a recognizable episode/OP/ED/movie marker (like individual social-media credit ' +
-        'links) gets grouped into one "Other" bucket. For a specific known episode, use the jump box below — ' +
-        'it searches directly rather than relying on this sample.</div>' +
-      '<div class="sk-row">' +
-        '<input class="sk-input" id="sk-ep-jump" type="number" min="1" placeholder="know the episode number? jump straight to it, e.g. 1000">' +
-        '<button class="sk-btn" id="sk-ep-jump-go">Go</button>' +
-      '</div>' +
-      '<div class="sk-ep-grid" id="sk-ep-grid"></div>' +
-      '<div class="sk-load-more-wrap" id="sk-scan-more-wrap"></div>';
-
-    if (entry.related.length) {
-      content.querySelector('#sk-related-toggle').onclick = function () {
-        var row = content.querySelector('#sk-related-row');
-        var open = row.style.display !== 'none';
-        row.style.display = open ? 'none' : 'flex';
-        this.textContent = 'related (' + entry.related.length + ') ' + (open ? '▾' : '▴');
-      };
-    }
-    content.querySelector('#sk-info-toggle').onclick = function () {
-      var info = content.querySelector('#sk-show-info');
-      var open = info.style.display !== 'none';
-      info.style.display = open ? 'none' : 'block';
     };
 
-    content.querySelector('#sk-ep-jump-go').onclick = function () {
-      var input = content.querySelector('#sk-ep-jump');
-      var num = parseInt(input.value, 10);
-      if (!num || num < 1) return;
-      searchEpisodeNumber(showTag, num);
+    document.getElementById("korg-viewpage").onclick = () => {
+      const win = window.open("", "_blank");
+      if (!win) { alert("Popup blocked — allow popups for this site and try again."); return; }
+      win.document.write(buildSharePage(kflOrgData));
+      win.document.close();
     };
-    content.querySelector('#sk-ep-jump').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') content.querySelector('#sk-ep-jump-go').click();
-    });
 
-    if (entry.related.length) {
-      var row = content.querySelector('#sk-related-row');
-      entry.related.forEach(function (r) {
-        var chip = document.createElement('span');
-        chip.className = 'sk-chip clickable';
-        chip.textContent = r.name + ' (' + r.count + ')';
-        chip.onclick = function () {
-          content.innerHTML = '<div class="sk-loading">loading ' + esc(r.name) + '…</div>';
-          getShowEntry(r.name).then(function (e2) {
-            pushNav({ type: 'episodes', showTag: r.name, entry: e2 });
-          }).catch(function (err) {
-            content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
-          });
-        };
-        row.appendChild(chip);
-      });
-    }
+    document.getElementById("korg-savehtml").onclick = () => {
+      const html = buildSharePage(kflOrgData);
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "credit_sheet.html";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
 
-    var grid = content.querySelector('#sk-ep-grid');
-    entry.episodes.forEach(function (ep) {
-      var btn = document.createElement('div');
-      btn.className = 'sk-ep-btn';
-      btn.innerHTML = '<span class="num">' + esc(ep.label) + '</span><span class="cnt">' +
-        (ep.token ? ep.count + ' sampled' : ep.count + ' sampled · browse only') + '</span>';
-      btn.onclick = function () {
-        searchState.order = 'date';
-        searchViewMode = 'results';
-        sync.artistTag = null; // avoid Search's auto-sync overwriting this specific episode query
-        if (ep.token && ep.sortNum < 1e6) {
-          // A numbered episode — try the exact text we actually observed first,
-          // then fall back through likely alternate formats (see buildEpisodeCandidates).
-          searchEpisodeWithFallback(showTag, buildEpisodeCandidates(ep.sortNum, ep.token));
-        } else if (ep.token) {
-          // OP/ED/Movie/OVA/PV — a fixed word, not a number, so no fallback needed.
-          searchState.tags = [showTag, 'source:' + ep.token];
-          searchOrigin = { type: 'shows', showTag: showTag };
-          switchToTab('search');
-          runSearch();
+    // wire the per-person spelling toggles
+    orgPanel.querySelectorAll(".korg-toggle").forEach((toggleEl) => {
+      toggleEl.onclick = () => {
+        const nameEl = toggleEl.previousElementSibling;
+        const chosen = toggleEl.dataset.chosen === "official" ? "original" : "official";
+        toggleEl.dataset.chosen = chosen;
+        if (chosen === "official") {
+          nameEl.textContent = toggleEl.dataset.official;
+          toggleEl.textContent = "↔ as typed: " + toggleEl.dataset.original;
         } else {
-          // No single query can isolate this bucket (e.g. individual social-media credit
-          // links each with a different URL) — show exactly the posts we already sampled
-          // instead of pretending we can search for them.
-          var freq = {};
-          ep.posts.forEach(function (p) {
-            (p.tags || '').split(/\s+/).forEach(function (t) {
-              if (!t || t === showTag) return;
-              freq[t] = (freq[t] || 0) + 1;
-            });
-          });
-          var facetTags = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 24);
-          searchState.tags = [showTag];
-          searchCache = {
-            tags: [showTag], order: 'date', posts: ep.posts, excluded: {}, soloOnly: false, facetTags: facetTags,
-            sampledOnly: true, origin: { type: 'shows', showTag: showTag }
-          };
-          switchToTab('search');
+          nameEl.textContent = toggleEl.dataset.original;
+          toggleEl.textContent = "↔ use English: " + toggleEl.dataset.official;
         }
+        // reflect the choice back into kflOrgData so exports match the UI
+        const md = buildOrgMarkdownFromDom(orgPanel);
+        document.getElementById("korg-preview").value = md;
       };
-      grid.appendChild(btn);
     });
+  }
 
-    var scanWrap = content.querySelector('#sk-scan-more-wrap');
-    function renderScanButton() {
-      if (entry.exhausted) {
-        scanWrap.innerHTML = '<div class="sk-caption">sampled this show\'s entire post history — nothing more to scan</div>';
-        return;
-      }
-      scanWrap.innerHTML = '<button class="sk-frame-btn" id="sk-scan-more">' +
-        'scan further back (+300 more posts, currently ' + entry.totalSampled + ')</button>';
-      scanWrap.querySelector('#sk-scan-more').onclick = function () {
-        scanWrap.innerHTML = '<div class="sk-loading">scanning further back… (may take a few seconds)</div>';
-        getShowEntry(showTag, (entry.pagesFetched || SHOW_SAMPLE_PAGES) + 3).then(function (deeperEntry) {
-          if (navStack[navIndex] && navStack[navIndex].type === 'episodes' && navStack[navIndex].showTag === showTag) {
-            navStack[navIndex].entry = deeperEntry;
+  // Rebuilds markdown by reading the CURRENT toggle states directly from the
+  // side panel's DOM, so a manual spelling toggle is reflected immediately
+  // in the exported text without needing to re-run verification.
+  function buildOrgMarkdownFromDom(orgPanel) {
+    // Simplest reliable approach: mutate kflOrgData in place to match the
+    // DOM's current toggle states, then reuse the normal builder.
+    let idx = 0;
+    kflOrgData.forEach((roleObj) => {
+      roleObj.groups.forEach((g) => {
+        g.people.forEach((p) => {
+          const toggleEl = document.getElementById("korg-toggle-" + idx);
+          const nameEl = document.getElementById("korg-name-" + idx);
+          if (toggleEl) {
+            p.chosen = toggleEl.dataset.chosen;
           }
-          paintShowDetail(content, showTag, deeperEntry);
-        }).catch(function (err) {
-          scanWrap.innerHTML = '<div class="sk-empty">couldn\'t scan further: ' + esc(err.message) + '</div>';
+          idx++;
         });
-      };
-    }
-    renderScanButton();
-  }
-
-  // ===================== POOLS TAB =====================
-  // Two intentionally separate systems, same split as the companion app:
-  // "My Pools" is entirely local (no login, no server interaction) since
-  // real pool creation needs an account tier most accounts don't have.
-  // "Browse Public Pools" is real — reads pools other users made public.
-  var poolsViewMode = 'local'; // 'local' | 'public'
-
-  function renderPools() {
-    body.innerHTML =
-      '<div class="sk-mode-row">' +
-        '<button class="sk-mode-btn active" id="sk-pools-mode-local" type="button">My Pools</button>' +
-        '<button class="sk-mode-btn" id="sk-pools-mode-public" type="button">Public Pools</button>' +
-      '</div>' +
-      '<div id="sk-pools-view"></div>';
-    body.querySelector('#sk-pools-mode-local').onclick = function () { poolsViewMode = 'local'; renderPoolsView(); };
-    body.querySelector('#sk-pools-mode-public').onclick = function () { poolsViewMode = 'public'; renderPoolsView(); };
-    renderPoolsView();
-  }
-
-  function renderPoolsView() {
-    body.querySelector('#sk-pools-mode-local').classList.toggle('active', poolsViewMode === 'local');
-    body.querySelector('#sk-pools-mode-public').classList.toggle('active', poolsViewMode === 'public');
-    var view = body.querySelector('#sk-pools-view');
-    if (poolsViewMode === 'local') renderLocalPoolsList(view);
-    else renderPublicPoolsBrowse(view);
-  }
-
-  function renderLocalPoolsList(view) {
-    var pools = getLocalPools();
-    view.innerHTML =
-      '<div class="sk-row">' +
-        '<input class="sk-input" id="sk-lp-new-name" placeholder="new pool name">' +
-        '<button class="sk-btn" id="sk-lp-new-go">Create</button>' +
-      '</div>' +
-      '<div id="sk-lp-list"></div>';
-
-    view.querySelector('#sk-lp-new-go').onclick = function () {
-      var input = view.querySelector('#sk-lp-new-name');
-      var name = input.value.trim();
-      if (!name) return;
-      createLocalPool(name, '');
-      renderLocalPoolsList(view);
-    };
-
-    var listEl = view.querySelector('#sk-lp-list');
-    if (!pools.length) {
-      listEl.innerHTML = '<div class="sk-empty">no pools yet</div>';
-      return;
-    }
-    listEl.innerHTML = '';
-    pools.forEach(function (pl) {
-      var item = document.createElement('div');
-      item.className = 'sk-show-pick';
-      item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + pl.posts.length + '</span>';
-      item.onclick = function () { renderLocalPoolDetail(view, pl.id); };
-      listEl.appendChild(item);
+      });
     });
+    return buildOrgMarkdown(kflOrgData);
   }
 
-  function renderLocalPoolDetail(view, poolId) {
-    var pool = getLocalPool(poolId);
-    if (!pool) { renderLocalPoolsList(view); return; }
-    view.innerHTML =
-      '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
-        '<button class="sk-nav-btn" id="sk-lp-back">‹ back</button>' +
-        '<span class="sk-caption" style="margin:0">' + esc(pool.name) + '</span>' +
-        '<button class="sk-nav-btn" id="sk-lp-delete">Delete</button>' +
-      '</div>' +
-      '<div class="sk-grid" id="sk-lp-grid"></div>';
+  // ---------- panel body templates ----------
+  function lookupBodyHtml() {
+    return `
+      <div id="kfl-drag-handle" style="padding:10px 14px; background:#7e4ea0; font-weight:600; display:flex; justify-content:space-between; align-items:center; cursor:move; user-select:none;">
+        <span>KeyFrame Lookup</span>
+        <span id="kfl-close" data-no-drag="1" style="cursor:pointer; opacity:.8;">✕</span>
+      </div>
+      <div style="padding:12px 14px; display:flex; flex-direction:column; gap:8px;">
+        <textarea id="kfl-names" placeholder="One name per line, or comma-separated...&#10;Yutaka Nakamura&#10;Norio Matsumoto"
+          style="width:100%; height:70px; resize:vertical; background:#111; color:#eee; border:1px solid #262b33; border-radius:6px; padding:6px; box-sizing:border-box; font-family:inherit;"></textarea>
+        <button id="kfl-run" style="background:#7e4ea0; color:#fff; border:none; border-radius:6px; padding:8px; cursor:pointer; font-weight:600;">
+          Run lookup
+        </button>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div id="kfl-cache-count" style="font-size:11px; color:#8a8f98;"></div>
+          <span id="kfl-clear-cache" style="font-size:11px; color:#8a8f98; cursor:pointer; text-decoration:underline;">Clear cache</span>
+        </div>
+        <div id="kfl-log" style="font-family:monospace; font-size:11px; color:#8a8f98; max-height:90px; overflow-y:auto; line-height:1.5; white-space:pre-wrap;"></div>
+        <div id="kfl-select" style="display:none; flex-direction:column; gap:6px; background:#111; border:1px solid #262b33; border-radius:6px; padding:8px; max-height:180px; overflow-y:auto;"></div>
+        <div style="display:flex; gap:8px;">
+          <button id="kfl-view" style="display:none; flex:1; background:#4fd1c5; color:#0b0d10; border:none; border-radius:6px; padding:8px; cursor:pointer; font-weight:600;">
+            View Results
+          </button>
+          <button id="kfl-download" style="display:none; flex:1; background:#1c2028; color:#e8e6e1; border:1px solid #262b33; border-radius:6px; padding:8px; cursor:pointer; font-weight:600;">
+            Download JSON
+          </button>
+        </div>
+        <button id="kfl-download-html" style="display:none; background:#1c2028; color:#e8e6e1; border:1px solid #262b33; border-radius:6px; padding:8px; cursor:pointer; font-weight:600; margin-top:4px;">
+          ⬇️ Download HTML (to share)
+        </button>
+        <div style="text-align:center; margin-top:2px;">
+          <span id="kfl-mode-switch" style="font-size:11px; color:#8a8f98; cursor:pointer; text-decoration:underline;">📋 Switch to Credit Sheet Organizer</span>
+        </div>
+      </div>
+    `;
+  }
 
-    view.querySelector('#sk-lp-back').onclick = function () { renderLocalPoolsList(view); };
-    view.querySelector('#sk-lp-delete').onclick = function () {
-      if (!confirm('delete "' + pool.name + '"?')) return;
-      deleteLocalPool(pool.id);
-      renderLocalPoolsList(view);
+  function customRolesListHtml() {
+    const keys = Object.keys(customRoles);
+    if (keys.length === 0) {
+      return `<div style="color:#8a8f98; font-size:11px;">No custom roles yet.</div>`;
+    }
+    return keys.map((k) => `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:3px 0; font-size:11.5px;">
+        <span><strong>${esc(k)}</strong> → ${esc(customRoles[k])}</span>
+        <span class="custom-role-remove" data-key="${esc(k)}" style="color:#e06c75; cursor:pointer; font-family:monospace;">✕</span>
+      </div>
+    `).join("");
+  }
+
+  function ignoreListHtml() {
+    if (ignoreTerms.length === 0) {
+      return `<div style="color:#8a8f98; font-size:11px;">Nothing being ignored.</div>`;
+    }
+    return ignoreTerms.map((term, i) => `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:3px 0; font-size:11.5px;">
+        <span><strong>${esc(term)}</strong></span>
+        <span class="ignore-term-remove" data-idx="${i}" style="color:#e06c75; cursor:pointer; font-family:monospace;">✕</span>
+      </div>
+    `).join("");
+  }
+
+  function organizeBodyHtml() {
+    return `
+      <div id="kfl-drag-handle" style="padding:10px 14px; background:#7e4ea0; font-weight:600; display:flex; justify-content:space-between; align-items:center; cursor:move; user-select:none;">
+        <span>Credit Sheet Organizer</span>
+        <span id="kfl-close" data-no-drag="1" style="cursor:pointer; opacity:.8;">✕</span>
+      </div>
+      <div style="padding:12px 14px; display:flex; flex-direction:column; gap:8px;">
+        <textarea id="org-input" placeholder="Paste raw credit sheet text here..."
+          style="width:100%; height:130px; resize:vertical; background:#111; color:#eee; border:1px solid #262b33; border-radius:6px; padding:6px; box-sizing:border-box; font-family:monospace; font-size:12px;"></textarea>
+        <button id="org-run" style="background:#7e4ea0; color:#fff; border:none; border-radius:6px; padding:8px; cursor:pointer; font-weight:600;">
+          Parse &amp; Verify
+        </button>
+        <div id="org-log" style="font-family:monospace; font-size:11px; color:#8a8f98; max-height:90px; overflow-y:auto; line-height:1.5; white-space:pre-wrap;"></div>
+        <div id="org-select" style="display:none; flex-direction:column; gap:6px; background:#111; border:1px solid #262b33; border-radius:6px; padding:8px; max-height:180px; overflow-y:auto;"></div>
+        <div style="text-align:center; margin-top:2px; display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+          <span id="kfl-custom-roles-toggle" style="font-size:11px; color:#8a8f98; cursor:pointer; text-decoration:underline;">⚙️ Custom Roles</span>
+          <span id="kfl-ignore-list-toggle" style="font-size:11px; color:#8a8f98; cursor:pointer; text-decoration:underline;">🚫 Ignore List</span>
+          <span id="kfl-mode-switch" style="font-size:11px; color:#8a8f98; cursor:pointer; text-decoration:underline;">🔍 Switch to Lookup</span>
+        </div>
+        <div id="kfl-custom-roles-panel" style="display:none; flex-direction:column; gap:6px; background:#111; border:1px solid #262b33; border-radius:6px; padding:10px;">
+          <div style="font-size:11px; color:#8a8f98; margin-bottom:2px;">Any term you add here will be recognized as a role header, just like the built-in ones — useful for abbreviations or house-specific labels the built-in dictionary doesn't know.</div>
+          <div id="kfl-custom-roles-list">${customRolesListHtml()}</div>
+          <div style="display:flex; gap:6px; margin-top:4px;">
+            <input id="kfl-custom-role-term" placeholder="Term (e.g. Ass.ED)" style="flex:1; min-width:0; background:#1c2028; color:#eee; border:1px solid #262b33; border-radius:6px; padding:6px; font-size:11.5px;">
+            <input id="kfl-custom-role-target" placeholder="Maps to (e.g. Assistant Episode Director)" style="flex:1; min-width:0; background:#1c2028; color:#eee; border:1px solid #262b33; border-radius:6px; padding:6px; font-size:11.5px;">
+          </div>
+          <button id="kfl-custom-role-add" style="background:#7e4ea0; color:#fff; border:none; border-radius:6px; padding:6px; cursor:pointer; font-weight:600; font-size:11.5px;">Add</button>
+        </div>
+        <div id="kfl-ignore-list-panel" style="display:none; flex-direction:column; gap:6px; background:#111; border:1px solid #262b33; border-radius:6px; padding:10px;">
+          <div style="font-size:11px; color:#8a8f98; margin-bottom:2px;">Anything added here gets stripped out entirely before parsing — useful for markers like "(?)" or "(PN)" that flag an unconfirmed name or pen name, so they don't corrupt the search.</div>
+          <div id="kfl-ignore-list-list">${ignoreListHtml()}</div>
+          <div style="display:flex; gap:6px; margin-top:4px;">
+            <input id="kfl-ignore-term-input" placeholder="Term to ignore (e.g. (TBD))" style="flex:1; min-width:0; background:#1c2028; color:#eee; border:1px solid #262b33; border-radius:6px; padding:6px; font-size:11.5px;">
+            <button id="kfl-ignore-term-add" style="background:#7e4ea0; color:#fff; border:none; border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:600; font-size:11.5px;">Add</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireLookupHandlers() {
+    document.getElementById("kfl-close").onclick = () => panel.remove();
+    setupDrag(document.getElementById("kfl-drag-handle"), panel);
+    updateCacheCount();
+
+    document.getElementById("kfl-clear-cache").onclick = () => {
+      for (const k in cache) delete cache[k];
+      updateCacheCount();
+      log("Cache cleared.");
     };
 
-    var grid = view.querySelector('#sk-lp-grid');
-    if (!pool.posts.length) {
-      grid.innerHTML = '<div class="sk-empty">no clips yet</div>';
-      return;
-    }
-    pool.posts.forEach(function (p) { grid.appendChild(buildCard(p)); });
+    document.getElementById("kfl-mode-switch").onclick = () => {
+      kflMode = "organize";
+      renderPanel();
+    };
+
+    document.getElementById("kfl-view").onclick = () => {
+      if (!lastResults) return;
+      const win = window.open("", "_blank");
+      if (!win) { log("Popup blocked — allow popups for this site and try again."); return; }
+      win.document.write(buildResultsPage(lastResults));
+      win.document.close();
+    };
+
+    document.getElementById("kfl-download").onclick = () => {
+      if (!lastResults) return;
+      const blob = new Blob([JSON.stringify(lastResults, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "keyframe_results.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+
+    document.getElementById("kfl-download-html").onclick = () => {
+      if (!lastResults) return;
+      const html = buildResultsPage(lastResults);
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "keyframe_lookup_results.html";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+
+    document.getElementById("kfl-run").onclick = async () => {
+      const names = document.getElementById("kfl-names").value
+        .split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+      if (names.length === 0) { log("Enter at least one name."); return; }
+
+      document.getElementById("kfl-log").textContent = "";
+      document.getElementById("kfl-run").disabled = true;
+      document.getElementById("kfl-mode-switch").style.pointerEvents = "none";
+      document.getElementById("kfl-mode-switch").style.opacity = "0.4";
+      document.getElementById("kfl-view").style.display = "none";
+      document.getElementById("kfl-download").style.display = "none";
+      document.getElementById("kfl-download-html").style.display = "none";
+      lastResults = null;
+
+      const results = [];
+      for (let i = 0; i < names.length; i++) {
+        const name = names[i];
+        const key = cacheKey(name);
+
+        if (cache[key]) {
+          log(`${name}: using cached result`);
+          results.push(cache[key]);
+          continue;
+        }
+
+        log(`Looking up: ${name} ...`);
+        try {
+          const res = await lookupName(name);
+          results.push(res);
+          cache[key] = res;
+          updateCacheCount();
+          log(res.found ? `  -> OK` : `  -> FAILED (${res.error})`);
+        } catch (e) {
+          const failed = { query: name, found: false, error: String(e) };
+          results.push(failed);
+          cache[key] = failed;
+          updateCacheCount();
+          log(`  -> ERROR: ${e}`);
+        }
+        if (i < names.length - 1) await sleep(DELAY_MS);
+      }
+
+      lastResults = results;
+      log(`Done — ${results.filter((r) => r.found).length}/${results.length} found.`);
+      document.getElementById("kfl-run").disabled = false;
+      document.getElementById("kfl-mode-switch").style.pointerEvents = "";
+      document.getElementById("kfl-mode-switch").style.opacity = "";
+      document.getElementById("kfl-view").style.display = "block";
+      document.getElementById("kfl-download").style.display = "block";
+      document.getElementById("kfl-download-html").style.display = "block";
+    };
   }
 
-  function renderPublicPoolsBrowse(view) {
-    view.innerHTML =
-      '<div class="sk-row">' +
-        '<input class="sk-input" id="sk-pp-query" placeholder="search pools">' +
-        '<button class="sk-btn" id="sk-pp-go">Search</button>' +
-      '</div>' +
-      '<div id="sk-pp-list"><div class="sk-loading">loading pools…</div></div>';
+  function wireOrganizeHandlers() {
+    document.getElementById("kfl-close").onclick = () => panel.remove();
+    setupDrag(document.getElementById("kfl-drag-handle"), panel);
 
-    function load(query) {
-      var listEl = view.querySelector('#sk-pp-list');
-      listEl.innerHTML = '<div class="sk-loading">loading pools…</div>';
-      var path = query ? '/pool.json?query=' + encodeURIComponent(query) : '/pool.json';
-      getJSON(path).then(function (pools) {
-        if (!pools || !pools.length) {
-          listEl.innerHTML = '<div class="sk-empty">no pools found</div>';
-          return;
-        }
-        listEl.innerHTML = '';
-        pools.forEach(function (pl) {
-          var item = document.createElement('div');
-          item.className = 'sk-show-pick';
-          item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + (pl.post_count || 0) + ' posts</span>';
-          item.onclick = function () { renderPublicPoolDetail(view, pl.id, pl.name); };
-          listEl.appendChild(item);
-        });
-      }).catch(function (err) {
-        listEl.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+    const orgLog = (msg) => {
+      const el = document.getElementById("org-log");
+      if (!el) return;
+      el.textContent += (el.textContent ? "\n" : "") + msg;
+      el.scrollTop = el.scrollHeight;
+    };
+
+    document.getElementById("kfl-mode-switch").onclick = () => {
+      kflMode = "lookup";
+      renderPanel();
+    };
+
+    document.getElementById("kfl-custom-roles-toggle").onclick = () => {
+      const panelEl = document.getElementById("kfl-custom-roles-panel");
+      panelEl.style.display = panelEl.style.display === "none" ? "flex" : "none";
+    };
+
+    function refreshCustomRolesList() {
+      document.getElementById("kfl-custom-roles-list").innerHTML = customRolesListHtml();
+      document.querySelectorAll(".custom-role-remove").forEach((el) => {
+        el.onclick = () => {
+          delete customRoles[el.dataset.key];
+          saveCustomRoles();
+          refreshCustomRolesList();
+        };
       });
     }
+    refreshCustomRolesList();
 
-    view.querySelector('#sk-pp-go').onclick = function () { load(view.querySelector('#sk-pp-query').value.trim()); };
-    load('');
-  }
+    document.getElementById("kfl-custom-role-add").onclick = () => {
+      const termInput = document.getElementById("kfl-custom-role-term");
+      const targetInput = document.getElementById("kfl-custom-role-target");
+      const term = termInput.value.trim();
+      const target = targetInput.value.trim();
+      if (!term || !target) return;
+      customRoles[term] = target;
+      saveCustomRoles();
+      termInput.value = "";
+      targetInput.value = "";
+      refreshCustomRolesList();
+    };
 
-  function renderPublicPoolDetail(view, poolId, poolName) {
-    view.innerHTML =
-      '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
-        '<button class="sk-nav-btn" id="sk-pp-back">‹ back</button>' +
-        '<span class="sk-caption" style="margin:0">' + esc(poolName) + '</span>' +
-        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-media-viewpost">view on site ↗</a>' +
-      '</div>' +
-      '<div id="sk-pp-grid" class="sk-grid"></div>';
-    view.querySelector('#sk-pp-back').onclick = function () { renderPoolsView(); };
+    document.getElementById("kfl-ignore-list-toggle").onclick = () => {
+      const panelEl = document.getElementById("kfl-ignore-list-panel");
+      panelEl.style.display = panelEl.style.display === "none" ? "flex" : "none";
+    };
 
-    var grid = view.querySelector('#sk-pp-grid');
-    grid.innerHTML = '<div class="sk-loading">loading posts…</div>';
-
-    // pool:ID search on the standard post-search endpoint — reuses proven,
-    // already-working infrastructure rather than a separate, untested one
-    // (same approach the app takes via getPoolPosts). order:id keeps the
-    // pool's own sequence rather than defaulting to newest-first.
-    getJSON('/post.json?limit=100&tags=' + encodeURIComponent('pool:' + poolId + ' order:id'))
-      .then(function (posts) {
-        if (!posts || !posts.length) {
-          grid.innerHTML = '<div class="sk-empty">no posts in this pool.</div>';
-          return;
-        }
-        grid.innerHTML = '';
-        posts.forEach(function (p) { grid.appendChild(buildCard(p)); });
-      }).catch(function (err) {
-        grid.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+    function refreshIgnoreList() {
+      document.getElementById("kfl-ignore-list-list").innerHTML = ignoreListHtml();
+      document.querySelectorAll(".ignore-term-remove").forEach((el) => {
+        el.onclick = () => {
+          ignoreTerms.splice(Number(el.dataset.idx), 1);
+          saveIgnoreTerms();
+          refreshIgnoreList();
+        };
       });
+    }
+    refreshIgnoreList();
+
+    document.getElementById("kfl-ignore-term-add").onclick = () => {
+      const input = document.getElementById("kfl-ignore-term-input");
+      const term = input.value.trim();
+      if (!term || ignoreTerms.includes(term)) return;
+      ignoreTerms.push(term);
+      saveIgnoreTerms();
+      input.value = "";
+      refreshIgnoreList();
+    };
+
+    document.getElementById("org-run").onclick = async () => {
+      const raw = document.getElementById("org-input").value;
+      if (!raw.trim()) { orgLog("Paste some text first."); return; }
+
+      document.getElementById("org-log").textContent = "";
+      document.getElementById("org-run").disabled = true;
+      document.getElementById("kfl-mode-switch").style.pointerEvents = "none";
+      document.getElementById("kfl-mode-switch").style.opacity = "0.4";
+
+      const tokens = parseCreditSheet(raw);
+
+      const verified = await verifyTokens(tokens, (done, total, name) => {
+        orgLog(`Verifying ${done}/${total}: ${name}`);
+      });
+
+      const roles = reconstruct(verified);
+      kflOrgData = roles;
+      showOrgResultsPanel(roles);
+
+      orgLog("Done. Results opened in the side panel.");
+      document.getElementById("org-run").disabled = false;
+      document.getElementById("kfl-mode-switch").style.pointerEvents = "";
+      document.getElementById("kfl-mode-switch").style.opacity = "";
+    };
   }
 
-  function renderTab(name) {
-    if (name === 'shows') renderShows();
-    else if (name === 'pools') renderPools();
-    else renderSearch();
+  function renderPanel() {
+    panel.innerHTML = kflMode === "lookup" ? lookupBodyHtml() : organizeBodyHtml();
+    if (kflMode === "lookup") wireLookupHandlers();
+    else wireOrganizeHandlers();
   }
 
-  renderTab('search');
-  panel.style.display = 'flex';
+  renderPanel();
 })();
