@@ -134,11 +134,13 @@
 
   function buildRoleGroups(credits) {
     const roleMaps = {};
+    const roleJaMap = {}; // roleName (en) -> ja label, for the KeyFrame-style dual-line header
     for (const work of credits || []) {
       for (const nameEntry of work.names || []) {
         for (const cat of nameEntry.categories || []) {
           for (const role of cat.roles || []) {
             const roleName = role.role_en || cat.category || "Other";
+            if (role.role_ja && !roleJaMap[roleName]) roleJaMap[roleName] = role.role_ja;
             if (!roleMaps[roleName]) roleMaps[roleName] = new Map();
             const map = roleMaps[roleName];
             if (!map.has(work.uuid)) {
@@ -160,7 +162,7 @@
     for (const [roleName, map] of Object.entries(roleMaps)) {
       roles[roleName] = Array.from(map.values()).sort((a, b) => (b.year || 0) - (a.year || 0));
     }
-    return roles;
+    return { roles, roleJaMap };
   }
 
   // Groups by WORK instead of by role — one card per anime, with all of this
@@ -223,7 +225,9 @@
     result.jobs = data.jobs || [];
     result.studios = data.studios || {};
     result.creditCount = credits.length;
-    result.roles = buildRoleGroups(credits);
+    const roleGroups = buildRoleGroups(credits);
+    result.roles = roleGroups.roles;
+    result.roleJa = roleGroups.roleJaMap;
     result.workGrid = buildWorkGrid(credits);
 
     return result;
@@ -407,10 +411,58 @@
     `;
   }
 
+  // Adapts the same visual language as the organizer's KeyFrame-style view
+  // to this page's inverted data shape (one person, many works, instead of
+  // one work, many people). Each role the person had becomes its own
+  // table with a dual-line JP/EN header (mirroring KeyFrame's own role
+  // headers exactly, when role_ja is available), and each row is a WORK --
+  // using JP title / EN title as the two columns, the same convention
+  // KeyFrame uses for JP/EN name pairs, just applied to titles instead.
+  function renderPersonKeyframeStyle(r) {
+    if (!r.found) {
+      return `<div class="kf-person-block"><div class="kf-error"><span class="q">${esc(r.query)}</span> — ${esc(r.error || "not found")}</div></div>`;
+    }
+    const roles = r.roles || {};
+    const roleJa = r.roleJa || {};
+    const roleNames = Object.keys(roles).sort((a, b) => roles[b].length - roles[a].length);
+
+    const tables = roleNames.map((roleName) => {
+      const works = roles[roleName];
+      const ja = roleJa[roleName];
+      const rows = works.map((w) => {
+        const epsText = w.episodes && w.episodes.length ? ` <span class="kf-ep">${esc(w.episodes.join(", "))}</span>` : "";
+        const yearText = w.year != null ? ` <span class="kf-year">(${esc(w.year)})</span>` : "";
+        if (w.workJa && w.workJa !== w.work) {
+          return `<tr class="kf-person-row"><td>${esc(w.workJa)}</td><td>${esc(w.work || w.slug)}${yearText}${epsText}</td></tr>`;
+        }
+        return `<tr class="kf-person-row"><td colspan="2">${esc(w.work || w.slug)}${yearText}${epsText}</td></tr>`;
+      }).join("");
+
+      const headHtml = ja
+        ? `<span class="kf-role-ja">${esc(ja)}</span><span class="kf-role-en">${esc(roleName)}</span>`
+        : `<span class="kf-role-en">${esc(roleName)}</span>`;
+
+      return `<div class="kf-category">
+        <table class="kf-role-table">
+          <thead><tr><th colspan="2"><div class="kf-role-head">${headHtml}</div></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    }).join("");
+
+    const nameHtml = `${esc(r.nameEn || r.query)}${r.nameJa ? `<span class="ja">${esc(r.nameJa)}</span>` : ""}`;
+
+    return `<div class="kf-person-block">
+      <div class="kf-person-name">${nameHtml}</div>
+      <div class="kf-masonry">${tables || '<div style="padding:16px 0; color:var(--muted); font-size:13px;">No credits listed.</div>'}</div>
+    </div>`;
+  }
+
   function buildResultsPage(results) {
     const doneMsg = `${results.filter((r) => r.found).length}/${results.length} found`;
     const bodyHtmlList = results.map(renderPerson).join("");
     const bodyHtmlGrid = results.map(renderPersonGrid).join("");
+    const bodyHtmlKeyframe = results.map(renderPersonKeyframeStyle).join("");
     // Escape '<' so a "</script" sequence inside any bio/title text can't
     // break out of the embedded JSON script tag below.
     const rawDataJson = JSON.stringify(results).replace(/</g, "\\u003c");
@@ -468,8 +520,30 @@
 
         /* AniList-style poster grid */
         #kfl-view-grid { display:none; }
+        #kfl-view-keyframe { display:none; }
         body[data-view="grid"] #kfl-view-list { display:none; }
         body[data-view="grid"] #kfl-view-grid { display:block; }
+        body[data-view="keyframe"] #kfl-view-list { display:none; }
+        body[data-view="keyframe"] #kfl-view-keyframe { display:block; }
+
+        /* KeyFrame-style masonry (mirrors keyframe-staff-list.com's own layout) */
+        .kf-person-block { margin-bottom: 32px; }
+        .kf-person-name { font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700; margin-bottom:14px; }
+        .kf-person-name .ja { font-family:'Inter',sans-serif; font-weight:400; color:var(--muted); font-size:13px; margin-left:8px; }
+        .kf-masonry { display:flex; flex-wrap:wrap; align-content:flex-start; gap:18px; }
+        .kf-category { width: 320px; flex: 0 0 auto; }
+        .kf-role-table { width:100%; border-collapse:collapse; border-radius:8px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.4); }
+        .kf-role-table thead th { background:#7e4ea0; color:#fff; padding:9px 12px; text-align:left; }
+        .kf-role-head { display:flex; flex-direction:column; }
+        .kf-role-ja { font-size:11px; opacity:.85; }
+        .kf-role-en { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13.5px; }
+        .kf-person-row td { padding:7px 12px; font-size:12.5px; }
+        .kf-role-table tbody tr:nth-child(odd) { background:var(--panel); }
+        .kf-role-table tbody tr:nth-child(even) { background:var(--panel-2); }
+        .kf-year { color:var(--cyan); font-family:'JetBrains Mono',monospace; font-size:11px; }
+        .kf-ep { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:11px; }
+        .kf-error { padding:16px 0; color:var(--muted); font-size:13px; }
+        .kf-error .q { color:var(--text); font-weight:600; }
         .work-grid {
           display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
           gap:16px; padding:18px 22px;
@@ -517,14 +591,16 @@
           <div class="slate-mark"></div>
           <div><h1>KEY<span>FRAME</span> RESULTS</h1><div class="sub">${esc(doneMsg)}</div></div>
           <div class="view-toggle">
-            <button id="kfl-btn-list" class="active" onclick="document.body.dataset.view='list';document.getElementById('kfl-btn-list').classList.add('active');document.getElementById('kfl-btn-grid').classList.remove('active');">☰ List</button>
-            <button id="kfl-btn-grid" onclick="document.body.dataset.view='grid';document.getElementById('kfl-btn-grid').classList.add('active');document.getElementById('kfl-btn-list').classList.remove('active');window.kflRefreshGridPreviews();">▦ Grid</button>
+            <button id="kfl-btn-list" class="active" onclick="document.body.dataset.view='list';document.getElementById('kfl-btn-list').classList.add('active');document.getElementById('kfl-btn-grid').classList.remove('active');document.getElementById('kfl-btn-keyframe').classList.remove('active');">☰ List</button>
+            <button id="kfl-btn-grid" onclick="document.body.dataset.view='grid';document.getElementById('kfl-btn-grid').classList.add('active');document.getElementById('kfl-btn-list').classList.remove('active');document.getElementById('kfl-btn-keyframe').classList.remove('active');window.kflRefreshGridPreviews();">▦ Grid</button>
+            <button id="kfl-btn-keyframe" onclick="document.body.dataset.view='keyframe';document.getElementById('kfl-btn-keyframe').classList.add('active');document.getElementById('kfl-btn-list').classList.remove('active');document.getElementById('kfl-btn-grid').classList.remove('active');">🗂️ KeyFrame Style</button>
             <button id="kfl-copy-md" onclick="window.kflCopyMarkdown();">📋 Copy Markdown</button>
           </div>
         </header>
         <main>
           <div id="kfl-view-list">${bodyHtmlList}</div>
           <div id="kfl-view-grid">${bodyHtmlGrid}</div>
+          <div id="kfl-view-keyframe">${bodyHtmlKeyframe}</div>
         </main>
         <footer>Data via <a href="https://keyframe-staff-list.com" target="_blank">KeyFrame Staff List</a></footer>
         <script type="application/json" id="kfl-raw-data">${rawDataJson}</script>
@@ -1107,46 +1183,34 @@
   // image). Used by "View as Page" (opens in a new tab) and "Download HTML"
   // (saves as a portable file you can host, embed, or attach anywhere).
   function buildSharePage(roles) {
-    let body = "";
-    roles.forEach((roleObj) => {
-      const hasContent = roleObj.groups.some((g) => g.people.length > 0);
-      if (!hasContent) return;
-      body += `<div class="role-block"><div class="role-name">${esc(roleObj.role)}</div>`;
-      roleObj.groups.forEach((g) => {
-        if (g.people.length === 0) return;
-        if (g.studio) body += `<div class="studio-label">🏢 ${esc(g.studio)}</div>`;
-        body += `<div class="chip-row">`;
-        g.people.forEach((p) => {
-          const name = p.chosen === "official" && p.official ? p.official : p.original;
-          const notFound = p.verdict === "not-found";
-          body += `<span class="chip${notFound ? " not-found" : ""}">${esc(name)}${notFound ? ' <span class="q">?</span>' : ""}</span>`;
-        });
-        body += `</div>`;
-      });
-      body += `</div>`;
-    });
+    const body = renderOrgKeyframeStyleHtml(roles);
 
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Credit Sheet</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><pattern id="s" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#f5a623"/><rect width="4" height="8" fill="#111111"/></pattern></defs><rect width="32" height="32" rx="6" fill="url(#s)"/></svg>')}">
 <style>
-:root{--bg:#0b0d10;--panel:#15181d;--line:#262b33;--text:#e8e6e1;--muted:#8a8f98;--amber:#f5a623;--cyan:#4fd1c5;--red:#e06c75;}
+:root{--bg:#0b0d10;--panel:#15181d;--line:#262b33;--text:#e8e6e1;--muted:#8a8f98;--amber:#f5a623;--cyan:#4fd1c5;--red:#e06c75;--purple:#7e4ea0;}
 *{box-sizing:border-box;}
 body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,sans-serif;min-height:100vh;}
-.wrap{max-width:760px;margin:0 auto;padding:40px 24px 60px;}
+.wrap{max-width:1280px;margin:0 auto;padding:40px 32px 60px;}
 .header{display:flex;align-items:center;gap:14px;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--line);}
 .mark{width:32px;height:32px;background:repeating-linear-gradient(45deg,var(--amber),var(--amber) 6px,#111 6px,#111 12px);border-radius:5px;flex-shrink:0;}
 .title{font-family:Space Grotesk,sans-serif;font-weight:700;font-size:22px;}
-.role-block{margin-bottom:24px;}
-.role-name{font-family:Space Grotesk,sans-serif;font-weight:700;font-size:15px;color:var(--amber);margin-bottom:10px;}
-.studio-label{font-family:JetBrains Mono,monospace;font-size:11.5px;color:var(--cyan);margin:10px 0 6px;}
-.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
-.chip{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 12px;font-size:13px;}
-.chip.not-found{opacity:.6;}
-.chip .q{color:var(--red);font-size:10px;}
-.footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);}
+.footer{margin-top:32px;padding-top:16px;border-top:1px solid var(--line);font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);}
 .footer a{color:var(--amber);}
+
+.kf-masonry{display:flex;flex-wrap:wrap;align-content:flex-start;gap:20px;}
+.kf-category{width:340px;flex:0 0 auto;}
+.kf-role-table{width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.4);}
+.kf-role-table thead th{background:var(--purple);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:14px;font-family:'Space Grotesk',sans-serif;}
+.kf-person-row td{padding:7px 14px;font-size:13px;}
+.kf-role-table tbody tr:nth-child(odd){background:var(--panel);}
+.kf-role-table tbody tr:nth-child(even){background:#1c2028;}
+.kf-studio-row td{font-weight:700;color:var(--amber);background:#191c22 !important;font-family:'JetBrains Mono',monospace;font-size:12px;}
+.kf-spacer td{height:10px;padding:0;}
+.kf-notfound td{opacity:.6;}
+.kf-q{color:var(--red);font-size:10px;}
 </style></head><body>
 <div class="wrap">
 <div class="header"><div class="mark"></div><div class="title">Credit Sheet</div></div>
@@ -1194,6 +1258,44 @@ ${body}
     return html || `<div style="color:#8a8f98; padding:16px 0; font-size:12.5px;">Nothing parsed — check the pasted text.</div>`;
   }
 
+  // Mirrors KeyFrame's own per-work staff list layout: a masonry of small
+  // role-tables, each with a purple header bar, alternating-striped rows,
+  // bold studio-separator rows, and a two-column layout when a person's
+  // as-typed and official names differ (collapsing to one spanning cell
+  // otherwise) -- the same convention KeyFrame uses for JP/EN name pairs.
+  function renderOrgKeyframeStyleHtml(roles) {
+    function personRowHtml(p) {
+      const notFound = p.verdict === "not-found" || p.verdict === "error";
+      if (notFound) {
+        return `<tr class="kf-person-row kf-notfound"><td colspan="2">${esc(p.original)} <span class="kf-q">?</span></td></tr>`;
+      }
+      if (p.official && p.official !== p.original) {
+        return `<tr class="kf-person-row"><td>${esc(p.original)}</td><td>${esc(p.official)}</td></tr>`;
+      }
+      const displayed = p.chosen === "official" && p.official ? p.official : p.original;
+      return `<tr class="kf-person-row"><td colspan="2">${esc(displayed)}</td></tr>`;
+    }
+
+    const tables = roles.map((roleObj) => {
+      const groups = roleObj.groups.filter((g) => g.people.length > 0);
+      if (groups.length === 0) return "";
+      let rows = "";
+      groups.forEach((g, gi) => {
+        if (gi > 0) rows += `<tr class="kf-spacer"><td colspan="2"></td></tr>`;
+        if (g.studio) rows += `<tr class="kf-studio-row"><td colspan="2">${esc(g.studio)}</td></tr>`;
+        g.people.forEach((p) => { rows += personRowHtml(p); });
+      });
+      return `<div class="kf-category">
+        <table class="kf-role-table">
+          <thead><tr><th colspan="2"><div class="kf-role-head">${esc(roleObj.role)}</div></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    }).join("");
+
+    return `<div class="kf-masonry">${tables}</div>` || `<div style="color:#8a8f98; padding:16px 0; font-size:12.5px;">Nothing parsed — check the pasted text.</div>`;
+  }
+
   function showOrgResultsPanel(roles) {
     document.getElementById("kfl-org-panel")?.remove();
 
@@ -1227,12 +1329,34 @@ ${body}
         #kfl-org-panel .korg-tag.ok { background: rgba(137,195,122,.15); color: #89c37a; }
         #kfl-org-panel .korg-tag.notfound { background: rgba(224,108,117,.15); color: #e06c75; }
         #kfl-org-panel .korg-toggle { font-family: monospace; font-size: 10px; color: #4fd1c5; cursor: pointer; text-decoration: underline dotted; white-space: nowrap; }
+
+        #kfl-org-panel .kf-masonry { display: flex; flex-wrap: wrap; gap: 12px; }
+        #kfl-org-panel .kf-category { width: 100%; }
+        #kfl-org-panel .kf-role-table { width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+        #kfl-org-panel .kf-role-table thead th { background: #7e4ea0; color: #fff; padding: 8px 12px; text-align: left; font-weight: 700; font-size: 12.5px; }
+        #kfl-org-panel .kf-person-row td { padding: 6px 10px; font-size: 12px; }
+        #kfl-org-panel .kf-role-table tbody tr:nth-child(odd) { background: #15181d; }
+        #kfl-org-panel .kf-role-table tbody tr:nth-child(even) { background: #1c2028; }
+        #kfl-org-panel .kf-studio-row td { font-weight: 700; color: #f5a623; background: #191c22 !important; }
+        #kfl-org-panel .kf-spacer td { height: 8px; padding: 0; }
+        #kfl-org-panel .kf-notfound td { opacity: .6; }
+        #kfl-org-panel .kf-q { color: #e06c75; font-size: 10px; }
+        #kfl-org-panel .korg-view-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+        #kfl-org-panel .korg-view-toggle button {
+          font-size: 11.5px; font-weight: 600; background: #1c2028; color: #8a8f98;
+          border: 1px solid #262b33; border-radius: 6px; padding: 5px 12px; cursor: pointer;
+        }
+        #kfl-org-panel .korg-view-toggle button.active { background: #7e4ea0; color: #fff; border-color: #7e4ea0; }
       </style>
       <div id="korg-drag-handle" style="padding:10px 14px; background:#7e4ea0; font-weight:600; display:flex; justify-content:space-between; align-items:center; cursor:move; user-select:none; flex-shrink:0;">
         <span>Credit Sheet Results</span>
         <span id="korg-close" data-no-drag="1" style="cursor:pointer; opacity:.8;">✕</span>
       </div>
       <div style="padding:10px 14px; overflow-y:auto; flex:1;">
+        <div class="korg-view-toggle">
+          <button id="korg-view-chips" class="active">Chips</button>
+          <button id="korg-view-keyframe">KeyFrame Style</button>
+        </div>
         <div id="korg-results">${renderOrgResultsHtml(roles)}</div>
         <div style="margin-top:16px; font-weight:700; font-size:12.5px; margin-bottom:6px;">Shareable output</div>
         <textarea id="korg-preview" readonly style="width:100%; height:160px; box-sizing:border-box; background:#111; color:#e8e6e1; border:1px solid #262b33; border-radius:6px; padding:8px; font-family:monospace; font-size:11.5px; resize:vertical;">${esc(buildOrgMarkdown(roles))}</textarea>
@@ -1247,6 +1371,19 @@ ${body}
     document.body.appendChild(orgPanel);
     setupDrag(document.getElementById("korg-drag-handle"), orgPanel);
     document.getElementById("korg-close").onclick = () => orgPanel.remove();
+
+    document.getElementById("korg-view-chips").onclick = () => {
+      document.getElementById("korg-results").innerHTML = renderOrgResultsHtml(roles);
+      document.getElementById("korg-view-chips").classList.add("active");
+      document.getElementById("korg-view-keyframe").classList.remove("active");
+      // re-wire toggles since innerHTML replacement wipes listeners
+      wireOrgToggles(orgPanel);
+    };
+    document.getElementById("korg-view-keyframe").onclick = () => {
+      document.getElementById("korg-results").innerHTML = renderOrgKeyframeStyleHtml(roles);
+      document.getElementById("korg-view-keyframe").classList.add("active");
+      document.getElementById("korg-view-chips").classList.remove("active");
+    };
 
     document.getElementById("korg-copy").onclick = () => {
       const md = document.getElementById("korg-preview").value;
@@ -1281,6 +1418,10 @@ ${body}
     };
 
     // wire the per-person spelling toggles
+    wireOrgToggles(orgPanel);
+  }
+
+  function wireOrgToggles(orgPanel) {
     orgPanel.querySelectorAll(".korg-toggle").forEach((toggleEl) => {
       toggleEl.onclick = () => {
         const nameEl = toggleEl.previousElementSibling;
