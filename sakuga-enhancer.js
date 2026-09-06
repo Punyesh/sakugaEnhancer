@@ -411,58 +411,74 @@
     `;
   }
 
-  // Adapts the same visual language as the organizer's KeyFrame-style view
-  // to this page's inverted data shape (one person, many works, instead of
-  // one work, many people). Each role the person had becomes its own
-  // table with a dual-line JP/EN header (mirroring KeyFrame's own role
-  // headers exactly, when role_ja is available), and each row is a WORK --
-  // using JP title / EN title as the two columns, the same convention
-  // KeyFrame uses for JP/EN name pairs, just applied to titles instead.
-  function renderPersonKeyframeStyle(r) {
-    if (!r.found) {
-      return `<div class="kf-person-block"><div class="kf-error"><span class="q">${esc(r.query)}</span> — ${esc(r.error || "not found")}</div></div>`;
-    }
+  // Treats everyone you looked up as if they were the staff of one
+  // hypothetical show, grouping them by role -- the same organizing idea
+  // as a real staff sheet. Collapsed to just names by default; clicking a
+  // name expands to show that person's own work history inline. Not-found
+  // names get their own group at the end.
+  function staffDetailHtml(r) {
     const roles = r.roles || {};
-    const roleJa = r.roleJa || {};
     const roleNames = Object.keys(roles).sort((a, b) => roles[b].length - roles[a].length);
-
-    const tables = roleNames.map((roleName) => {
+    if (roleNames.length === 0) {
+      return `<div class="staff-empty">No credits listed.</div>`;
+    }
+    return roleNames.map((roleName) => {
       const works = roles[roleName];
-      const ja = roleJa[roleName];
-      const rows = works.map((w) => {
-        const epsText = w.episodes && w.episodes.length ? ` <span class="kf-ep">${esc(w.episodes.join(", "))}</span>` : "";
-        const yearText = w.year != null ? ` <span class="kf-year">(${esc(w.year)})</span>` : "";
-        if (w.workJa && w.workJa !== w.work) {
-          return `<tr class="kf-person-row"><td>${esc(w.workJa)}</td><td>${esc(w.work || w.slug)}${yearText}${epsText}</td></tr>`;
-        }
-        return `<tr class="kf-person-row"><td colspan="2">${esc(w.work || w.slug)}${yearText}${epsText}</td></tr>`;
+      const worksHtml = works.map((w) => {
+        const epsText = w.episodes && w.episodes.length ? ` <span class="staff-work-eps">${esc(w.episodes.join(", "))}</span>` : "";
+        const yearText = w.year != null ? `<span class="staff-work-year">${esc(w.year)}</span>` : "";
+        return `<div class="staff-work"><span class="staff-work-title">${esc(w.work || w.slug)}</span>${yearText}${epsText}</div>`;
       }).join("");
+      return `<div class="staff-detail-role"><div class="staff-detail-role-name">${esc(roleName)}</div>${worksHtml}</div>`;
+    }).join("");
+  }
 
-      const headHtml = ja
-        ? `<span class="kf-role-ja">${esc(ja)}</span><span class="kf-role-en">${esc(roleName)}</span>`
-        : `<span class="kf-role-en">${esc(roleName)}</span>`;
+  function renderStaffSheet(results) {
+    const roleMap = {}; // roleName -> [result, ...]
+    const notFound = [];
+    results.forEach((r) => {
+      if (!r.found) { notFound.push(r); return; }
+      const jobs = r.jobs && r.jobs.length ? r.jobs : ["Other"];
+      jobs.forEach((job) => {
+        if (!roleMap[job]) roleMap[job] = [];
+        roleMap[job].push(r);
+      });
+    });
 
-      return `<div class="kf-category">
-        <table class="kf-role-table">
-          <thead><tr><th colspan="2"><div class="kf-role-head">${headHtml}</div></th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+    const roleNames = Object.keys(roleMap).sort((a, b) => roleMap[b].length - roleMap[a].length);
+
+    const categories = roleNames.map((roleName) => {
+      const rows = roleMap[roleName].map((r) => {
+        const pid = `staffp${uid++}`;
+        return `<div class="staff-person" id="${pid}">
+          <div class="staff-person-row" onclick="document.getElementById('${pid}').classList.toggle('open')">
+            <span class="staff-arrow">▶</span>
+            <span class="staff-name">${esc(r.nameEn || r.query)}${r.nameJa ? `<span class="ja">${esc(r.nameJa)}</span>` : ""}</span>
+          </div>
+          <div class="staff-person-detail">${staffDetailHtml(r)}</div>
+        </div>`;
+      }).join("");
+      return `<div class="staff-category">
+        <div class="staff-role-head">${esc(roleName)}</div>
+        <div class="staff-role-body">${rows}</div>
       </div>`;
     }).join("");
 
-    const nameHtml = `${esc(r.nameEn || r.query)}${r.nameJa ? `<span class="ja">${esc(r.nameJa)}</span>` : ""}`;
+    const notFoundHtml = notFound.length ? `<div class="staff-category">
+      <div class="staff-role-head">Not Found</div>
+      <div class="staff-role-body">
+        ${notFound.map((r) => `<div class="staff-person"><div class="staff-person-row" style="cursor:default;"><span class="staff-name" style="opacity:.55;">${esc(r.query)}</span></div></div>`).join("")}
+      </div>
+    </div>` : "";
 
-    return `<div class="kf-person-block">
-      <div class="kf-person-name">${nameHtml}</div>
-      <div class="kf-masonry">${tables || '<div style="padding:16px 0; color:var(--muted); font-size:13px;">No credits listed.</div>'}</div>
-    </div>`;
+    return `<div class="staff-sheet">${categories}${notFoundHtml}</div>`;
   }
 
   function buildResultsPage(results) {
     const doneMsg = `${results.filter((r) => r.found).length}/${results.length} found`;
     const bodyHtmlList = results.map(renderPerson).join("");
     const bodyHtmlGrid = results.map(renderPersonGrid).join("");
-    const bodyHtmlKeyframe = results.map(renderPersonKeyframeStyle).join("");
+    const bodyHtmlStaff = renderStaffSheet(results);
     // Escape '<' so a "</script" sequence inside any bio/title text can't
     // break out of the embedded JSON script tag below.
     const rawDataJson = JSON.stringify(results).replace(/</g, "\\u003c");
@@ -520,30 +536,33 @@
 
         /* AniList-style poster grid */
         #kfl-view-grid { display:none; }
-        #kfl-view-keyframe { display:none; }
+        #kfl-view-staff { display:none; }
         body[data-view="grid"] #kfl-view-list { display:none; }
         body[data-view="grid"] #kfl-view-grid { display:block; }
-        body[data-view="keyframe"] #kfl-view-list { display:none; }
-        body[data-view="keyframe"] #kfl-view-keyframe { display:block; }
+        body[data-view="staff"] #kfl-view-list { display:none; }
+        body[data-view="staff"] #kfl-view-staff { display:block; }
 
-        /* KeyFrame-style masonry (mirrors keyframe-staff-list.com's own layout) */
-        .kf-person-block { margin-bottom: 32px; }
-        .kf-person-name { font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700; margin-bottom:14px; }
-        .kf-person-name .ja { font-family:'Inter',sans-serif; font-weight:400; color:var(--muted); font-size:13px; margin-left:8px; }
-        .kf-masonry { display:flex; flex-wrap:wrap; align-content:flex-start; gap:18px; }
-        .kf-category { width: 320px; flex: 0 0 auto; }
-        .kf-role-table { width:100%; border-collapse:collapse; border-radius:8px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.4); }
-        .kf-role-table thead th { background:#7e4ea0; color:#fff; padding:9px 12px; text-align:left; }
-        .kf-role-head { display:flex; flex-direction:column; }
-        .kf-role-ja { font-size:11px; opacity:.85; }
-        .kf-role-en { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13.5px; }
-        .kf-person-row td { padding:7px 12px; font-size:12.5px; }
-        .kf-role-table tbody tr:nth-child(odd) { background:var(--panel); }
-        .kf-role-table tbody tr:nth-child(even) { background:var(--panel-2); }
-        .kf-year { color:var(--cyan); font-family:'JetBrains Mono',monospace; font-size:11px; }
-        .kf-ep { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:11px; }
-        .kf-error { padding:16px 0; color:var(--muted); font-size:13px; }
-        .kf-error .q { color:var(--text); font-weight:600; }
+        /* Staff sheet -- everyone looked up, grouped by role like a
+           hypothetical show's credits. Collapsed to names by default. */
+        .staff-sheet { display:flex; flex-wrap:wrap; align-content:flex-start; gap:16px; }
+        .staff-category { width:300px; flex:0 0 auto; background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+        .staff-role-head { background:var(--panel-2); padding:10px 14px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13.5px; color:var(--amber); border-bottom:1px solid var(--line); }
+        .staff-person { border-bottom:1px dashed var(--line); }
+        .staff-person:last-child { border-bottom:none; }
+        .staff-person-row { padding:9px 14px; display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+        .staff-person-row:hover { background:var(--panel-2); }
+        .staff-arrow { color:var(--amber); font-size:10px; width:10px; flex-shrink:0; transition:transform .15s ease; }
+        .staff-person.open .staff-arrow { transform:rotate(90deg); }
+        .staff-name { font-size:13px; }
+        .staff-name .ja { font-family:'Inter',sans-serif; font-weight:400; color:var(--muted); font-size:11.5px; margin-left:6px; }
+        .staff-person-detail { display:none; padding:2px 14px 12px 32px; }
+        .staff-person.open .staff-person-detail { display:block; }
+        .staff-detail-role { margin-bottom:8px; }
+        .staff-detail-role-name { font-weight:600; font-size:11.5px; color:var(--cyan); margin-bottom:3px; }
+        .staff-work { font-size:12px; color:var(--text); padding:2px 0; }
+        .staff-work-year { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:10.5px; margin-left:6px; }
+        .staff-work-eps { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:10.5px; margin-left:6px; }
+        .staff-empty { color:var(--muted); font-size:12px; padding:4px 0; }
         .work-grid {
           display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
           gap:16px; padding:18px 22px;
@@ -591,16 +610,16 @@
           <div class="slate-mark"></div>
           <div><h1>KEY<span>FRAME</span> RESULTS</h1><div class="sub">${esc(doneMsg)}</div></div>
           <div class="view-toggle">
-            <button id="kfl-btn-list" class="active" onclick="document.body.dataset.view='list';document.getElementById('kfl-btn-list').classList.add('active');document.getElementById('kfl-btn-grid').classList.remove('active');document.getElementById('kfl-btn-keyframe').classList.remove('active');">☰ List</button>
-            <button id="kfl-btn-grid" onclick="document.body.dataset.view='grid';document.getElementById('kfl-btn-grid').classList.add('active');document.getElementById('kfl-btn-list').classList.remove('active');document.getElementById('kfl-btn-keyframe').classList.remove('active');window.kflRefreshGridPreviews();">▦ Grid</button>
-            <button id="kfl-btn-keyframe" onclick="document.body.dataset.view='keyframe';document.getElementById('kfl-btn-keyframe').classList.add('active');document.getElementById('kfl-btn-list').classList.remove('active');document.getElementById('kfl-btn-grid').classList.remove('active');">🗂️ KeyFrame Style</button>
+            <button id="kfl-btn-list" class="active" onclick="document.body.dataset.view='list';document.getElementById('kfl-btn-list').classList.add('active');document.getElementById('kfl-btn-grid').classList.remove('active');document.getElementById('kfl-btn-staff').classList.remove('active');">☰ List</button>
+            <button id="kfl-btn-grid" onclick="document.body.dataset.view='grid';document.getElementById('kfl-btn-grid').classList.add('active');document.getElementById('kfl-btn-list').classList.remove('active');document.getElementById('kfl-btn-staff').classList.remove('active');window.kflRefreshGridPreviews();">▦ Grid</button>
+            <button id="kfl-btn-staff" onclick="document.body.dataset.view='staff';document.getElementById('kfl-btn-staff').classList.add('active');document.getElementById('kfl-btn-list').classList.remove('active');document.getElementById('kfl-btn-grid').classList.remove('active');">🗒️ Staff Sheet</button>
             <button id="kfl-copy-md" onclick="window.kflCopyMarkdown();">📋 Copy Markdown</button>
           </div>
         </header>
         <main>
           <div id="kfl-view-list">${bodyHtmlList}</div>
           <div id="kfl-view-grid">${bodyHtmlGrid}</div>
-          <div id="kfl-view-keyframe">${bodyHtmlKeyframe}</div>
+          <div id="kfl-view-staff">${bodyHtmlStaff}</div>
         </main>
         <footer>Data via <a href="https://keyframe-staff-list.com" target="_blank">KeyFrame Staff List</a></footer>
         <script type="application/json" id="kfl-raw-data">${rawDataJson}</script>
@@ -1183,14 +1202,14 @@
   // image). Used by "View as Page" (opens in a new tab) and "Download HTML"
   // (saves as a portable file you can host, embed, or attach anywhere).
   function buildSharePage(roles) {
-    const body = renderOrgKeyframeStyleHtml(roles);
+    const body = renderOrgTableHtml(roles);
 
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Credit Sheet</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><pattern id="s" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#f5a623"/><rect width="4" height="8" fill="#111111"/></pattern></defs><rect width="32" height="32" rx="6" fill="url(#s)"/></svg>')}">
 <style>
-:root{--bg:#0b0d10;--panel:#15181d;--line:#262b33;--text:#e8e6e1;--muted:#8a8f98;--amber:#f5a623;--cyan:#4fd1c5;--red:#e06c75;--purple:#7e4ea0;}
+:root{--bg:#0b0d10;--panel:#15181d;--line:#262b33;--text:#e8e6e1;--muted:#8a8f98;--amber:#f5a623;--cyan:#4fd1c5;--red:#e06c75;}
 *{box-sizing:border-box;}
 body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,sans-serif;min-height:100vh;}
 .wrap{max-width:1280px;margin:0 auto;padding:40px 32px 60px;}
@@ -1203,7 +1222,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,sans-seri
 .kf-masonry{display:flex;flex-wrap:wrap;align-content:flex-start;gap:20px;}
 .kf-category{width:340px;flex:0 0 auto;}
 .kf-role-table{width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.4);}
-.kf-role-table thead th{background:var(--purple);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:14px;font-family:'Space Grotesk',sans-serif;}
+.kf-role-table thead th{background:var(--amber);color:#14171c;padding:10px 14px;text-align:left;font-weight:700;font-size:14px;font-family:'Space Grotesk',sans-serif;}
 .kf-person-row td{padding:7px 14px;font-size:13px;}
 .kf-role-table tbody tr:nth-child(odd){background:var(--panel);}
 .kf-role-table tbody tr:nth-child(even){background:#1c2028;}
@@ -1258,12 +1277,12 @@ ${body}
     return html || `<div style="color:#8a8f98; padding:16px 0; font-size:12.5px;">Nothing parsed — check the pasted text.</div>`;
   }
 
-  // Mirrors KeyFrame's own per-work staff list layout: a masonry of small
-  // role-tables, each with a purple header bar, alternating-striped rows,
-  // bold studio-separator rows, and a two-column layout when a person's
+  // A table-per-role layout matching the shape of a real credit sheet:
+  // role-tables with an amber header bar, alternating-striped rows, bold
+  // studio-separator rows, and a two-column layout when a person's
   // as-typed and official names differ (collapsing to one spanning cell
-  // otherwise) -- the same convention KeyFrame uses for JP/EN name pairs.
-  function renderOrgKeyframeStyleHtml(roles) {
+  // otherwise).
+  function renderOrgTableHtml(roles) {
     function personRowHtml(p) {
       const notFound = p.verdict === "not-found" || p.verdict === "error";
       if (notFound) {
@@ -1333,7 +1352,7 @@ ${body}
         #kfl-org-panel .kf-masonry { display: flex; flex-wrap: wrap; gap: 12px; }
         #kfl-org-panel .kf-category { width: 100%; }
         #kfl-org-panel .kf-role-table { width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
-        #kfl-org-panel .kf-role-table thead th { background: #7e4ea0; color: #fff; padding: 8px 12px; text-align: left; font-weight: 700; font-size: 12.5px; }
+        #kfl-org-panel .kf-role-table thead th { background: #f5a623; color: #14171c; padding: 8px 12px; text-align: left; font-weight: 700; font-size: 12.5px; }
         #kfl-org-panel .kf-person-row td { padding: 6px 10px; font-size: 12px; }
         #kfl-org-panel .kf-role-table tbody tr:nth-child(odd) { background: #15181d; }
         #kfl-org-panel .kf-role-table tbody tr:nth-child(even) { background: #1c2028; }
@@ -1355,7 +1374,7 @@ ${body}
       <div style="padding:10px 14px; overflow-y:auto; flex:1;">
         <div class="korg-view-toggle">
           <button id="korg-view-chips" class="active">Chips</button>
-          <button id="korg-view-keyframe">KeyFrame Style</button>
+          <button id="korg-view-table">Table View</button>
         </div>
         <div id="korg-results">${renderOrgResultsHtml(roles)}</div>
         <div style="margin-top:16px; font-weight:700; font-size:12.5px; margin-bottom:6px;">Shareable output</div>
@@ -1375,13 +1394,13 @@ ${body}
     document.getElementById("korg-view-chips").onclick = () => {
       document.getElementById("korg-results").innerHTML = renderOrgResultsHtml(roles);
       document.getElementById("korg-view-chips").classList.add("active");
-      document.getElementById("korg-view-keyframe").classList.remove("active");
+      document.getElementById("korg-view-table").classList.remove("active");
       // re-wire toggles since innerHTML replacement wipes listeners
       wireOrgToggles(orgPanel);
     };
-    document.getElementById("korg-view-keyframe").onclick = () => {
-      document.getElementById("korg-results").innerHTML = renderOrgKeyframeStyleHtml(roles);
-      document.getElementById("korg-view-keyframe").classList.add("active");
+    document.getElementById("korg-view-table").onclick = () => {
+      document.getElementById("korg-results").innerHTML = renderOrgTableHtml(roles);
+      document.getElementById("korg-view-table").classList.add("active");
       document.getElementById("korg-view-chips").classList.remove("active");
     };
 
