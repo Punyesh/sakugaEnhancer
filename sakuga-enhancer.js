@@ -827,6 +827,7 @@
   // Keeps the two tabs in lockstep so switching tabs never requires re-searching.
   var sync = { artistTag: null }; // canonical animator tag currently "in focus"
   var searchCache = null; // { tags, order, posts, excluded, facetTags }
+  var searchScrollObserver = null; // watches the load-more sentinel; recreated each render since the sentinel itself is a fresh DOM node each time
   var searchOrigin = null; // e.g. {type:'shows'} — set right before a Shows-originated search, consumed by runSearch
   var statsCache = null;  // { tagName, allPosts }
 
@@ -2305,15 +2306,35 @@
         var moreWrap = document.createElement('div');
         moreWrap.className = 'sk-load-more-wrap';
         if (cache.loadMoreError) {
+          // Not auto-retried on scroll — a failed request re-entering view
+          // would just retry-loop while it's still visible, so this stays a
+          // deliberate click.
           moreWrap.innerHTML = '<div class="sk-empty">couldn\'t load more: ' + esc(cache.loadMoreError) + '</div>' +
             '<button class="sk-frame-btn" id="sk-load-more">retry</button>';
+          moreWrap.querySelector('#sk-load-more').onclick = function () { loadMoreResults(cache); };
+        } else if (cache.loadingMore) {
+          moreWrap.innerHTML = '<div class="sk-loading" style="padding:10px 0">loading more…</div>';
         } else {
-          moreWrap.innerHTML = '<button class="sk-frame-btn" id="sk-load-more"' +
-            (cache.loadingMore ? ' disabled' : '') + '>' +
-            (cache.loadingMore ? 'loading…' : 'Load more (' + cache.posts.length + ' so far)') + '</button>';
+          moreWrap.innerHTML = '<div id="sk-load-sentinel" style="height:1px"></div>';
         }
-        moreWrap.querySelector('#sk-load-more').onclick = function () { loadMoreResults(cache); };
         results.appendChild(moreWrap);
+
+        if (!cache.loadMoreError && !cache.loadingMore) {
+          var sentinel = moreWrap.querySelector('#sk-load-sentinel');
+          if (searchScrollObserver) searchScrollObserver.disconnect();
+          // root: body (not the default viewport) since the actual scrolling
+          // happens inside the panel's own body, not the host page — the
+          // default root would never report an intersection at all here.
+          // rootMargin starts the fetch a bit before the sentinel is
+          // literally on-screen, closer to how FlatList's onEndReached feels.
+          searchScrollObserver = new IntersectionObserver(function (entries) {
+            if (entries[0].isIntersecting) {
+              searchScrollObserver.disconnect();
+              loadMoreResults(cache);
+            }
+          }, { root: body, rootMargin: '200px' });
+          searchScrollObserver.observe(sentinel);
+        }
       }
     }
 
