@@ -1469,6 +1469,173 @@
       });
   }
 
+  // ---------- Pool grid export (multiple clips composited into one video) ----------
+  // Genuinely heavier than trimming: that's a lossless stream-copy (no
+  // decoding at all), this decodes, scales, and re-encodes every clip
+  // simultaneously via ffmpeg's xstack filter — on ffmpeg.wasm's
+  // single-threaded, no-hardware-acceleration build, that scales badly past
+  // a handful of clips. Capped hard rather than left to degrade silently.
+  var MAX_GRID_CLIPS = 9;
+  var GRID_CELL_W = 480, GRID_CELL_H = 270; // 16:9 per cell; 3 cols = 1440px wide, a reasonable ceiling for wasm encode time
+
+  // Picks cols/rows for N clips minimizing empty cells, tie-broken toward
+  // whichever candidate's aspect ratio is closest to 16:9 — e.g. 8 clips
+  // gets a 4x2 grid (0 waste, landscape) rather than a portrait 2x4 or a
+  // wasteful 3x3 with an empty cell. Single-row/column "strips" (1xN or Nx1)
+  // are excluded once there are enough clips to actually form a grid — a
+  // prime count like 5 or 7 technically fits with zero waste as a 1x5/1x7
+  // strip, but that's a degenerate shape, not "a grid"; a 3x2 with one
+  // empty cell looks like the feature that was asked for.
+  // Picks a per-row cap and row count for N clips: rather than picking a
+  // single fixed rectangle and leaving leftover cells black (5 clips in a
+  // 3x2 grid has one dead cell), the last row is allowed to have fewer
+  // items than the others — same tile size throughout, no empty gap,
+  // matching how Discord/Zoom/Meet lay out an uneven participant count
+  // (centering the shorter final row rather than resizing any one tile,
+  // which would raise the arbitrary question of *which* clip gets to be
+  // bigger). Single-row/column "strips" are still excluded once there are
+  // enough clips to actually form a grid.
+  function computeGridLayout(n) {
+    var best = null;
+    for (var rows = 1; rows <= n; rows++) {
+      var cols = Math.ceil(n / rows);
+      if (n > 3 && (cols === 1 || rows === 1)) continue;
+      var aspect = cols / rows;
+      var aspectDiff = Math.abs(aspect - 16 / 9);
+      var lastRowCount = n - cols * (rows - 1);
+      var sparseness = (cols - lastRowCount) / cols; // 0 = last row full, near 1 = last row nearly empty
+      var score = aspectDiff + sparseness * 2; // weight both a good overall shape and not leaving too sparse a final row
+      if (!best || score < best.score) {
+        best = { cols: cols, rows: rows, score: score };
+      }
+    }
+    if (!best) best = { cols: n, rows: 1 }; // only reachable for n<=3, where a single row is fine anyway
+    return { cols: best.cols, rows: best.rows };
+  }
+
+  // Per-clip pixel position within the grid canvas — every row is `cols`
+  // wide, but a short final row is horizontally centered within that width
+  // rather than left-aligned, so the empty space reads as intentional
+  // framing rather than a mistake.
+  function computeCellPositions(n, cols, rows) {
+    var positions = [];
+    var idx = 0;
+    for (var r = 0; r < rows; r++) {
+      var itemsInRow = Math.min(cols, n - idx);
+      var rowOffsetX = Math.floor((cols - itemsInRow) * GRID_CELL_W / 2);
+      for (var c = 0; c < itemsInRow; c++) {
+        positions.push({ x: rowOffsetX + c * GRID_CELL_W, y: r * GRID_CELL_H });
+        idx++;
+      }
+    }
+    return positions;
+  }
+
+  // Native <video> metadata loading is faster and simpler than shelling out
+  // to ffmpeg just to read a duration — no need to touch the wasm side for this.
+  function probeVideoDuration(url) {
+    return new Promise(function (resolve) {
+      var v = document.createElement('video');
+      v.preload = 'metadata';
+      v.muted = true;
+      v.src = url;
+      var done = false;
+      function finish(d) {
+        if (done) return;
+        done = true;
+        v.src = '';
+        resolve(d);
+      }
+      v.addEventListener('loadedmetadata', function () { finish(v.duration || 0); });
+      v.addEventListener('error', function () { finish(0); }); // unreadable — treated as 0, excluded from the max-duration calc
+      setTimeout(function () { finish(0); }, 15000); // don't let one bad clip hang the whole export
+    });
+  }
+
+  function performGridExport(posts, statusEl) {
+    var clips = safeFilter(posts, function (p) { return isVideoFile(p.file_url); }).slice(0, MAX_GRID_CLIPS);
+    if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
+
+    return getFfmpegConsent(statusEl)
+      .then(function () { return ensureFfmpegLoaded(statusEl); })
+      .then(function (ffmpeg) {
+        statusEl.textContent = 'checking clip lengths…';
+        return Promise.all(safeMap(clips, function (p) { return probeVideoDuration(p.file_url); })).then(function (durations) {
+          var targetDuration = 1; // guard against every probe failing
+          for (var di = 0; di < durations.length; di++) { if (durations[di] > targetDuration) targetDuration = durations[di]; }
+          var layout = computeGridLayout(clips.length);
+          var cols = layout.cols, rows = layout.rows;
+
+          // Fetch + write each input sequentially rather than all at once —
+          // keeps peak memory lower given everything is decoded/held in the
+          // same wasm heap during the actual encode step regardless.
+          var writeChain = Promise.resolve();
+          clips.forEach(function (p, i) {
+            writeChain = writeChain.then(function () {
+              statusEl.textContent = 'fetching clip ' + (i + 1) + ' of ' + clips.length + '…';
+              return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
+                return ffmpeg.writeFile('grid_in' + i + '.' + (p.file_ext || 'mp4'), new Uint8Array(buf));
+              });
+            });
+          });
+
+          return writeChain.then(function () {
+            statusEl.textContent = 'compositing grid (this can take a while)…';
+            var startedAt = Date.now();
+            var args = [];
+            var filterParts = [];
+            var stackInputs = [];
+
+            clips.forEach(function (p, i) {
+              var needsLoop = durations[i] > 0 && durations[i] < targetDuration - 0.1;
+              if (needsLoop) args.push('-stream_loop', '-1');
+              args.push('-i', 'grid_in' + i + '.' + (p.file_ext || 'mp4'));
+              // Normalize every input to the same cell size, aspect-padded
+              // rather than stretched, plus a common framerate — mixed
+              // source resolutions/framerates are the normal case here and
+              // xstack requires matching dimensions across all inputs.
+              filterParts.push(
+                '[' + i + ':v]scale=' + GRID_CELL_W + ':' + GRID_CELL_H +
+                ':force_original_aspect_ratio=decrease,pad=' + GRID_CELL_W + ':' + GRID_CELL_H +
+                ':(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=24[v' + i + ']'
+              );
+              stackInputs.push('[v' + i + ']');
+            });
+
+            var positions = computeCellPositions(clips.length, cols, rows);
+            var layoutStr = [];
+            for (var idx = 0; idx < clips.length; idx++) {
+              layoutStr.push(positions[idx].x + '_' + positions[idx].y);
+            }
+
+            var filterComplex = filterParts.join(';') + ';' + stackInputs.join('') +
+              'xstack=inputs=' + clips.length + ':layout=' + layoutStr.join('|') + '[outv]';
+
+            args.push(
+              '-filter_complex', filterComplex,
+              '-map', '[outv]', '-an', '-t', String(targetDuration.toFixed(2)),
+              '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-r', '24',
+              'grid_out.mp4'
+            );
+
+            return ffmpeg.exec(args).then(function () {
+              return ffmpeg.readFile('grid_out.mp4');
+            }).then(function (data) {
+              var seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+              statusEl.textContent = 'done in ' + seconds + 's';
+              // Best-effort cleanup — frees the wasm heap for a subsequent
+              // export in the same session; a failure here doesn't affect
+              // the result already in hand.
+              clips.forEach(function (p, i) { ffmpeg.deleteFile('grid_in' + i + '.' + (p.file_ext || 'mp4')).catch(function () {}); });
+              ffmpeg.deleteFile('grid_out.mp4').catch(function () {});
+              return { blob: new Blob([data.buffer], { type: 'video/mp4' }), cols: cols, rows: rows, count: clips.length };
+            });
+          });
+        });
+      });
+  }
+
+
   function formatCommentDate(raw) {
     if (raw === null || raw === undefined || raw === '') return '';
     var d;
@@ -3016,6 +3183,10 @@
         '<span class="sk-caption" style="margin:0">' + esc(pool.name) + '</span>' +
         '<button class="sk-nav-btn" id="sk-lp-delete">Delete</button>' +
       '</div>' +
+      '<div class="sk-row" style="margin-bottom:8px">' +
+        '<button class="sk-btn" id="sk-lp-export" style="flex:1">Export as Grid Video</button>' +
+      '</div>' +
+      '<div id="sk-lp-export-status" class="sk-caption" style="display:none"></div>' +
       '<div class="sk-grid" id="sk-lp-grid"></div>';
 
     view.querySelector('#sk-lp-back').onclick = function () { renderLocalPoolsList(view); };
@@ -3023,6 +3194,31 @@
       if (!confirm('delete "' + pool.name + '"?')) return;
       deleteLocalPool(pool.id);
       renderLocalPoolsList(view);
+    };
+
+    view.querySelector('#sk-lp-export').onclick = function () {
+      var videoCount = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).length;
+      if (videoCount < 2) { alert('need at least 2 video clips in this pool to export a grid.'); return; }
+      var usedCount = Math.min(videoCount, MAX_GRID_CLIPS);
+      var capNote = videoCount > MAX_GRID_CLIPS
+        ? ' (' + videoCount + ' video clips in this pool — using the ' + MAX_GRID_CLIPS + ' most recently added; more than that gets slow/heavy in-browser)'
+        : '';
+      if (!confirm('export ' + usedCount + ' clips as one grid video?' + capNote)) return;
+
+      var statusEl = view.querySelector('#sk-lp-export-status');
+      statusEl.style.display = 'block';
+      statusEl.textContent = 'starting…';
+      var exportBtn = view.querySelector('#sk-lp-export');
+      exportBtn.disabled = true;
+
+      performGridExport(pool.posts, statusEl).then(function (result) {
+        var url = URL.createObjectURL(result.blob);
+        statusEl.innerHTML = 'done — ' + result.cols + '×' + result.rows + ' grid, ' + result.count + ' clips. ' +
+          '<a href="' + url + '" download="' + esc(pool.name) + '-grid.mp4" style="color:' + C.amber + '">Download</a>';
+      }).catch(function (err) {
+        statusEl.textContent = err.message === 'cancelled' ? '' : 'export failed: ' + err.message;
+        if (err.message === 'cancelled') statusEl.style.display = 'none';
+      }).then(function () { exportBtn.disabled = false; });
     };
 
     var grid = view.querySelector('#sk-lp-grid');
