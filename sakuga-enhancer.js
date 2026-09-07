@@ -1547,54 +1547,46 @@
   //     row is horizontally (or, in portrait, vertically) centered rather
   //     than left-aligned.
   //   'stretch' — clip index 0 (whichever clip the person put first) is
-  //     doubled in width (landscape) or height (portrait) to absorb the
-  //     leftover space, and everything else fills in around it. At this
-  //     tool's MAX_GRID_CLIPS cap the leftover is always exactly one cell,
-  //     so "double one clip" is always sufficient — never more than that.
-  // Both modes return {x, y, w, h} per clip so the caller doesn't need to
-  // know which mode produced them.
-  function computeCellPositions(n, cols, rows, orientation, mode) {
-    var totalCells = cols * rows;
-    var waste = totalCells - n; // always 0 or 1 across the whole 2..MAX_GRID_CLIPS range this tool allows — if that cap ever changes, this stretch logic (which only compensates for exactly 1 leftover cell) needs revisiting too.
-    var positions = new Array(n);
-
-    if (mode === 'stretch' && waste > 0) {
-      var occupied = [];
-      for (var r = 0; r < rows; r++) {
-        var rowArr = [];
-        for (var c = 0; c < cols; c++) rowArr.push(false);
-        occupied.push(rowArr);
-      }
-      if (orientation === 'portrait') {
-        occupied[0][0] = true; occupied[1][0] = true;
-        positions[0] = { x: 0, y: 0, w: GRID_CELL_W, h: GRID_CELL_H * 2, stretched: true };
-      } else {
-        occupied[0][0] = true; occupied[0][1] = true;
-        positions[0] = { x: 0, y: 0, w: GRID_CELL_W * 2, h: GRID_CELL_H, stretched: true };
-      }
-      var nextIdx = 1;
-      for (var r2 = 0; r2 < rows && nextIdx < n; r2++) {
-        for (var c2 = 0; c2 < cols && nextIdx < n; c2++) {
-          if (occupied[r2][c2]) continue;
-          positions[nextIdx] = { x: c2 * GRID_CELL_W, y: r2 * GRID_CELL_H, w: GRID_CELL_W, h: GRID_CELL_H };
-          nextIdx++;
-        }
+  //     featured above the rest: the remaining n-1 clips are laid out with
+  //     the normal 'center' logic first, then the featured clip is scaled
+  //     to match that leftover grid's width, at its own natural 16:9 (no
+  //     distortion needed — its box is just a bigger ordinary rectangle,
+  //     not a differently-shaped one), and placed above it. Needs at least
+  //     3 clips to mean anything (hero + a real 2+ clip grid below it);
+  //     falls back to 'center' otherwise.
+  // Always returns {x, y, w, h} per clip so the caller doesn't need to know
+  // which mode or branch produced them.
+  function computeCellPositions(n, orientation, mode) {
+    if (mode === 'stretch' && n >= 3) {
+      var restN = n - 1;
+      var restLayout = computeGridLayout(restN, orientation);
+      var restPositions = computeCellPositions(restN, orientation, 'center');
+      var heroW = restLayout.cols * GRID_CELL_W;
+      var heroH = Math.round(heroW * 9 / 16);
+      var positions = new Array(n);
+      positions[0] = { x: 0, y: 0, w: heroW, h: heroH };
+      for (var i = 0; i < restPositions.length; i++) {
+        positions[i + 1] = { x: restPositions[i].x, y: restPositions[i].y + heroH, w: restPositions[i].w, h: restPositions[i].h };
       }
       return positions;
     }
 
-    // 'center' mode (also the fallback for 'stretch' with no leftover space —
-    // a perfectly-filled grid has nothing to stretch, so it's identical to center).
+    // 'center' mode — also the fallback for 'stretch' with n<3, and the
+    // base case 'stretch' itself uses (recursively) for the clips below
+    // the featured one.
+    var layout = computeGridLayout(n, orientation);
+    var cols = layout.cols, rows = layout.rows;
+    var out = new Array(n);
     var idx = 0;
     for (var row = 0; row < rows; row++) {
       var itemsInRow = Math.min(cols, n - idx);
       var rowOffset = Math.floor((cols - itemsInRow) * GRID_CELL_W / 2);
       for (var col = 0; col < itemsInRow; col++) {
-        positions[idx] = { x: rowOffset + col * GRID_CELL_W, y: row * GRID_CELL_H, w: GRID_CELL_W, h: GRID_CELL_H };
+        out[idx] = { x: rowOffset + col * GRID_CELL_W, y: row * GRID_CELL_H, w: GRID_CELL_W, h: GRID_CELL_H };
         idx++;
       }
     }
-    return positions;
+    return out;
   }
 
   // Native <video> metadata loading is faster and simpler than shelling out
@@ -1628,9 +1620,7 @@
         return Promise.all(safeMap(clips, function (p) { return probeVideoDuration(p.file_url); })).then(function (durations) {
           var targetDuration = 1; // guard against every probe failing
           for (var di = 0; di < durations.length; di++) { if (durations[di] > targetDuration) targetDuration = durations[di]; }
-          var layout = computeGridLayout(clips.length, orientation);
-          var cols = layout.cols, rows = layout.rows;
-          var positions = computeCellPositions(clips.length, cols, rows, orientation, mode);
+          var positions = computeCellPositions(clips.length, orientation, mode);
 
           // Fetch + write each input sequentially rather than all at once —
           // keeps peak memory lower given everything is decoded/held in the
@@ -1650,7 +1640,15 @@
             var startedAt = Date.now();
             var args = [];
             var filterParts = [];
-            var canvasW = cols * GRID_CELL_W, canvasH = rows * GRID_CELL_H;
+            // Derived from the actual computed positions rather than a
+            // simple cols*rows — 'stretch' mode's canvas (featured clip
+            // stacked above a smaller grid) isn't a uniform rectangle of
+            // cells the way 'center' mode's is.
+            var canvasW = 0, canvasH = 0;
+            for (var pi = 0; pi < positions.length; pi++) {
+              if (positions[pi].x + positions[pi].w > canvasW) canvasW = positions[pi].x + positions[pi].w;
+              if (positions[pi].y + positions[pi].h > canvasH) canvasH = positions[pi].y + positions[pi].h;
+            }
 
             // Explicit black background, then chained `overlay` filters
             // instead of `xstack` — confirmed directly (by reproducing this
@@ -1660,34 +1658,25 @@
             // green in exactly the gaps a "center leftover row" layout
             // produces. An explicit `color=black` base plus overlay
             // guarantees real black everywhere nothing is placed, and also
-            // sidesteps xstack's assumption of a uniform grid, which the
-            // "stretch" mode's differently-sized boxes don't fit anyway.
+            // sidesteps xstack's assumption of a uniform grid, which
+            // 'stretch' mode's mixed-size boxes don't fit anyway.
             filterParts.push('color=c=black:s=' + canvasW + 'x' + canvasH + ':r=24[bg]');
 
             clips.forEach(function (p, i) {
               var needsLoop = durations[i] > 0 && durations[i] < targetDuration - 0.1;
               if (needsLoop) args.push('-stream_loop', '-1');
               args.push('-i', 'grid_in' + i + '.' + (p.file_ext || 'mp4'));
+              // Every box — including a 'stretch' mode featured clip's — is
+              // sized to the source's own natural aspect ratio (matched to
+              // the leftover grid's width, height following at 16:9), so
+              // the same aspect-preserving scale+pad works uniformly; no
+              // distortion needed anywhere.
               var pos = positions[i];
-              // A stretched cell's box has a deliberately different aspect
-              // ratio than the source clip (that's the whole point — it's
-              // sized to absorb the leftover grid space) — aspect-preserving
-              // scale+pad would just letterbox it back down to a normal-size
-              // clip with black bars filling the "stretched" area, defeating
-              // the feature entirely (confirmed by testing this exact case:
-              // that's exactly what happened before this check existed).
-              // A plain scale deliberately distorts it to genuinely fill the
-              // box. Normal same-shaped cells keep the aspect-preserving
-              // version so ordinary clips aren't needlessly stretched.
-              if (pos.stretched) {
-                filterParts.push('[' + i + ':v]scale=' + pos.w + ':' + pos.h + ',setsar=1,fps=24[v' + i + ']');
-              } else {
-                filterParts.push(
-                  '[' + i + ':v]scale=' + pos.w + ':' + pos.h +
-                  ':force_original_aspect_ratio=decrease,pad=' + pos.w + ':' + pos.h +
-                  ':(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=24[v' + i + ']'
-                );
-              }
+              filterParts.push(
+                '[' + i + ':v]scale=' + pos.w + ':' + pos.h +
+                ':force_original_aspect_ratio=decrease,pad=' + pos.w + ':' + pos.h +
+                ':(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=24[v' + i + ']'
+              );
             });
 
             var prevLabel = 'bg';
@@ -3289,7 +3278,7 @@
             '<button class="sk-mode-btn active" id="sk-lp-mode-center" type="button">Center leftover</button>' +
             '<button class="sk-mode-btn" id="sk-lp-mode-stretch" type="button">Stretch first clip</button>' +
           '</div>' +
-          '<div class="sk-caption" style="margin:0 0 4px">Order — first is top-left, gets stretched if that mode is on:</div>' +
+          '<div class="sk-caption" style="margin:0 0 4px">Order — first clip is featured above the rest if that mode is on:</div>' +
           '<div id="sk-lp-export-order" style="max-height:200px;overflow-y:auto;margin-bottom:8px"></div>' +
         '</div>' +
         '<div class="sk-caption" id="sk-lp-export-preview" style="margin:0 0 8px"></div>' +
@@ -3341,11 +3330,15 @@
 
     function updateExportPreview() {
       var n = exportClipOrder.length;
-      var layout = computeGridLayout(n, exportOrientation);
-      var waste = layout.cols * layout.rows - n;
-      var note = exportMode === 'stretch' && waste > 0 ? ' (first clip stretched to fill the gap)' : '';
-      view.querySelector('#sk-lp-export-preview').textContent =
-        n + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid' + note;
+      var text;
+      if (exportMode === 'stretch' && n >= 3) {
+        var restLayout = computeGridLayout(n - 1, exportOrientation);
+        text = n + ' clips → featured clip above a ' + restLayout.cols + ' × ' + restLayout.rows + ' grid';
+      } else {
+        var layout = computeGridLayout(n, exportOrientation);
+        text = n + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid';
+      }
+      view.querySelector('#sk-lp-export-preview').textContent = text;
     }
 
     function renderExportOrderList() {
