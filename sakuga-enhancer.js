@@ -118,6 +118,11 @@
     'display:flex;align-items:center;justify-content:center;z-index:2;cursor:pointer;',
     'font-family:"Courier New",monospace;}',
     '.sk-card .info-badge:hover{background:rgba(0,0,0,.9);color:' + C.amber + ';}',
+    '.sk-card .remove-badge{position:absolute;bottom:3px;left:4px;background:rgba(0,0,0,.7);',
+    'color:' + C.text + ';font-size:13px;width:18px;height:18px;border-radius:50%;',
+    'display:flex;align-items:center;justify-content:center;z-index:2;cursor:pointer;',
+    'font-family:"Courier New",monospace;line-height:1;}',
+    '.sk-card .remove-badge:hover{background:' + C.red + ';color:#fff;}',
     '.sk-info-popup{position:fixed;z-index:2147483300;width:280px;max-height:320px;',
     'overflow-y:auto;background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:6px;',
     'box-shadow:0 10px 30px rgba(0,0,0,.6);}',
@@ -1524,14 +1529,55 @@
   // wide, but a short final row is horizontally centered within that width
   // rather than left-aligned, so the empty space reads as intentional
   // framing rather than a mistake.
-  function computeCellPositions(n, cols, rows) {
-    var positions = [];
+  // Per-clip pixel box within the grid canvas, in one of two modes:
+  //   'center' — every clip stays a uniform cell size; an incomplete final
+  //     row is horizontally (or, in portrait, vertically) centered rather
+  //     than left-aligned.
+  //   'stretch' — clip index 0 (whichever clip the person put first) is
+  //     doubled in width (landscape) or height (portrait) to absorb the
+  //     leftover space, and everything else fills in around it. At this
+  //     tool's MAX_GRID_CLIPS cap the leftover is always exactly one cell,
+  //     so "double one clip" is always sufficient — never more than that.
+  // Both modes return {x, y, w, h} per clip so the caller doesn't need to
+  // know which mode produced them.
+  function computeCellPositions(n, cols, rows, orientation, mode) {
+    var totalCells = cols * rows;
+    var waste = totalCells - n; // always 0 or 1 across the whole 2..MAX_GRID_CLIPS range this tool allows — if that cap ever changes, this stretch logic (which only compensates for exactly 1 leftover cell) needs revisiting too.
+    var positions = new Array(n);
+
+    if (mode === 'stretch' && waste > 0) {
+      var occupied = [];
+      for (var r = 0; r < rows; r++) {
+        var rowArr = [];
+        for (var c = 0; c < cols; c++) rowArr.push(false);
+        occupied.push(rowArr);
+      }
+      if (orientation === 'portrait') {
+        occupied[0][0] = true; occupied[1][0] = true;
+        positions[0] = { x: 0, y: 0, w: GRID_CELL_W, h: GRID_CELL_H * 2 };
+      } else {
+        occupied[0][0] = true; occupied[0][1] = true;
+        positions[0] = { x: 0, y: 0, w: GRID_CELL_W * 2, h: GRID_CELL_H };
+      }
+      var nextIdx = 1;
+      for (var r2 = 0; r2 < rows && nextIdx < n; r2++) {
+        for (var c2 = 0; c2 < cols && nextIdx < n; c2++) {
+          if (occupied[r2][c2]) continue;
+          positions[nextIdx] = { x: c2 * GRID_CELL_W, y: r2 * GRID_CELL_H, w: GRID_CELL_W, h: GRID_CELL_H };
+          nextIdx++;
+        }
+      }
+      return positions;
+    }
+
+    // 'center' mode (also the fallback for 'stretch' with no leftover space —
+    // a perfectly-filled grid has nothing to stretch, so it's identical to center).
     var idx = 0;
-    for (var r = 0; r < rows; r++) {
+    for (var row = 0; row < rows; row++) {
       var itemsInRow = Math.min(cols, n - idx);
-      var rowOffsetX = Math.floor((cols - itemsInRow) * GRID_CELL_W / 2);
-      for (var c = 0; c < itemsInRow; c++) {
-        positions.push({ x: rowOffsetX + c * GRID_CELL_W, y: r * GRID_CELL_H });
+      var rowOffset = Math.floor((cols - itemsInRow) * GRID_CELL_W / 2);
+      for (var col = 0; col < itemsInRow; col++) {
+        positions[idx] = { x: rowOffset + col * GRID_CELL_W, y: row * GRID_CELL_H, w: GRID_CELL_W, h: GRID_CELL_H };
         idx++;
       }
     }
@@ -1559,8 +1605,7 @@
     });
   }
 
-  function performGridExport(posts, statusEl, orientation) {
-    var clips = safeFilter(posts, function (p) { return isVideoFile(p.file_url); }).slice(0, MAX_GRID_CLIPS);
+  function performGridExport(clips, statusEl, orientation, mode) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
 
     return getFfmpegConsent(statusEl)
@@ -1572,6 +1617,7 @@
           for (var di = 0; di < durations.length; di++) { if (durations[di] > targetDuration) targetDuration = durations[di]; }
           var layout = computeGridLayout(clips.length, orientation);
           var cols = layout.cols, rows = layout.rows;
+          var positions = computeCellPositions(clips.length, cols, rows, orientation, mode);
 
           // Fetch + write each input sequentially rather than all at once —
           // keeps peak memory lower given everything is decoded/held in the
@@ -1597,19 +1643,20 @@
               var needsLoop = durations[i] > 0 && durations[i] < targetDuration - 0.1;
               if (needsLoop) args.push('-stream_loop', '-1');
               args.push('-i', 'grid_in' + i + '.' + (p.file_ext || 'mp4'));
-              // Normalize every input to the same cell size, aspect-padded
+              // Normalize every input to its own target cell size (usually
+              // uniform, but a stretched clip's box is bigger), aspect-padded
               // rather than stretched, plus a common framerate — mixed
               // source resolutions/framerates are the normal case here and
-              // xstack requires matching dimensions across all inputs.
+              // xstack requires every input to exactly match its declared box.
+              var pos = positions[i];
               filterParts.push(
-                '[' + i + ':v]scale=' + GRID_CELL_W + ':' + GRID_CELL_H +
-                ':force_original_aspect_ratio=decrease,pad=' + GRID_CELL_W + ':' + GRID_CELL_H +
+                '[' + i + ':v]scale=' + pos.w + ':' + pos.h +
+                ':force_original_aspect_ratio=decrease,pad=' + pos.w + ':' + pos.h +
                 ':(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=24[v' + i + ']'
               );
               stackInputs.push('[v' + i + ']');
             });
 
-            var positions = computeCellPositions(clips.length, cols, rows);
             var layoutStr = [];
             for (var idx = 0; idx < clips.length; idx++) {
               layoutStr.push(positions[idx].x + '_' + positions[idx].y);
@@ -3199,6 +3246,17 @@
           '<button class="sk-mode-btn active" id="sk-lp-orient-landscape" type="button">Landscape</button>' +
           '<button class="sk-mode-btn" id="sk-lp-orient-portrait" type="button">Portrait</button>' +
         '</div>' +
+        '<label class="sk-lock-label" style="margin-bottom:8px">' +
+          '<input type="checkbox" id="sk-lp-custom-toggle"> Custom grid (stretch mode &amp; clip order)' +
+        '</label>' +
+        '<div id="sk-lp-custom-section" style="display:none">' +
+          '<div class="sk-mode-row" style="margin-bottom:6px">' +
+            '<button class="sk-mode-btn active" id="sk-lp-mode-center" type="button">Center leftover</button>' +
+            '<button class="sk-mode-btn" id="sk-lp-mode-stretch" type="button">Stretch first clip</button>' +
+          '</div>' +
+          '<div class="sk-caption" style="margin:0 0 4px">Order — first is top-left, gets stretched if that mode is on:</div>' +
+          '<div id="sk-lp-export-order" style="max-height:200px;overflow-y:auto;margin-bottom:8px"></div>' +
+        '</div>' +
         '<div class="sk-caption" id="sk-lp-export-preview" style="margin:0 0 8px"></div>' +
         '<div class="sk-row">' +
           '<button class="sk-btn" id="sk-lp-export-start" style="flex:1">Start Export</button>' +
@@ -3216,25 +3274,91 @@
     };
 
     var exportOrientation = 'landscape';
+    var exportMode = 'center';
+    var exportClipOrder = [];
     var exportPanel = view.querySelector('#sk-lp-export-panel');
     var landscapeBtn = view.querySelector('#sk-lp-orient-landscape');
     var portraitBtn = view.querySelector('#sk-lp-orient-portrait');
+    var centerBtn = view.querySelector('#sk-lp-mode-center');
+    var stretchBtn = view.querySelector('#sk-lp-mode-stretch');
+    var customToggle = view.querySelector('#sk-lp-custom-toggle');
+    var customSection = view.querySelector('#sk-lp-custom-section');
+
+    function defaultClipOrder() {
+      return safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).slice(0, MAX_GRID_CLIPS);
+    }
+
+    customToggle.onchange = function () {
+      if (customToggle.checked) {
+        customSection.style.display = 'block';
+      } else {
+        // Back to the plain default: centered leftover row, pool's own
+        // order — not whatever was left over from fiddling with custom
+        // settings a moment ago.
+        customSection.style.display = 'none';
+        exportMode = 'center';
+        centerBtn.classList.add('active');
+        stretchBtn.classList.remove('active');
+        exportClipOrder = defaultClipOrder();
+      }
+      updateExportPreview();
+    };
 
     function updateExportPreview() {
-      var videoCount = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).length;
-      var usedCount = Math.min(videoCount, MAX_GRID_CLIPS);
-      var layout = computeGridLayout(usedCount, exportOrientation);
+      var n = exportClipOrder.length;
+      var layout = computeGridLayout(n, exportOrientation);
+      var waste = layout.cols * layout.rows - n;
+      var note = exportMode === 'stretch' && waste > 0 ? ' (first clip stretched to fill the gap)' : '';
       view.querySelector('#sk-lp-export-preview').textContent =
-        usedCount + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid';
+        n + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid' + note;
+    }
+
+    function renderExportOrderList() {
+      var container = view.querySelector('#sk-lp-export-order');
+      container.innerHTML = '';
+      exportClipOrder.forEach(function (p, i) {
+        var row = document.createElement('div');
+        row.className = 'sk-show-pick';
+        row.style.cursor = 'default';
+        var label = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).slice(0, 3).join(' ');
+        row.innerHTML =
+          '<span style="display:flex;align-items:center;gap:6px;overflow:hidden">' +
+            '<img src="' + esc(p.preview_url || '') + '" style="width:36px;height:20px;object-fit:cover;border-radius:2px;flex-shrink:0">' +
+            '<span class="name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(label) + '</span>' +
+          '</span>' +
+          '<span style="display:flex;gap:4px;flex-shrink:0">' +
+            '<button class="sk-nav-btn" data-dir="up" style="padding:2px 6px"' + (i === 0 ? ' disabled' : '') + '>&#8593;</button>' +
+            '<button class="sk-nav-btn" data-dir="down" style="padding:2px 6px"' + (i === exportClipOrder.length - 1 ? ' disabled' : '') + '>&#8595;</button>' +
+          '</span>';
+        row.querySelector('[data-dir="up"]').onclick = function () {
+          if (i === 0) return;
+          var tmp = exportClipOrder[i - 1]; exportClipOrder[i - 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
+          renderExportOrderList();
+          updateExportPreview();
+        };
+        row.querySelector('[data-dir="down"]').onclick = function () {
+          if (i === exportClipOrder.length - 1) return;
+          var tmp = exportClipOrder[i + 1]; exportClipOrder[i + 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
+          renderExportOrderList();
+          updateExportPreview();
+        };
+        container.appendChild(row);
+      });
     }
 
     view.querySelector('#sk-lp-export').onclick = function () {
-      var videoCount = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).length;
-      if (videoCount < 2) { alert('need at least 2 video clips in this pool to export a grid.'); return; }
-      var usedCount = Math.min(videoCount, MAX_GRID_CLIPS);
-      view.querySelector('#sk-lp-export-info').textContent = videoCount > MAX_GRID_CLIPS
-        ? usedCount + ' of ' + videoCount + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
-        : usedCount + ' video clips will be used';
+      var videoPosts = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); });
+      if (videoPosts.length < 2) { alert('need at least 2 video clips in this pool to export a grid.'); return; }
+      exportClipOrder = videoPosts.slice(0, MAX_GRID_CLIPS);
+      exportMode = 'center';
+      customToggle.checked = false;
+      customSection.style.display = 'none';
+      centerBtn.classList.add('active');
+      stretchBtn.classList.remove('active');
+      view.querySelector('#sk-lp-export-info').textContent = videoPosts.length > MAX_GRID_CLIPS
+        ? exportClipOrder.length + ' of ' + videoPosts.length + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
+        : exportClipOrder.length + ' video clips will be used';
+      renderExportOrderList();
       updateExportPreview();
       exportPanel.style.display = 'block';
     };
@@ -3251,6 +3375,18 @@
       landscapeBtn.classList.remove('active');
       updateExportPreview();
     };
+    centerBtn.onclick = function () {
+      exportMode = 'center';
+      centerBtn.classList.add('active');
+      stretchBtn.classList.remove('active');
+      updateExportPreview();
+    };
+    stretchBtn.onclick = function () {
+      exportMode = 'stretch';
+      stretchBtn.classList.add('active');
+      centerBtn.classList.remove('active');
+      updateExportPreview();
+    };
     view.querySelector('#sk-lp-export-cancel').onclick = function () { exportPanel.style.display = 'none'; };
 
     view.querySelector('#sk-lp-export-start').onclick = function () {
@@ -3261,7 +3397,7 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      performGridExport(pool.posts, statusEl, exportOrientation).then(function (result) {
+      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode).then(function (result) {
         var url = URL.createObjectURL(result.blob);
         statusEl.innerHTML = 'done — ' + result.cols + '×' + result.rows + ' grid, ' + result.count + ' clips. ' +
           '<a href="' + url + '" download="' + esc(pool.name) + '-grid.mp4" style="color:' + C.amber + '">Download</a>';
@@ -3276,7 +3412,20 @@
       grid.innerHTML = '<div class="sk-empty">no clips yet</div>';
       return;
     }
-    pool.posts.forEach(function (p) { grid.appendChild(buildCard(p)); });
+    pool.posts.forEach(function (p) {
+      var card = buildCard(p);
+      var removeBadge = document.createElement('div');
+      removeBadge.className = 'remove-badge';
+      removeBadge.title = 'remove from this pool';
+      removeBadge.innerHTML = '&times;';
+      removeBadge.onclick = function (e) {
+        e.stopPropagation(); // don't also open the clip
+        removePostFromLocalPool(pool.id, p.id);
+        renderLocalPoolDetail(view, pool.id); // re-render so the grid and counts reflect the removal
+      };
+      card.appendChild(removeBadge);
+      grid.appendChild(card);
+    });
   }
 
   function renderPublicPoolsBrowse(view) {
