@@ -239,6 +239,10 @@
     '.sk-empty{color:' + C.dim + ';font-size:12px;text-align:center;padding:20px 0;}',
     '.sk-loading{color:' + C.amber + ';font-size:12px;text-align:center;padding:20px 0;',
     'font-family:"Courier New",monospace;}',
+    '.sk-spinner{display:inline-block;width:12px;height:12px;border:2px solid ' + C.line + ';',
+    'border-top-color:' + C.amber + ';border-radius:50%;vertical-align:middle;margin-right:6px;',
+    'animation:sk-spin .7s linear infinite;}',
+    '@keyframes sk-spin{to{transform:rotate(360deg);}}',
     '.sk-close{cursor:pointer;color:' + C.dim + ';font-size:16px;line-height:1;}',
     '.sk-media-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2147483600;',
     'display:flex;align-items:center;justify-content:center;padding:24px;}',
@@ -1343,6 +1347,15 @@
   var ffmpegInstance = null;
   var ffmpegLoadPromise = null;
 
+  // Used for every in-progress status message across trimming and grid
+  // export — both can genuinely take a while (grid export especially, since
+  // it decodes/re-encodes multiple clips at once), so a spinner distinguishes
+  // "still working" from "stalled" at a glance rather than relying on text
+  // alone. Never used for a final "done"/error state — those stay plain text.
+  function setBusyStatus(el, text) {
+    el.innerHTML = '<span class="sk-spinner"></span>' + esc(text);
+  }
+
   function withTimeout(promise, ms, message) {
     return new Promise(function (resolve, reject) {
       var timer = setTimeout(function () { reject(new Error(message)); }, ms);
@@ -1382,7 +1395,7 @@
     if (ffmpegInstance) return Promise.resolve(ffmpegInstance);
     if (ffmpegLoadPromise) return ffmpegLoadPromise;
     ffmpegLoadPromise = (function () {
-      statusEl.textContent = 'loading video tool… (first time only, your browser caches it after this)';
+      setBusyStatus(statusEl, 'loading video tool… (first time only, your browser caches it after this)');
       console.log('[sakuga-enhancer] ffmpeg: importing wrapper + util modules…');
       return Promise.all([import(FFMPEG_PKG_URL), import(FFMPEG_UTIL_URL)]).then(function (mods) {
         console.log('[sakuga-enhancer] ffmpeg: modules imported, fetching core/wasm/worker…');
@@ -1438,7 +1451,7 @@
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
       .then(function (ffmpeg) {
-        statusEl.textContent = 'reading clip…';
+        setBusyStatus(statusEl, 'reading clip…');
         return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
           var inputName = 'input.' + (p.file_ext || 'webm');
           var outputName = accurate ? 'output.mp4' : 'output.' + (p.file_ext || 'webm');
@@ -1446,7 +1459,7 @@
           return ffmpeg.writeFile(inputName, new Uint8Array(buf)).then(function () {
             var args;
             if (accurate) {
-              statusEl.textContent = 'trimming (re-encoding for frame accuracy — slower)…';
+              setBusyStatus(statusEl, 'trimming (re-encoding for frame accuracy — slower)…');
               // `-ss`/`-to` placed AFTER `-i`, with real encoders instead of `-c copy`:
               // stream-copy can only cut on keyframe boundaries since it never decodes
               // the video, so the actual start/end can drift from what was marked.
@@ -1455,7 +1468,7 @@
               args = ['-i', inputName, '-ss', String(inTime), '-to', String(outTime),
                 '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-c:a', 'aac', outputName];
             } else {
-              statusEl.textContent = 'trimming (fast mode)…';
+              setBusyStatus(statusEl, 'trimming (fast mode)…');
               // Fast stream-copy: no decoding, just remuxing existing compressed data —
               // much quicker, but can only cut on the nearest keyframe, so the actual
               // start/end may land a little before/after what was marked.
@@ -1554,10 +1567,10 @@
       }
       if (orientation === 'portrait') {
         occupied[0][0] = true; occupied[1][0] = true;
-        positions[0] = { x: 0, y: 0, w: GRID_CELL_W, h: GRID_CELL_H * 2 };
+        positions[0] = { x: 0, y: 0, w: GRID_CELL_W, h: GRID_CELL_H * 2, stretched: true };
       } else {
         occupied[0][0] = true; occupied[0][1] = true;
-        positions[0] = { x: 0, y: 0, w: GRID_CELL_W * 2, h: GRID_CELL_H };
+        positions[0] = { x: 0, y: 0, w: GRID_CELL_W * 2, h: GRID_CELL_H, stretched: true };
       }
       var nextIdx = 1;
       for (var r2 = 0; r2 < rows && nextIdx < n; r2++) {
@@ -1611,7 +1624,7 @@
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
       .then(function (ffmpeg) {
-        statusEl.textContent = 'checking clip lengths…';
+        setBusyStatus(statusEl, 'checking clip lengths…');
         return Promise.all(safeMap(clips, function (p) { return probeVideoDuration(p.file_url); })).then(function (durations) {
           var targetDuration = 1; // guard against every probe failing
           for (var di = 0; di < durations.length; di++) { if (durations[di] > targetDuration) targetDuration = durations[di]; }
@@ -1625,7 +1638,7 @@
           var writeChain = Promise.resolve();
           clips.forEach(function (p, i) {
             writeChain = writeChain.then(function () {
-              statusEl.textContent = 'fetching clip ' + (i + 1) + ' of ' + clips.length + '…';
+              setBusyStatus(statusEl, 'fetching clip ' + (i + 1) + ' of ' + clips.length + '…');
               return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
                 return ffmpeg.writeFile('grid_in' + i + '.' + (p.file_ext || 'mp4'), new Uint8Array(buf));
               });
@@ -1633,37 +1646,59 @@
           });
 
           return writeChain.then(function () {
-            statusEl.textContent = 'compositing grid (this can take a while)…';
+            setBusyStatus(statusEl, 'compositing grid (this can take a while)…');
             var startedAt = Date.now();
             var args = [];
             var filterParts = [];
-            var stackInputs = [];
+            var canvasW = cols * GRID_CELL_W, canvasH = rows * GRID_CELL_H;
+
+            // Explicit black background, then chained `overlay` filters
+            // instead of `xstack` — confirmed directly (by reproducing this
+            // exact filter graph locally, not just reasoned about) that
+            // xstack leaves any canvas area no input covers as uninitialized
+            // memory rather than actually black, which rendered as bright
+            // green in exactly the gaps a "center leftover row" layout
+            // produces. An explicit `color=black` base plus overlay
+            // guarantees real black everywhere nothing is placed, and also
+            // sidesteps xstack's assumption of a uniform grid, which the
+            // "stretch" mode's differently-sized boxes don't fit anyway.
+            filterParts.push('color=c=black:s=' + canvasW + 'x' + canvasH + ':r=24[bg]');
 
             clips.forEach(function (p, i) {
               var needsLoop = durations[i] > 0 && durations[i] < targetDuration - 0.1;
               if (needsLoop) args.push('-stream_loop', '-1');
               args.push('-i', 'grid_in' + i + '.' + (p.file_ext || 'mp4'));
-              // Normalize every input to its own target cell size (usually
-              // uniform, but a stretched clip's box is bigger), aspect-padded
-              // rather than stretched, plus a common framerate — mixed
-              // source resolutions/framerates are the normal case here and
-              // xstack requires every input to exactly match its declared box.
               var pos = positions[i];
-              filterParts.push(
-                '[' + i + ':v]scale=' + pos.w + ':' + pos.h +
-                ':force_original_aspect_ratio=decrease,pad=' + pos.w + ':' + pos.h +
-                ':(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=24[v' + i + ']'
-              );
-              stackInputs.push('[v' + i + ']');
+              // A stretched cell's box has a deliberately different aspect
+              // ratio than the source clip (that's the whole point — it's
+              // sized to absorb the leftover grid space) — aspect-preserving
+              // scale+pad would just letterbox it back down to a normal-size
+              // clip with black bars filling the "stretched" area, defeating
+              // the feature entirely (confirmed by testing this exact case:
+              // that's exactly what happened before this check existed).
+              // A plain scale deliberately distorts it to genuinely fill the
+              // box. Normal same-shaped cells keep the aspect-preserving
+              // version so ordinary clips aren't needlessly stretched.
+              if (pos.stretched) {
+                filterParts.push('[' + i + ':v]scale=' + pos.w + ':' + pos.h + ',setsar=1,fps=24[v' + i + ']');
+              } else {
+                filterParts.push(
+                  '[' + i + ':v]scale=' + pos.w + ':' + pos.h +
+                  ':force_original_aspect_ratio=decrease,pad=' + pos.w + ':' + pos.h +
+                  ':(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=24[v' + i + ']'
+                );
+              }
             });
 
-            var layoutStr = [];
-            for (var idx = 0; idx < clips.length; idx++) {
-              layoutStr.push(positions[idx].x + '_' + positions[idx].y);
-            }
+            var prevLabel = 'bg';
+            clips.forEach(function (p, i) {
+              var pos = positions[i];
+              var outLabel = (i === clips.length - 1) ? 'outv' : 't' + i;
+              filterParts.push('[' + prevLabel + '][v' + i + ']overlay=' + pos.x + ':' + pos.y + '[' + outLabel + ']');
+              prevLabel = outLabel;
+            });
 
-            var filterComplex = filterParts.join(';') + ';' + stackInputs.join('') +
-              'xstack=inputs=' + clips.length + ':layout=' + layoutStr.join('|') + '[outv]';
+            var filterComplex = filterParts.join(';');
 
             args.push(
               '-filter_complex', filterComplex,
@@ -1852,7 +1887,7 @@
       var password = passInput.value;
       if (!username || !password) return;
       submitBtn.disabled = true;
-      statusEl.textContent = 'checking…';
+      setBusyStatus(statusEl, 'checking…');
       hashSakugaPassword(password).then(function (hash) {
         return verifyLogin(username, hash).then(function (ok) {
           if (!ok) {
@@ -1902,7 +1937,7 @@
       var body = textArea.value.trim();
       if (!body) return;
       postBtn.disabled = true;
-      statusEl.textContent = 'posting…';
+      setBusyStatus(statusEl, 'posting…');
       postComment(p.id, body, creds.username, creds.passwordHash).then(function () {
         textArea.value = '';
         statusEl.textContent = '';
@@ -3393,7 +3428,7 @@
       exportPanel.style.display = 'none';
       var statusEl = view.querySelector('#sk-lp-export-status');
       statusEl.style.display = 'block';
-      statusEl.textContent = 'starting…';
+      setBusyStatus(statusEl, 'starting…');
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
