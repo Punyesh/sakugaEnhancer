@@ -885,7 +885,7 @@
   }
 
   // ===================== SEARCH TAB =====================
-  var searchState = { tags: [], order: 'score', rating: '' };
+  var searchState = { tags: [], order: 'date', rating: '' };
   var searchViewMode = 'results'; // 'results' | 'stats'
 
   function tagsEqual(a, b) {
