@@ -1706,7 +1706,7 @@
               // the result already in hand.
               clips.forEach(function (p, i) { ffmpeg.deleteFile('grid_in' + i + '.' + (p.file_ext || 'mp4')).catch(function () {}); });
               ffmpeg.deleteFile('grid_out.mp4').catch(function () {});
-              return { blob: new Blob([data.buffer], { type: 'video/mp4' }), cols: cols, rows: rows, count: clips.length };
+              return { blob: new Blob([data.buffer], { type: 'video/mp4' }), width: canvasW, height: canvasH, count: clips.length };
             });
           });
         });
@@ -3427,7 +3427,7 @@
 
       performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode).then(function (result) {
         var url = URL.createObjectURL(result.blob);
-        statusEl.innerHTML = 'done — ' + result.cols + '×' + result.rows + ' grid, ' + result.count + ' clips. ' +
+        statusEl.innerHTML = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips. ' +
           '<a href="' + url + '" download="' + esc(pool.name) + '-grid.mp4" style="color:' + C.amber + '">Download</a>';
       }).catch(function (err) {
         statusEl.textContent = err.message === 'cancelled' ? '' : 'export failed: ' + err.message;
