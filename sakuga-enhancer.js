@@ -1495,13 +1495,14 @@
   // which would raise the arbitrary question of *which* clip gets to be
   // bigger). Single-row/column "strips" are still excluded once there are
   // enough clips to actually form a grid.
-  function computeGridLayout(n) {
+  function computeGridLayout(n, orientation) {
+    var targetAspect = orientation === 'portrait' ? 9 / 16 : 16 / 9;
     var best = null;
     for (var rows = 1; rows <= n; rows++) {
       var cols = Math.ceil(n / rows);
       if (n > 3 && (cols === 1 || rows === 1)) continue;
       var aspect = cols / rows;
-      var aspectDiff = Math.abs(aspect - 16 / 9);
+      var aspectDiff = Math.abs(aspect - targetAspect);
       var lastRowCount = n - cols * (rows - 1);
       var sparseness = (cols - lastRowCount) / cols; // 0 = last row full, near 1 = last row nearly empty
       var score = aspectDiff + sparseness * 2; // weight both a good overall shape and not leaving too sparse a final row
@@ -1509,7 +1510,13 @@
         best = { cols: cols, rows: rows, score: score };
       }
     }
-    if (!best) best = { cols: n, rows: 1 }; // only reachable for n<=3, where a single row is fine anyway
+    // Defensive fallback only — in practice the loop above always finds a
+    // candidate (for n<=3 no configuration gets excluded at all; for n>3
+    // there's always at least one non-degenerate rows/cols pair). The
+    // actual portrait/landscape choice for small n happens through the
+    // scoring above, not here — e.g. n=3 already lands on 3x1 for
+    // landscape or 1x3 for portrait via targetAspect alone.
+    if (!best) best = orientation === 'portrait' ? { cols: 1, rows: n } : { cols: n, rows: 1 };
     return { cols: best.cols, rows: best.rows };
   }
 
@@ -1552,7 +1559,7 @@
     });
   }
 
-  function performGridExport(posts, statusEl) {
+  function performGridExport(posts, statusEl, orientation) {
     var clips = safeFilter(posts, function (p) { return isVideoFile(p.file_url); }).slice(0, MAX_GRID_CLIPS);
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
 
@@ -1563,7 +1570,7 @@
         return Promise.all(safeMap(clips, function (p) { return probeVideoDuration(p.file_url); })).then(function (durations) {
           var targetDuration = 1; // guard against every probe failing
           for (var di = 0; di < durations.length; di++) { if (durations[di] > targetDuration) targetDuration = durations[di]; }
-          var layout = computeGridLayout(clips.length);
+          var layout = computeGridLayout(clips.length, orientation);
           var cols = layout.cols, rows = layout.rows;
 
           // Fetch + write each input sequentially rather than all at once —
@@ -3186,6 +3193,18 @@
       '<div class="sk-row" style="margin-bottom:8px">' +
         '<button class="sk-btn" id="sk-lp-export" style="flex:1">Export as Grid Video</button>' +
       '</div>' +
+      '<div id="sk-lp-export-panel" style="display:none;border:1px solid ' + C.line + ';border-radius:6px;padding:10px;margin-bottom:8px">' +
+        '<div class="sk-caption" id="sk-lp-export-info" style="margin:0 0 8px"></div>' +
+        '<div class="sk-mode-row" style="margin-bottom:8px">' +
+          '<button class="sk-mode-btn active" id="sk-lp-orient-landscape" type="button">Landscape</button>' +
+          '<button class="sk-mode-btn" id="sk-lp-orient-portrait" type="button">Portrait</button>' +
+        '</div>' +
+        '<div class="sk-caption" id="sk-lp-export-preview" style="margin:0 0 8px"></div>' +
+        '<div class="sk-row">' +
+          '<button class="sk-btn" id="sk-lp-export-start" style="flex:1">Start Export</button>' +
+          '<button class="sk-nav-btn" id="sk-lp-export-cancel">Cancel</button>' +
+        '</div>' +
+      '</div>' +
       '<div id="sk-lp-export-status" class="sk-caption" style="display:none"></div>' +
       '<div class="sk-grid" id="sk-lp-grid"></div>';
 
@@ -3196,22 +3215,53 @@
       renderLocalPoolsList(view);
     };
 
+    var exportOrientation = 'landscape';
+    var exportPanel = view.querySelector('#sk-lp-export-panel');
+    var landscapeBtn = view.querySelector('#sk-lp-orient-landscape');
+    var portraitBtn = view.querySelector('#sk-lp-orient-portrait');
+
+    function updateExportPreview() {
+      var videoCount = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).length;
+      var usedCount = Math.min(videoCount, MAX_GRID_CLIPS);
+      var layout = computeGridLayout(usedCount, exportOrientation);
+      view.querySelector('#sk-lp-export-preview').textContent =
+        usedCount + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid';
+    }
+
     view.querySelector('#sk-lp-export').onclick = function () {
       var videoCount = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).length;
       if (videoCount < 2) { alert('need at least 2 video clips in this pool to export a grid.'); return; }
       var usedCount = Math.min(videoCount, MAX_GRID_CLIPS);
-      var capNote = videoCount > MAX_GRID_CLIPS
-        ? ' (' + videoCount + ' video clips in this pool — using the ' + MAX_GRID_CLIPS + ' most recently added; more than that gets slow/heavy in-browser)'
-        : '';
-      if (!confirm('export ' + usedCount + ' clips as one grid video?' + capNote)) return;
+      view.querySelector('#sk-lp-export-info').textContent = videoCount > MAX_GRID_CLIPS
+        ? usedCount + ' of ' + videoCount + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
+        : usedCount + ' video clips will be used';
+      updateExportPreview();
+      exportPanel.style.display = 'block';
+    };
 
+    landscapeBtn.onclick = function () {
+      exportOrientation = 'landscape';
+      landscapeBtn.classList.add('active');
+      portraitBtn.classList.remove('active');
+      updateExportPreview();
+    };
+    portraitBtn.onclick = function () {
+      exportOrientation = 'portrait';
+      portraitBtn.classList.add('active');
+      landscapeBtn.classList.remove('active');
+      updateExportPreview();
+    };
+    view.querySelector('#sk-lp-export-cancel').onclick = function () { exportPanel.style.display = 'none'; };
+
+    view.querySelector('#sk-lp-export-start').onclick = function () {
+      exportPanel.style.display = 'none';
       var statusEl = view.querySelector('#sk-lp-export-status');
       statusEl.style.display = 'block';
       statusEl.textContent = 'starting…';
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      performGridExport(pool.posts, statusEl).then(function (result) {
+      performGridExport(pool.posts, statusEl, exportOrientation).then(function (result) {
         var url = URL.createObjectURL(result.blob);
         statusEl.innerHTML = 'done — ' + result.cols + '×' + result.rows + ' grid, ' + result.count + ' clips. ' +
           '<a href="' + url + '" download="' + esc(pool.name) + '-grid.mp4" style="color:' + C.amber + '">Download</a>';
