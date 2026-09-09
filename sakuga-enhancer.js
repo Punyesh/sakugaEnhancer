@@ -218,17 +218,20 @@
     '.sk-show-head a{font-size:11px;color:' + C.dim + ';text-decoration:none;}',
     '.sk-show-head a:hover{color:' + C.amber + ';}',
     '.sk-show-nav{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px;}',
-    '.sk-top-animators{border:1px solid ' + C.line + ';border-radius:8px;padding:10px 12px 6px;',
+    '.sk-freq-list{border:1px solid ' + C.line + ';border-radius:8px;padding:10px 12px 6px;',
     'background:linear-gradient(180deg,' + C.panel2 + ',' + C.panel + ');}',
-    '.sk-animator-row{display:flex;align-items:center;gap:8px;padding:4px 2px;border-radius:5px;cursor:pointer;',
+    '.sk-freq-row{display:flex;align-items:center;gap:8px;padding:4px 2px;border-radius:5px;cursor:pointer;',
     'transition:background .12s ease;}',
-    '.sk-animator-row:hover{background:rgba(255,176,32,.08);}',
-    '.sk-animator-rank{width:14px;flex-shrink:0;font-size:10px;color:' + C.dim + ';text-align:right;font-family:"Courier New",monospace;}',
-    '.sk-animator-name{width:112px;flex-shrink:0;font-size:12px;color:' + C.amber + ';white-space:nowrap;',
+    '.sk-freq-row:hover{background:rgba(255,176,32,.08);}',
+    '.sk-freq-row.is-show:hover{background:rgba(109,179,242,.08);}',
+    '.sk-freq-rank{width:14px;flex-shrink:0;font-size:10px;color:' + C.dim + ';text-align:right;font-family:"Courier New",monospace;}',
+    '.sk-freq-name{width:112px;flex-shrink:0;font-size:12px;color:' + C.amber + ';white-space:nowrap;',
     'overflow:hidden;text-overflow:ellipsis;}',
-    '.sk-animator-bar-wrap{flex:1;height:6px;border-radius:3px;background:' + C.bg + ';overflow:hidden;}',
-    '.sk-animator-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,' + C.amberDim + ',' + C.amber + ');}',
-    '.sk-animator-count{width:34px;flex-shrink:0;text-align:right;font-size:11px;color:' + C.dim + ';',
+    '.sk-freq-row.is-show .sk-freq-name{color:' + C.link + ';}',
+    '.sk-freq-bar-wrap{flex:1;height:6px;border-radius:3px;background:' + C.bg + ';overflow:hidden;}',
+    '.sk-freq-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,' + C.amberDim + ',' + C.amber + ');}',
+    '.sk-freq-row.is-show .sk-freq-bar{background:linear-gradient(90deg,#2c5170,' + C.link + ');}',
+    '.sk-freq-count{width:34px;flex-shrink:0;text-align:right;font-size:11px;color:' + C.dim + ';',
     'font-family:"Courier New",monospace;}',
     '.sk-nav-btn{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
     'padding:5px 10px;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;}',
@@ -3102,12 +3105,43 @@
         '<div><div class="sk-stat-big">' + total + '</div><div class="sk-stat-label">cuts found</div></div>' +
         '<div><div class="sk-stat-big">' + avgScore + '</div><div class="sk-stat-label">avg score</div></div>' +
       '</div>' +
+      '<div class="sk-meta">most frequent shows</div>' +
+      '<div id="sk-artist-shows"><div class="sk-loading">loading…</div></div>' +
+      '<div style="height:6px"></div>' +
       '<div class="sk-meta" title="Based on when each post was added/tagged on sakugabooru, not when the original episode aired — a 2005 cut uploaded in 2021 shows up as 2021 here.">upload year ⓘ</div>' +
       '<div class="sk-filmstrip" id="sk-strip"></div>' +
       '<div style="height:18px"></div>' +
       '<div class="sk-meta">most frequent co-tags &mdash; use Search\'s filter grid to narrow by these</div>' +
       '<div class="sk-taglist" id="sk-taglist"></div>' +
       note;
+
+    // Same tally already gathered for co-tags above, just narrowed to
+    // show/copyright-type tags specifically — no separate pass over the
+    // posts needed. Async only because the tag-type dictionary might not
+    // be loaded yet; everything else on this screen doesn't need it.
+    var showsWrap = out.querySelector('#sk-artist-shows');
+    ensureTagTypes().then(function (map) {
+      var showNames = safeSort(
+        safeFilter(Object.keys(tagFreq), function (t) { return map && map[t] === 3; }),
+        function (a, b) { return tagFreq[b] - tagFreq[a]; }
+      ).slice(0, 8);
+      if (!showNames.length) { showsWrap.innerHTML = '<div class="sk-caption">no show tags found among these cuts.</div>'; return; }
+      showsWrap.innerHTML = '<div class="sk-freq-list">' + buildFreqRows(showNames, tagFreq, 'show') + '</div>';
+      var rowEls = showsWrap.querySelectorAll('.sk-freq-row');
+      for (var i = 0; i < rowEls.length; i++) {
+        rowEls[i].onclick = function (e) {
+          var show = e.currentTarget.getAttribute('data-tag');
+          // Combined with the animator tag, same convention as the
+          // show-screen's own animator list — "how much do they show up
+          // here" implies clicking means "show me their cuts in this show".
+          searchState.tags = [show, tagName];
+          searchViewMode = 'results';
+          searchOrigin = null;
+          switchToTab('search');
+          runSearch();
+        };
+      }
+    });
 
     var strip = out.querySelector('#sk-strip');
     years.forEach(function (y) {
@@ -3372,6 +3406,24 @@
     };
   }
 
+  // Shared by both directions of this feature (a show's most-tagged
+  // animators, and an animator's most-frequent shows) — same visual
+  // language either way, just a different accent color per variant so the
+  // two stay visually distinct (amber for animators, blue for shows,
+  // matching the tag-chip color-coding used everywhere else).
+  function buildFreqRows(names, freq, variant) {
+    var maxCount = freq[names[0]];
+    return safeMap(names, function (name, i) {
+      var pct = Math.max(6, Math.round((freq[name] / maxCount) * 100));
+      return '<div class="sk-freq-row' + (variant === 'show' ? ' is-show' : '') + '" data-tag="' + esc(name) + '">' +
+        '<span class="sk-freq-rank">' + (i + 1) + '</span>' +
+        '<span class="sk-freq-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
+        '<span class="sk-freq-bar-wrap"><span class="sk-freq-bar" style="width:' + pct + '%"></span></span>' +
+        '<span class="sk-freq-count">' + freq[name] + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
   function renderTopAnimatorsContent(bodyEl, showTag, posts) {
     ensureTagTypes().then(function (map) {
       var freq = {};
@@ -3387,18 +3439,8 @@
       });
       var names = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 8);
       if (!names.length) { bodyEl.innerHTML = '<div class="sk-caption">no animator tags found in the sample.</div>'; return; }
-      var maxCount = freq[names[0]];
-      var rows = safeMap(names, function (name, i) {
-        var pct = Math.max(6, Math.round((freq[name] / maxCount) * 100));
-        return '<div class="sk-animator-row" data-tag="' + esc(name) + '">' +
-          '<span class="sk-animator-rank">' + (i + 1) + '</span>' +
-          '<span class="sk-animator-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
-          '<span class="sk-animator-bar-wrap"><span class="sk-animator-bar" style="width:' + pct + '%"></span></span>' +
-          '<span class="sk-animator-count">' + freq[name] + '</span>' +
-        '</div>';
-      }).join('');
-      bodyEl.innerHTML = '<div class="sk-top-animators">' + rows + '</div>';
-      var rowEls = bodyEl.querySelectorAll('.sk-animator-row');
+      bodyEl.innerHTML = '<div class="sk-freq-list">' + buildFreqRows(names, freq, 'artist') + '</div>';
+      var rowEls = bodyEl.querySelectorAll('.sk-freq-row');
       for (var i = 0; i < rowEls.length; i++) {
         rowEls[i].onclick = function (e) {
           var tag = e.currentTarget.getAttribute('data-tag');
