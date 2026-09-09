@@ -57,6 +57,14 @@
     '.sk-icon-btn:hover:not(:disabled){border-color:' + C.amber + ';color:' + C.amber + ';}',
     '.sk-icon-btn.active{background:' + C.amberDim + ';border-color:' + C.amber + ';color:' + C.amber + ';}',
     '.sk-icon-btn:disabled{opacity:.35;cursor:default;}',
+    '.sk-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:5px 1px;}',
+    '.sk-toggle-label{font-size:12px;color:' + C.text + ';}',
+    '.sk-toggle-switch{position:relative;width:32px;height:17px;border-radius:9px;flex-shrink:0;',
+    'background:' + C.line + ';cursor:pointer;transition:background .15s ease;}',
+    '.sk-toggle-switch.active{background:' + C.amberDim + ';}',
+    '.sk-toggle-knob{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;',
+    'background:' + C.dim + ';transition:left .15s ease,background .15s ease;}',
+    '.sk-toggle-switch.active .sk-toggle-knob{left:17px;background:' + C.amber + ';}',
     '.sk-resize-corner{position:absolute;width:14px;height:14px;z-index:5;touch-action:none;}',
     '.sk-resize-corner.nw{top:0;left:0;cursor:nwse-resize;}',
     '.sk-resize-corner.ne{top:0;right:0;cursor:nesw-resize;}',
@@ -2304,7 +2312,7 @@
     return box; // caller appends the actual <video> or <img>; can register box._onClose(fn) for cleanup
   }
 
-  function openVideoModal(p) {
+  function openVideoModal(p, onGridPick) {
     var box = buildMediaShell(p);
     var vid = document.createElement('video');
     vid.controls = true;
@@ -2385,8 +2393,10 @@
     var trimCaption = document.createElement('div');
     trimCaption.className = 'sk-caption';
     trimCaption.style.padding = '8px 10px 0';
-    trimCaption.textContent = 'optional: use the frame controls above to find a start/end point, mark them below, ' +
-      'then Download/Share Trim will cut exactly that range.';
+    trimCaption.textContent = onGridPick
+      ? 'use the frame controls above to find a start/end point, mark them below, then Use This Range to send it back to the grid clip.'
+      : 'optional: use the frame controls above to find a start/end point, mark them below, ' +
+        'then Download/Share Trim will cut exactly that range.';
     box.appendChild(trimCaption);
 
     var trimRow = document.createElement('div');
@@ -2412,7 +2422,8 @@
     actionRow.className = 'sk-action-row';
     actionRow.innerHTML =
       '<button class="sk-frame-btn" id="sk-dl-full" title="downloads the original file, unmodified">⬇ Download Full</button>' +
-      '<button class="sk-frame-btn" id="sk-dl-trim" disabled title="mark a range above first — trims to it and downloads the result (takes a moment)">⬇ Download Trim</button>';
+      '<button class="sk-frame-btn" id="sk-dl-trim" disabled title="mark a range above first — trims to it and downloads the result (takes a moment)">⬇ Download Trim</button>' +
+      (onGridPick ? '<button class="sk-frame-btn" id="sk-use-range" disabled title="mark a range above first">Use This Range</button>' : '');
     box.appendChild(actionRow);
 
     var statusEl = document.createElement('div');
@@ -2422,6 +2433,7 @@
     var inLabel = trimRow.querySelector('#sk-trim-in');
     var outLabel = trimRow.querySelector('#sk-trim-out');
     var dlTrimBtn = actionRow.querySelector('#sk-dl-trim');
+    var useRangeBtn = actionRow.querySelector('#sk-use-range');
     var accurateCheckbox = accuracyRow.querySelector('#sk-accurate-trim');
 
     function updateTrimBtn() {
@@ -2430,8 +2442,20 @@
       dlTrimBtn.title = hasTrim
         ? 'trims to your marked range and downloads the result (takes a moment)'
         : 'mark a range above first — trims to it and downloads the result (takes a moment)';
+      if (useRangeBtn) {
+        useRangeBtn.disabled = !hasTrim;
+        useRangeBtn.title = hasTrim ? 'use this marked range for the grid clip' : 'mark a range above first';
+      }
     }
     updateTrimBtn(); // set initial button state (no trim range yet)
+
+    if (useRangeBtn) {
+      useRangeBtn.onclick = function () {
+        if (inTime === null || outTime === null || outTime <= inTime) return;
+        onGridPick(inTime, outTime);
+        box._close();
+      };
+    }
 
     trimRow.querySelector('#sk-mark-in').onclick = function () {
       inTime = vid.currentTime;
@@ -3353,12 +3377,14 @@
           '<button class="sk-mode-btn active" id="sk-lp-orient-landscape" type="button">Landscape</button>' +
           '<button class="sk-mode-btn" id="sk-lp-orient-portrait" type="button">Portrait</button>' +
         '</div>' +
-        '<label class="sk-lock-label" style="margin-bottom:8px">' +
-          '<input type="checkbox" id="sk-lp-custom-toggle"> Custom grid (stretch mode &amp; clip order)' +
-        '</label>' +
-        '<label class="sk-lock-label" style="margin-bottom:8px">' +
-          '<input type="checkbox" id="sk-lp-advanced-toggle"> Advanced options (per-clip trim &amp; custom length)' +
-        '</label>' +
+        '<div class="sk-toggle-row">' +
+          '<span class="sk-toggle-label">Custom grid</span>' +
+          '<span class="sk-toggle-switch" id="sk-lp-custom-toggle"><span class="sk-toggle-knob"></span></span>' +
+        '</div>' +
+        '<div class="sk-toggle-row">' +
+          '<span class="sk-toggle-label">Advanced options</span>' +
+          '<span class="sk-toggle-switch" id="sk-lp-advanced-toggle"><span class="sk-toggle-knob"></span></span>' +
+        '</div>' +
         '<div id="sk-lp-custom-section" style="display:none">' +
           '<div class="sk-mode-row" style="margin-bottom:6px">' +
             '<button class="sk-mode-btn active" id="sk-lp-mode-center" type="button">Center leftover</button>' +
@@ -3412,17 +3438,20 @@
     function defaultClipOrder() {
       return safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).slice(0, MAX_GRID_CLIPS);
     }
+    function isOn(toggleEl) { return toggleEl.classList.contains('active'); }
+    function setOn(toggleEl, on) { toggleEl.classList.toggle('active', on); }
 
     function updateClipListVisibility() {
-      var show = customToggle.checked || advancedToggle.checked;
+      var show = isOn(customToggle) || isOn(advancedToggle);
       clipListWrap.style.display = show ? 'block' : 'none';
-      view.querySelector('#sk-lp-clip-list-label').textContent = customToggle.checked
+      view.querySelector('#sk-lp-clip-list-label').textContent = isOn(customToggle)
         ? 'Order — first clip is featured above the rest if that mode is on:'
         : 'Per-clip trim range:';
     }
 
-    customToggle.onchange = function () {
-      if (customToggle.checked) {
+    customToggle.onclick = function () {
+      setOn(customToggle, !isOn(customToggle));
+      if (isOn(customToggle)) {
         customSection.style.display = 'block';
       } else {
         // Back to the plain default: centered leftover row, pool's own
@@ -3439,8 +3468,9 @@
       updateExportPreview();
     };
 
-    advancedToggle.onchange = function () {
-      if (advancedToggle.checked) {
+    advancedToggle.onclick = function () {
+      setOn(advancedToggle, !isOn(advancedToggle));
+      if (isOn(advancedToggle)) {
         advancedSection.style.display = 'block';
       } else {
         advancedSection.style.display = 'none';
@@ -3463,7 +3493,7 @@
         text = n + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid';
       }
       var customDuration = parseTimeInput(customDurationInput.value);
-      if (advancedToggle.checked && customDuration) {
+      if (isOn(advancedToggle) && customDuration) {
         text += ', ' + formatTimeInput(customDuration) + ' long';
       }
       view.querySelector('#sk-lp-export-preview').textContent = text;
@@ -3484,14 +3514,15 @@
             '<img src="' + esc(p.preview_url || '') + '" style="width:36px;height:20px;object-fit:cover;border-radius:2px;flex-shrink:0">' +
             '<span class="name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(label) + '</span>' +
           '</span>';
-        if (advancedToggle.checked) {
+        if (isOn(advancedToggle)) {
           html +=
-            '<span class="sk-media-viewpost" data-preview style="cursor:pointer;font-size:11px;margin:0;flex-shrink:0" title="open this clip to check timestamps">preview</span>' +
+            '<span class="sk-media-viewpost" data-preview style="cursor:pointer;font-size:11px;margin:0;flex-shrink:0" title="open this clip, mark a range, and send it back here">set range</span>' +
             '<input class="sk-input" data-trim-start placeholder="start" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.start)) : '') + '">' +
             '<span style="color:' + C.dim + ';flex-shrink:0">–</span>' +
-            '<input class="sk-input" data-trim-end placeholder="end" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.end)) : '') + '">';
+            '<input class="sk-input" data-trim-end placeholder="end" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.end)) : '') + '">' +
+            (trim ? '<span class="sk-close" data-clear-trim style="font-size:13px;flex-shrink:0" title="clear this clip\'s trim range">&times;</span>' : '');
         }
-        if (customToggle.checked) {
+        if (isOn(customToggle)) {
           html +=
             '<span style="display:flex;gap:4px;flex-shrink:0">' +
               '<button class="sk-nav-btn" data-dir="up" style="padding:2px 6px"' + (i === 0 ? ' disabled' : '') + '>&#8593;</button>' +
@@ -3500,11 +3531,10 @@
         }
         row.innerHTML = html;
 
-        if (advancedToggle.checked) {
-          row.querySelector('[data-preview]').onclick = function () { openVideoModal(p); };
+        if (isOn(advancedToggle)) {
+          var startEl = row.querySelector('[data-trim-start]');
+          var endEl = row.querySelector('[data-trim-end]');
           function commitTrim() {
-            var startEl = row.querySelector('[data-trim-start]');
-            var endEl = row.querySelector('[data-trim-end]');
             var start = parseTimeInput(startEl.value);
             var end = parseTimeInput(endEl.value);
             if (start == null && end == null) { delete exportTrims[p.id]; return; }
@@ -3512,10 +3542,29 @@
             if (end == null || end <= start) { delete exportTrims[p.id]; return; }
             exportTrims[p.id] = { start: start, end: end };
           }
-          row.querySelector('[data-trim-start]').onchange = commitTrim;
-          row.querySelector('[data-trim-end]').onchange = commitTrim;
+          startEl.onchange = commitTrim;
+          endEl.onchange = commitTrim;
+          // The manual fields above still work for a quick direct edit, but
+          // scrubbing to an exact point and typing what you saw is a lot of
+          // friction — this opens the same Mark In/Out controls the regular
+          // single-clip trim already uses, and feeds the result straight
+          // back into the two fields instead.
+          row.querySelector('[data-preview]').onclick = function () {
+            openVideoModal(p, function (start, end) {
+              startEl.value = formatTimeInput(start);
+              endEl.value = formatTimeInput(end);
+              exportTrims[p.id] = { start: start, end: end };
+            });
+          };
+          var clearBtn = row.querySelector('[data-clear-trim]');
+          if (clearBtn) {
+            clearBtn.onclick = function () {
+              delete exportTrims[p.id];
+              renderExportOrderList();
+            };
+          }
         }
-        if (customToggle.checked) {
+        if (isOn(customToggle)) {
           row.querySelector('[data-dir="up"]').onclick = function () {
             if (i === 0) return;
             var tmp = exportClipOrder[i - 1]; exportClipOrder[i - 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
@@ -3539,8 +3588,8 @@
       exportClipOrder = videoPosts.slice(0, MAX_GRID_CLIPS);
       exportMode = 'center';
       exportTrims = {};
-      customToggle.checked = false;
-      advancedToggle.checked = false;
+      setOn(customToggle, false);
+      setOn(advancedToggle, false);
       customSection.style.display = 'none';
       advancedSection.style.display = 'none';
       customDurationInput.value = '';
@@ -3590,7 +3639,7 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      var customDuration = advancedToggle.checked ? parseTimeInput(customDurationInput.value) : null;
+      var customDuration = isOn(advancedToggle) ? parseTimeInput(customDurationInput.value) : null;
       performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, customDuration).then(function (result) {
         var url = URL.createObjectURL(result.blob);
         statusEl.innerHTML = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips. ' +
