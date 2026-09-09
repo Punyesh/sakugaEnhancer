@@ -102,11 +102,20 @@
     'padding:8px 10px;border-top:1px solid ' + C.line + ';cursor:pointer;font-size:12px;}',
     '.sk-suggest-row:first-child{border-top:none;}',
     '.sk-suggest-row:hover{background:' + C.panel2 + ';}',
+    '.sk-suggest-row.is-artist span:first-child{color:' + C.amber + ';}',
+    '.sk-suggest-row.is-copyright span:first-child{color:' + C.link + ';}',
     '.sk-suggest-count{color:' + C.dim + ';font-size:11px;font-family:monospace;}',
     '.sk-chip{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
     'font-size:11px;padding:3px 7px;border-radius:20px;display:flex;align-items:center;gap:5px;',
     'font-family:"Courier New",monospace;}',
     '.sk-chip span{cursor:pointer;color:' + C.red + ';font-weight:bold;}',
+    // Type 1 = artist/animator, type 3 = copyright/show — the standard
+    // Danbooru1/Moebooru tag-type numbering, already relied on elsewhere in
+    // this file for the amber animator color; type 3 specifically wasn't
+    // re-verified against a live response this time, just following that
+    // same well-established convention.
+    '.sk-chip.is-artist{border-color:' + C.amberDim + ';color:' + C.amber + ';}',
+    '.sk-chip.is-copyright{border-color:' + C.link + ';color:' + C.link + ';}',
     '.sk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}',
     '#sk-enh-panel.sk-size-locked .sk-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}',
     '.sk-card{position:relative;border:1px solid ' + C.line + ';border-radius:4px;overflow:hidden;',
@@ -209,9 +218,8 @@
     '.sk-show-head a{font-size:11px;color:' + C.dim + ';text-decoration:none;}',
     '.sk-show-head a:hover{color:' + C.amber + ';}',
     '.sk-show-nav{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px;}',
-    '.sk-top-animators{border:1px solid ' + C.line + ';border-radius:8px;padding:10px 12px 6px;margin-bottom:12px;',
+    '.sk-top-animators{border:1px solid ' + C.line + ';border-radius:8px;padding:10px 12px 6px;',
     'background:linear-gradient(180deg,' + C.panel2 + ',' + C.panel + ');}',
-    '.sk-top-animators-title{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:' + C.dim + ';margin-bottom:8px;}',
     '.sk-animator-row{display:flex;align-items:center;gap:8px;padding:4px 2px;border-radius:5px;cursor:pointer;',
     'transition:background .12s ease;}',
     '.sk-animator-row:hover{background:rgba(255,176,32,.08);}',
@@ -981,7 +989,8 @@
           if (!matches.length) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
           suggestWrap.style.display = 'block';
           suggestWrap.innerHTML = safeMap(matches, function (t) {
-            return '<div class="sk-suggest-row" data-name="' + esc(t.name) + '">' +
+            var typeClass = t.type === 1 ? ' is-artist' : (t.type === 3 ? ' is-copyright' : '');
+            return '<div class="sk-suggest-row' + typeClass + '" data-name="' + esc(t.name) + '">' +
               '<span>' + esc(t.name) + '</span><span class="sk-suggest-count">' + t.count + '</span></div>';
           }).join('');
           var rows = suggestWrap.querySelectorAll('.sk-suggest-row');
@@ -1074,6 +1083,7 @@
     var view = body.querySelector('#sk-search-view');
     view.innerHTML =
       '<div id="sk-back-to-shows" style="display:none"></div>' +
+      '<div id="sk-show-animators-wrap" style="margin-bottom:8px"></div>' +
       '<div id="sk-solo-row" style="display:none;margin-bottom:8px">' +
         '<button type="button" class="sk-icon-btn" id="sk-solo-toggle">&#9312;</button>' +
       '</div>' +
@@ -1100,10 +1110,12 @@
 
   function renderChips() {
     var wrap = body.querySelector('#sk-chips');
+    if (!wrap) return; // search tab isn't the active view right now — nothing to update
     wrap.innerHTML = '';
     searchState.tags.forEach(function (t, i) {
       var chip = document.createElement('div');
-      chip.className = 'sk-chip';
+      var typeClass = tagTypeMap && tagTypeMap[t] === 1 ? ' is-artist' : (tagTypeMap && tagTypeMap[t] === 3 ? ' is-copyright' : '');
+      chip.className = 'sk-chip' + typeClass;
       chip.innerHTML = esc(t) + ' <span data-i="' + i + '">&times;</span>';
       chip.querySelector('span').onclick = function () {
         searchState.tags.splice(i, 1);
@@ -2762,6 +2774,8 @@
       backWrap.innerHTML = '';
     }
 
+    maybeRenderShowAnimatorsInSearch(body.querySelector('#sk-show-animators-wrap'), cache);
+
     var soloRow = body.querySelector('#sk-solo-row');
     var soloBtn = body.querySelector('#sk-solo-toggle');
     if (cache.posts.length) {
@@ -3334,12 +3348,31 @@
     });
   }
 
-  // Ranks animator-type tags by how often they appear across this show's
+  // Ranks animator-type tags by how often they appear across a show's
   // sampled posts — same tag-type map already used for color-coding
-  // everywhere else, just tallied instead of just colored. Async since the
-  // tag dictionary might not be loaded yet on a first-ever use; renders in
-  // place once ready rather than blocking the rest of the show detail view.
-  function renderTopAnimators(wrap, showTag, posts) {
+  // everywhere else, just tallied instead of just colored. Collapsed by
+  // default wherever it's used: it's a nice-to-have alongside the main
+  // content (episodes, or search results), not something that should push
+  // that content down before anyone's asked to see it.
+  function renderTopAnimatorsPanel(wrap, showTag, posts) {
+    wrap.innerHTML = '<button class="sk-mini-toggle" id="sk-top-animators-toggle" type="button">Most Frequently Tagged ▾</button>' +
+      '<div id="sk-top-animators-body" style="display:none;margin-top:8px"></div>';
+    var toggleBtn = wrap.querySelector('#sk-top-animators-toggle');
+    var bodyEl = wrap.querySelector('#sk-top-animators-body');
+    var loaded = false;
+    toggleBtn.onclick = function () {
+      var open = bodyEl.style.display !== 'none';
+      bodyEl.style.display = open ? 'none' : 'block';
+      toggleBtn.textContent = 'Most Frequently Tagged ' + (open ? '▾' : '▴');
+      if (!open && !loaded) {
+        loaded = true;
+        bodyEl.innerHTML = '<div class="sk-loading">loading…</div>';
+        renderTopAnimatorsContent(bodyEl, showTag, posts);
+      }
+    };
+  }
+
+  function renderTopAnimatorsContent(bodyEl, showTag, posts) {
     ensureTagTypes().then(function (map) {
       var freq = {};
       posts.forEach(function (p) {
@@ -3353,7 +3386,7 @@
         });
       });
       var names = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 8);
-      if (!names.length) { wrap.innerHTML = ''; return; }
+      if (!names.length) { bodyEl.innerHTML = '<div class="sk-caption">no animator tags found in the sample.</div>'; return; }
       var maxCount = freq[names[0]];
       var rows = safeMap(names, function (name, i) {
         var pct = Math.max(6, Math.round((freq[name] / maxCount) * 100));
@@ -3364,15 +3397,15 @@
           '<span class="sk-animator-count">' + freq[name] + '</span>' +
         '</div>';
       }).join('');
-      wrap.innerHTML = '<div class="sk-top-animators">' +
-        '<div class="sk-top-animators-title">Top Animators</div>' + rows + '</div>';
-      var rowEls = wrap.querySelectorAll('.sk-animator-row');
+      bodyEl.innerHTML = '<div class="sk-top-animators">' + rows + '</div>';
+      var rowEls = bodyEl.querySelectorAll('.sk-animator-row');
       for (var i = 0; i < rowEls.length; i++) {
         rowEls[i].onclick = function (e) {
           var tag = e.currentTarget.getAttribute('data-tag');
           // Combined with the show tag rather than searching the animator
-          // alone — "top animators for this show" implies clicking one
-          // means "show me their cuts in this show", not everywhere.
+          // alone — this list means "who shows up a lot in this show", so
+          // clicking one means "show me their cuts in this show", not
+          // their entire catalog everywhere.
           searchState.tags = [showTag, tag];
           searchViewMode = 'results';
           sync.artistTag = tag;
@@ -3382,6 +3415,23 @@
         };
       }
     });
+  }
+
+  // Only fires for a search that's just a single show/copyright-type tag
+  // and nothing else — anything more specific (an episode, an animator
+  // combo) isn't really "browsing a show" anymore, so the panel would be
+  // answering a question nobody asked at that point.
+  function maybeRenderShowAnimatorsInSearch(wrap, cache) {
+    wrap.innerHTML = '';
+    if (!cache.tags || cache.tags.length !== 1) return;
+    var tag = cache.tags[0];
+    ensureTagTypes().then(function (map) {
+      if (!map || map[tag] !== 3) return;
+      return getShowEntry(tag).then(function (entry) {
+        if (!entry.totalSampled) return;
+        renderTopAnimatorsPanel(wrap, tag, entry.posts);
+      });
+    }).catch(function () { /* nice-to-have alongside search — fail silently rather than surface an error for it */ });
   }
 
   function paintShowDetail(content, showTag, entry) {
@@ -3397,7 +3447,7 @@
         '<button class="sk-mini-toggle" id="sk-info-toggle">ⓘ how this works</button>' +
       '</div>' +
       (entry.related.length ? '<div class="sk-related-row" id="sk-related-row" style="display:none"></div>' : '') +
-      '<div id="sk-top-animators-wrap"></div>' +
+      '<div id="sk-top-animators-wrap" style="margin-bottom:8px"></div>' +
       '<div class="sk-caption" id="sk-show-info" style="display:none">episode grouping below is parsed from each post\'s source text (the ' +
         '"Title #12" convention), sampled from the ' + entry.totalSampled + ' most <b>recently tagged</b> posts — ' +
         'not chronological by episode, so which numbers show up is down to tagging activity, not air order ' +
@@ -3420,7 +3470,7 @@
         this.textContent = 'related (' + entry.related.length + ') ' + (open ? '▾' : '▴');
       };
     }
-    renderTopAnimators(content.querySelector('#sk-top-animators-wrap'), showTag, entry.posts);
+    renderTopAnimatorsPanel(content.querySelector('#sk-top-animators-wrap'), showTag, entry.posts);
     content.querySelector('#sk-info-toggle').onclick = function () {
       var info = content.querySelector('#sk-show-info');
       var open = info.style.display !== 'none';
@@ -3973,4 +4023,8 @@
 
   renderTab('search');
   panel.style.display = 'flex';
+  // Warms the tag-dictionary cache in the background so chip colors are
+  // usually already available by the time someone actually adds a tag,
+  // rather than only fetching reactively the first time it's needed.
+  ensureTagTypes().then(function () { renderChips(); });
 })();
