@@ -209,6 +209,19 @@
     '.sk-show-head a{font-size:11px;color:' + C.dim + ';text-decoration:none;}',
     '.sk-show-head a:hover{color:' + C.amber + ';}',
     '.sk-show-nav{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px;}',
+    '.sk-top-animators{border:1px solid ' + C.line + ';border-radius:8px;padding:10px 12px 6px;margin-bottom:12px;',
+    'background:linear-gradient(180deg,' + C.panel2 + ',' + C.panel + ');}',
+    '.sk-top-animators-title{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:' + C.dim + ';margin-bottom:8px;}',
+    '.sk-animator-row{display:flex;align-items:center;gap:8px;padding:4px 2px;border-radius:5px;cursor:pointer;',
+    'transition:background .12s ease;}',
+    '.sk-animator-row:hover{background:rgba(255,176,32,.08);}',
+    '.sk-animator-rank{width:14px;flex-shrink:0;font-size:10px;color:' + C.dim + ';text-align:right;font-family:"Courier New",monospace;}',
+    '.sk-animator-name{width:112px;flex-shrink:0;font-size:12px;color:' + C.amber + ';white-space:nowrap;',
+    'overflow:hidden;text-overflow:ellipsis;}',
+    '.sk-animator-bar-wrap{flex:1;height:6px;border-radius:3px;background:' + C.bg + ';overflow:hidden;}',
+    '.sk-animator-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,' + C.amberDim + ',' + C.amber + ');}',
+    '.sk-animator-count{width:34px;flex-shrink:0;text-align:right;font-size:11px;color:' + C.dim + ';',
+    'font-family:"Courier New",monospace;}',
     '.sk-nav-btn{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
     'padding:5px 10px;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;}',
     '.sk-nav-btn:hover:not(:disabled){border-color:' + C.amber + ';color:' + C.amber + ';}',
@@ -3321,6 +3334,56 @@
     });
   }
 
+  // Ranks animator-type tags by how often they appear across this show's
+  // sampled posts — same tag-type map already used for color-coding
+  // everywhere else, just tallied instead of just colored. Async since the
+  // tag dictionary might not be loaded yet on a first-ever use; renders in
+  // place once ready rather than blocking the rest of the show detail view.
+  function renderTopAnimators(wrap, showTag, posts) {
+    ensureTagTypes().then(function (map) {
+      var freq = {};
+      posts.forEach(function (p) {
+        var seen = {}; // count each animator once per post even if the tag string somehow repeats it
+        safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).forEach(function (t) {
+          if (t === showTag || seen[t]) return;
+          if (map && map[t] === 1) {
+            freq[t] = (freq[t] || 0) + 1;
+            seen[t] = true;
+          }
+        });
+      });
+      var names = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 8);
+      if (!names.length) { wrap.innerHTML = ''; return; }
+      var maxCount = freq[names[0]];
+      var rows = safeMap(names, function (name, i) {
+        var pct = Math.max(6, Math.round((freq[name] / maxCount) * 100));
+        return '<div class="sk-animator-row" data-tag="' + esc(name) + '">' +
+          '<span class="sk-animator-rank">' + (i + 1) + '</span>' +
+          '<span class="sk-animator-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
+          '<span class="sk-animator-bar-wrap"><span class="sk-animator-bar" style="width:' + pct + '%"></span></span>' +
+          '<span class="sk-animator-count">' + freq[name] + '</span>' +
+        '</div>';
+      }).join('');
+      wrap.innerHTML = '<div class="sk-top-animators">' +
+        '<div class="sk-top-animators-title">Top Animators</div>' + rows + '</div>';
+      var rowEls = wrap.querySelectorAll('.sk-animator-row');
+      for (var i = 0; i < rowEls.length; i++) {
+        rowEls[i].onclick = function (e) {
+          var tag = e.currentTarget.getAttribute('data-tag');
+          // Combined with the show tag rather than searching the animator
+          // alone — "top animators for this show" implies clicking one
+          // means "show me their cuts in this show", not everywhere.
+          searchState.tags = [showTag, tag];
+          searchViewMode = 'results';
+          sync.artistTag = tag;
+          searchOrigin = { type: 'shows', showTag: showTag };
+          switchToTab('search');
+          runSearch();
+        };
+      }
+    });
+  }
+
   function paintShowDetail(content, showTag, entry) {
     window.__skDebugShowEntry = entry; // debug hook — inspect real source text in console, see README
     if (!entry.totalSampled) {
@@ -3334,6 +3397,7 @@
         '<button class="sk-mini-toggle" id="sk-info-toggle">ⓘ how this works</button>' +
       '</div>' +
       (entry.related.length ? '<div class="sk-related-row" id="sk-related-row" style="display:none"></div>' : '') +
+      '<div id="sk-top-animators-wrap"></div>' +
       '<div class="sk-caption" id="sk-show-info" style="display:none">episode grouping below is parsed from each post\'s source text (the ' +
         '"Title #12" convention), sampled from the ' + entry.totalSampled + ' most <b>recently tagged</b> posts — ' +
         'not chronological by episode, so which numbers show up is down to tagging activity, not air order ' +
@@ -3356,6 +3420,7 @@
         this.textContent = 'related (' + entry.related.length + ') ' + (open ? '▾' : '▴');
       };
     }
+    renderTopAnimators(content.querySelector('#sk-top-animators-wrap'), showTag, entry.posts);
     content.querySelector('#sk-info-toggle').onclick = function () {
       var info = content.querySelector('#sk-show-info');
       var open = info.style.display !== 'none';
