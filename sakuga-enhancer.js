@@ -1455,42 +1455,43 @@
     });
   }
 
-  function performTrim(p, inTime, outTime, statusEl, accurate) {
+  // Takes an already-available source buffer rather than fetching p.file_url
+  // itself, so the same trim logic works both for a remote post (fetch
+  // first, then call this) and a local in-memory result like a freshly
+  // generated grid export (already have the bytes, no fetch needed).
+  function performTrim(sourceBuffer, sourceExt, inTime, outTime, statusEl, accurate) {
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
       .then(function (ffmpeg) {
-        setBusyStatus(statusEl, 'reading clip…');
-        return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
-          var inputName = 'input.' + (p.file_ext || 'webm');
-          var outputName = accurate ? 'output.mp4' : 'output.' + (p.file_ext || 'webm');
-          var startedAt = Date.now();
-          return ffmpeg.writeFile(inputName, new Uint8Array(buf)).then(function () {
-            var args;
-            if (accurate) {
-              setBusyStatus(statusEl, 'trimming (re-encoding for frame accuracy — slower)…');
-              // `-ss`/`-to` placed AFTER `-i`, with real encoders instead of `-c copy`:
-              // stream-copy can only cut on keyframe boundaries since it never decodes
-              // the video, so the actual start/end can drift from what was marked.
-              // Re-encoding is the only way to land on the exact requested frame —
-              // slower and a generation of quality loss, but genuinely frame-accurate.
-              args = ['-i', inputName, '-ss', String(inTime), '-to', String(outTime),
-                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-c:a', 'aac', outputName];
-            } else {
-              setBusyStatus(statusEl, 'trimming (fast mode)…');
-              // Fast stream-copy: no decoding, just remuxing existing compressed data —
-              // much quicker, but can only cut on the nearest keyframe, so the actual
-              // start/end may land a little before/after what was marked.
-              args = ['-ss', String(inTime), '-to', String(outTime), '-i', inputName, '-c', 'copy', outputName];
-            }
-            return ffmpeg.exec(args);
-          }).then(function () {
-            return ffmpeg.readFile(outputName);
-          }).then(function (data) {
-            var seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-            statusEl.textContent = 'done in ' + seconds + 's';
-            var ext = accurate ? 'mp4' : (p.file_ext || 'webm');
-            return { blob: new Blob([data.buffer], { type: 'video/' + ext }), ext: ext };
-          });
+        var inputName = 'input.' + (sourceExt || 'webm');
+        var outputName = accurate ? 'output.mp4' : 'output.' + (sourceExt || 'webm');
+        var startedAt = Date.now();
+        return ffmpeg.writeFile(inputName, new Uint8Array(sourceBuffer)).then(function () {
+          var args;
+          if (accurate) {
+            setBusyStatus(statusEl, 'trimming (re-encoding for frame accuracy — slower)…');
+            // `-ss`/`-to` placed AFTER `-i`, with real encoders instead of `-c copy`:
+            // stream-copy can only cut on keyframe boundaries since it never decodes
+            // the video, so the actual start/end can drift from what was marked.
+            // Re-encoding is the only way to land on the exact requested frame —
+            // slower and a generation of quality loss, but genuinely frame-accurate.
+            args = ['-i', inputName, '-ss', String(inTime), '-to', String(outTime),
+              '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-c:a', 'aac', outputName];
+          } else {
+            setBusyStatus(statusEl, 'trimming (fast mode)…');
+            // Fast stream-copy: no decoding, just remuxing existing compressed data —
+            // much quicker, but can only cut on the nearest keyframe, so the actual
+            // start/end may land a little before/after what was marked.
+            args = ['-ss', String(inTime), '-to', String(outTime), '-i', inputName, '-c', 'copy', outputName];
+          }
+          return ffmpeg.exec(args);
+        }).then(function () {
+          return ffmpeg.readFile(outputName);
+        }).then(function (data) {
+          var seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+          statusEl.textContent = 'done in ' + seconds + 's';
+          var ext = accurate ? 'mp4' : (sourceExt || 'webm');
+          return { blob: new Blob([data.buffer], { type: 'video/' + ext }), ext: ext };
         });
       });
   }
@@ -1622,6 +1623,74 @@
     return m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  // Fractional-second display for the frame bar/trim labels — distinct from
+  // formatTimeInput above, which is whole-second and meant for editable text
+  // fields, not a live-updating playhead display.
+  function formatVideoTime(t) {
+    var m = Math.floor(t / 60);
+    var s = t - m * 60;
+    var sStr = s.toFixed(1);
+    if (s < 10) sStr = '0' + sStr;
+    return m + ':' + sStr;
+  }
+
+  // Shared by the post viewer and the grid-result preview — frame-accurate
+  // review is the whole point of sakuga, so both get the same stepping
+  // controls rather than the grid result getting a stripped-down version.
+  // fps is only ever a display/step-size approximation (browser seeking
+  // can't guarantee landing on an exact decoded frame), not a claim of
+  // true frame accuracy.
+  function buildFrameSteppingBar(box, vid, fps) {
+    var MED_STEP = 10;
+    var bigStep = Math.max(1, Math.round(fps)); // ~1 second worth of frames
+
+    var frameBar = document.createElement('div');
+    frameBar.className = 'sk-frame-bar';
+    frameBar.innerHTML =
+      '<div class="sk-frame-row">' +
+        '<button class="sk-frame-btn" id="sk-fb-bigback" title="back ~1s">«</button>' +
+        '<button class="sk-frame-btn" id="sk-fb-medback" title="back ' + MED_STEP + ' frames">‹‹</button>' +
+        '<button class="sk-frame-btn" id="sk-fb-back" title="previous frame ( , )">‹</button>' +
+        '<span class="sk-frame-count" id="sk-frame-count">0 / 0</span>' +
+        '<button class="sk-frame-btn" id="sk-fb-fwd" title="next frame ( . )">›</button>' +
+        '<button class="sk-frame-btn" id="sk-fb-medfwd" title="forward ' + MED_STEP + ' frames">››</button>' +
+        '<button class="sk-frame-btn" id="sk-fb-bigfwd" title="forward ~1s">»</button>' +
+      '</div>' +
+      '<div class="sk-frame-time" id="sk-frame-time">0:00.0 / 0:00.0</div>';
+    box.appendChild(frameBar);
+
+    var countEl = frameBar.querySelector('#sk-frame-count');
+    var timeEl = frameBar.querySelector('#sk-frame-time');
+
+    function updateDisplay() {
+      var total = Math.round((vid.duration || 0) * fps);
+      var cur = Math.round(vid.currentTime * fps);
+      countEl.textContent = cur + ' / ' + total;
+      timeEl.textContent = formatVideoTime(vid.currentTime) + ' / ' + formatVideoTime(vid.duration || 0);
+    }
+    function step(deltaFrames) {
+      vid.pause();
+      var next = vid.currentTime + deltaFrames / fps;
+      vid.currentTime = Math.max(0, Math.min(vid.duration || next, next));
+    }
+    vid.addEventListener('loadedmetadata', updateDisplay);
+    vid.addEventListener('timeupdate', updateDisplay);
+
+    frameBar.querySelector('#sk-fb-back').onclick = function () { step(-1); };
+    frameBar.querySelector('#sk-fb-fwd').onclick = function () { step(1); };
+    frameBar.querySelector('#sk-fb-medback').onclick = function () { step(-MED_STEP); };
+    frameBar.querySelector('#sk-fb-medfwd').onclick = function () { step(MED_STEP); };
+    frameBar.querySelector('#sk-fb-bigback').onclick = function () { step(-bigStep); };
+    frameBar.querySelector('#sk-fb-bigfwd').onclick = function () { step(bigStep); };
+
+    function onFrameKey(e) {
+      if (e.key === ',') step(-1);
+      else if (e.key === '.') step(1);
+    }
+    document.addEventListener('keydown', onFrameKey);
+    box._onClose(function () { document.removeEventListener('keydown', onFrameKey); });
+  }
+
   function probeVideoDuration(url) {
     return new Promise(function (resolve) {
       var v = document.createElement('video');
@@ -1661,7 +1730,7 @@
     ]);
   }
 
-  function performGridExport(clips, statusEl, orientation, mode, trims, customDuration) {
+  function performGridExport(clips, statusEl, orientation, mode, trims) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
     trims = trims || {};
 
@@ -1672,8 +1741,11 @@
         return Promise.all(safeMap(clips, function (p) { return probeVideoDuration(p.file_url); })).then(function (naturalDurations) {
           // Effective duration is the trimmed range's length when a clip has
           // one, not the full clip's natural length — this is what actually
-          // determines whether it needs to loop and feeds the auto target
-          // duration calculation.
+          // determines whether it needs to loop and feeds the target
+          // duration calculation. The grid always generates at this
+          // auto-computed length — trimming the *result* down further is a
+          // separate, later step (see openGridResultModal), not a decision
+          // made blind before ever seeing the generated grid.
           var effectiveDurations = safeMap(clips, function (p, i) {
             var trim = trims[p.id];
             if (!trim) return naturalDurations[i];
@@ -1681,14 +1753,9 @@
             return Math.max(0.1, end - trim.start);
           });
 
-          var targetDuration;
-          if (customDuration && customDuration > 0) {
-            targetDuration = customDuration;
-          } else {
-            targetDuration = 1; // guard against every probe failing
-            for (var di = 0; di < effectiveDurations.length; di++) {
-              if (effectiveDurations[di] > targetDuration) targetDuration = effectiveDurations[di];
-            }
+          var targetDuration = 1; // guard against every probe failing
+          for (var di = 0; di < effectiveDurations.length; di++) {
+            if (effectiveDurations[di] > targetDuration) targetDuration = effectiveDurations[di];
           }
           var positions = computeCellPositions(clips.length, orientation, mode);
 
@@ -1804,6 +1871,146 @@
       });
   }
 
+  // Lets the person watch the grid exactly as generated, then optionally
+  // trim its own length down afterward — deciding "how long should this
+  // be" by looking at the actual result rather than guessing a number
+  // before ever seeing it. Deliberately not built on buildMediaShell/
+  // openVideoModal: those carry post-specific UI (voting, comments, add to
+  // pool, a "view post" link) that makes no sense for a local, ephemeral
+  // result with no real post behind it — this is a smaller, standalone
+  // modal that reuses the same frame-stepping bar and the same generalized
+  // performTrim used for single-clip trimming, just fed the grid's own
+  // in-memory bytes instead of a fetched URL.
+  function openGridResultModal(blob, filenamePrefix) {
+    var backdrop = document.createElement('div');
+    backdrop.className = 'sk-media-backdrop';
+    var box = document.createElement('div');
+    box.className = 'sk-media-box';
+    box.innerHTML =
+      '<div class="sk-media-top">' +
+        '<span class="sk-caption" style="margin:0 auto 0 0">Grid Export Result</span>' +
+        '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
+      '</div>';
+    backdrop.appendChild(box);
+    document.body.appendChild(backdrop);
+
+    var extraCleanup = [];
+    function close() {
+      var v = box.querySelector('video');
+      if (v) v.pause();
+      backdrop.remove();
+      document.removeEventListener('keydown', onKey);
+      extraCleanup.forEach(function (fn) { fn(); });
+    }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+    box.querySelector('#sk-media-close').onclick = close;
+    box._onClose = function (fn) { extraCleanup.push(fn); }; // buildFrameSteppingBar registers its own keydown cleanup through this
+
+    var videoUrl = URL.createObjectURL(blob);
+    extraCleanup.push(function () { URL.revokeObjectURL(videoUrl); });
+
+    var vid = document.createElement('video');
+    vid.controls = true;
+    vid.autoplay = true;
+    vid.playsInline = true;
+    vid.loop = true; // grids are made to be watched looping, same as wherever they end up posted
+    vid.src = videoUrl;
+    box.appendChild(vid);
+
+    buildFrameSteppingBar(box, vid, 24); // matches the fixed -r 24 used when compositing
+
+    var inTime = null, outTime = null;
+
+    var trimCaption = document.createElement('div');
+    trimCaption.className = 'sk-caption';
+    trimCaption.style.padding = '8px 10px 0';
+    trimCaption.textContent = 'optional: mark a start/end below to trim the exported grid itself before downloading.';
+    box.appendChild(trimCaption);
+
+    var trimRow = document.createElement('div');
+    trimRow.className = 'sk-trim-row';
+    trimRow.innerHTML =
+      '<button class="sk-frame-btn" id="sk-mark-in" title="set the trim start to the current playhead position">Mark In</button>' +
+      '<span class="sk-trim-label" id="sk-trim-in">in: —</span>' +
+      '<button class="sk-frame-btn" id="sk-mark-out" title="set the trim end to the current playhead position">Mark Out</button>' +
+      '<span class="sk-trim-label" id="sk-trim-out">out: —</span>' +
+      '<button class="sk-frame-btn" id="sk-trim-clear" title="clear the marked range">✕</button>';
+    box.appendChild(trimRow);
+
+    var accuracyRow = document.createElement('div');
+    accuracyRow.className = 'sk-trim-row';
+    accuracyRow.innerHTML =
+      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:' + C.dim + ';cursor:pointer">' +
+        '<input type="checkbox" id="sk-accurate-trim" style="accent-color:' + C.amber + '">' +
+        'frame-accurate (re-encodes — slower, but exact; unchecked is a fast copy that may drift a few frames)' +
+      '</label>';
+    box.appendChild(accuracyRow);
+
+    var actionRow = document.createElement('div');
+    actionRow.className = 'sk-action-row';
+    actionRow.innerHTML =
+      '<button class="sk-frame-btn" id="sk-dl-full" title="downloads the grid exactly as generated">⬇ Download Full</button>' +
+      '<button class="sk-frame-btn" id="sk-dl-trim" disabled title="mark a range above first — trims the grid to it and downloads the result">⬇ Download Trim</button>';
+    box.appendChild(actionRow);
+
+    var statusEl = document.createElement('div');
+    statusEl.className = 'sk-action-status';
+    box.appendChild(statusEl);
+
+    var inLabel = trimRow.querySelector('#sk-trim-in');
+    var outLabel = trimRow.querySelector('#sk-trim-out');
+    var dlTrimBtn = actionRow.querySelector('#sk-dl-trim');
+    var accurateCheckbox = accuracyRow.querySelector('#sk-accurate-trim');
+
+    function updateTrimBtn() {
+      var hasTrim = inTime !== null && outTime !== null && outTime > inTime;
+      dlTrimBtn.disabled = !hasTrim;
+      dlTrimBtn.title = hasTrim
+        ? 'trims the grid to your marked range and downloads the result (takes a moment)'
+        : 'mark a range above first — trims the grid to it and downloads the result';
+    }
+    updateTrimBtn();
+
+    trimRow.querySelector('#sk-mark-in').onclick = function () {
+      inTime = vid.currentTime;
+      inLabel.textContent = 'in: ' + formatVideoTime(inTime);
+      updateTrimBtn();
+    };
+    trimRow.querySelector('#sk-mark-out').onclick = function () {
+      outTime = vid.currentTime;
+      outLabel.textContent = 'out: ' + formatVideoTime(outTime);
+      updateTrimBtn();
+    };
+    trimRow.querySelector('#sk-trim-clear').onclick = function () {
+      inTime = null; outTime = null;
+      inLabel.textContent = 'in: —';
+      outLabel.textContent = 'out: —';
+      updateTrimBtn();
+    };
+
+    actionRow.querySelector('#sk-dl-full').onclick = function () {
+      triggerBlobDownload(blob, filenamePrefix + '-grid.mp4');
+    };
+
+    dlTrimBtn.onclick = function () {
+      if (dlTrimBtn.disabled) return;
+      dlTrimBtn.disabled = true;
+      setBusyStatus(statusEl, 'reading grid…');
+      blob.arrayBuffer().then(function (buf) {
+        return performTrim(buf, 'mp4', inTime, outTime, statusEl, accurateCheckbox.checked);
+      }).then(function (res) {
+        triggerBlobDownload(res.blob, filenamePrefix + '-grid-trim.' + res.ext);
+        updateTrimBtn();
+      }).catch(function (err) {
+        if (err.message !== 'cancelled') statusEl.textContent = 'trim failed: ' + err.message;
+        updateTrimBtn();
+      });
+    };
+
+    return box;
+  }
 
   function formatCommentDate(raw) {
     if (raw === null || raw === undefined || raw === '') return '';
@@ -2327,61 +2534,7 @@
     // (it can't guarantee landing on an exact decoded frame), so treat this as
     // "close enough for review," not a frame-perfect scrubber.
     var fps = Number(p.frame_rate || p.framerate) || 24;
-    var MED_STEP = 10;
-    var bigStep = Math.max(1, Math.round(fps)); // ~1 second worth of frames
-
-    var frameBar = document.createElement('div');
-    frameBar.className = 'sk-frame-bar';
-    frameBar.innerHTML =
-      '<div class="sk-frame-row">' +
-        '<button class="sk-frame-btn" id="sk-fb-bigback" title="back ~1s">«</button>' +
-        '<button class="sk-frame-btn" id="sk-fb-medback" title="back ' + MED_STEP + ' frames">‹‹</button>' +
-        '<button class="sk-frame-btn" id="sk-fb-back" title="previous frame ( , )">‹</button>' +
-        '<span class="sk-frame-count" id="sk-frame-count">0 / 0</span>' +
-        '<button class="sk-frame-btn" id="sk-fb-fwd" title="next frame ( . )">›</button>' +
-        '<button class="sk-frame-btn" id="sk-fb-medfwd" title="forward ' + MED_STEP + ' frames">››</button>' +
-        '<button class="sk-frame-btn" id="sk-fb-bigfwd" title="forward ~1s">»</button>' +
-      '</div>' +
-      '<div class="sk-frame-time" id="sk-frame-time">0:00.0 / 0:00.0</div>';
-    box.appendChild(frameBar);
-
-    var countEl = frameBar.querySelector('#sk-frame-count');
-    var timeEl = frameBar.querySelector('#sk-frame-time');
-
-    function formatTime(t) {
-      var m = Math.floor(t / 60);
-      var s = t - m * 60;
-      var sStr = s.toFixed(1);
-      if (s < 10) sStr = '0' + sStr;
-      return m + ':' + sStr;
-    }
-    function updateDisplay() {
-      var total = Math.round((vid.duration || 0) * fps);
-      var cur = Math.round(vid.currentTime * fps);
-      countEl.textContent = cur + ' / ' + total;
-      timeEl.textContent = formatTime(vid.currentTime) + ' / ' + formatTime(vid.duration || 0);
-    }
-    function step(deltaFrames) {
-      vid.pause();
-      var next = vid.currentTime + deltaFrames / fps;
-      vid.currentTime = Math.max(0, Math.min(vid.duration || next, next));
-    }
-    vid.addEventListener('loadedmetadata', updateDisplay);
-    vid.addEventListener('timeupdate', updateDisplay);
-
-    frameBar.querySelector('#sk-fb-back').onclick = function () { step(-1); };
-    frameBar.querySelector('#sk-fb-fwd').onclick = function () { step(1); };
-    frameBar.querySelector('#sk-fb-medback').onclick = function () { step(-MED_STEP); };
-    frameBar.querySelector('#sk-fb-medfwd').onclick = function () { step(MED_STEP); };
-    frameBar.querySelector('#sk-fb-bigback').onclick = function () { step(-bigStep); };
-    frameBar.querySelector('#sk-fb-bigfwd').onclick = function () { step(bigStep); };
-
-    function onFrameKey(e) {
-      if (e.key === ',') step(-1);
-      else if (e.key === '.') step(1);
-    }
-    document.addEventListener('keydown', onFrameKey);
-    box._onClose(function () { document.removeEventListener('keydown', onFrameKey); });
+    buildFrameSteppingBar(box, vid, fps);
 
     // ---- trim range + download/share ----
     // There's no server here, so trimming runs entirely client-side via
@@ -2459,12 +2612,12 @@
 
     trimRow.querySelector('#sk-mark-in').onclick = function () {
       inTime = vid.currentTime;
-      inLabel.textContent = 'in: ' + formatTime(inTime);
+      inLabel.textContent = 'in: ' + formatVideoTime(inTime);
       updateTrimBtn();
     };
     trimRow.querySelector('#sk-mark-out').onclick = function () {
       outTime = vid.currentTime;
-      outLabel.textContent = 'out: ' + formatTime(outTime);
+      outLabel.textContent = 'out: ' + formatVideoTime(outTime);
       updateTrimBtn();
     };
     trimRow.querySelector('#sk-trim-clear').onclick = function () {
@@ -2486,7 +2639,10 @@
     dlTrimBtn.onclick = function () {
       if (dlTrimBtn.disabled) return;
       dlTrimBtn.disabled = true;
-      performTrim(p, inTime, outTime, statusEl, accurateCheckbox.checked).then(function (res) {
+      setBusyStatus(statusEl, 'reading clip…');
+      fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
+        return performTrim(buf, p.file_ext, inTime, outTime, statusEl, accurateCheckbox.checked);
+      }).then(function (res) {
         triggerBlobDownload(res.blob, 'sakuga_' + p.id + '_trim.' + res.ext);
         updateTrimBtn();
       }).catch(function (err) {
@@ -3392,11 +3548,9 @@
           '</div>' +
         '</div>' +
         '<div id="sk-lp-advanced-section" style="display:none;margin-bottom:8px">' +
-          '<div class="sk-row">' +
-            '<input class="sk-input" id="sk-lp-custom-duration" placeholder="output length, seconds or m:ss (blank = auto)">' +
-          '</div>' +
-          '<div class="sk-caption" style="margin:6px 0 0">' +
-            'each trimmed clip costs an extra encode pass before compositing — slower with more of them.' +
+          '<div class="sk-caption" style="margin:0">' +
+            'each trimmed clip costs an extra encode pass before compositing — slower with more of them. ' +
+            'The exported grid\'s own length can be trimmed afterward, once you can see it.' +
           '</div>' +
         '</div>' +
         '<div id="sk-lp-clip-list-wrap" style="display:none">' +
@@ -3432,7 +3586,6 @@
     var customSection = view.querySelector('#sk-lp-custom-section');
     var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');
     var advancedSection = view.querySelector('#sk-lp-advanced-section');
-    var customDurationInput = view.querySelector('#sk-lp-custom-duration');
     var clipListWrap = view.querySelector('#sk-lp-clip-list-wrap');
 
     function defaultClipOrder() {
@@ -3475,7 +3628,6 @@
       } else {
         advancedSection.style.display = 'none';
         exportTrims = {};
-        customDurationInput.value = '';
       }
       updateClipListVisibility();
       renderExportOrderList();
@@ -3492,11 +3644,16 @@
         var layout = computeGridLayout(n, exportOrientation);
         text = n + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid';
       }
-      var customDuration = parseTimeInput(customDurationInput.value);
-      if (isOn(advancedToggle) && customDuration) {
-        text += ', ' + formatTimeInput(customDuration) + ' long';
-      }
       view.querySelector('#sk-lp-export-preview').textContent = text;
+    }
+
+    var clipDurationCache = {}; // postId -> seconds, probed lazily so opening the panel doesn't stall on every clip up front
+    function getClipDuration(p) {
+      if (clipDurationCache[p.id] != null) return Promise.resolve(clipDurationCache[p.id]);
+      return probeVideoDuration(p.file_url).then(function (d) {
+        clipDurationCache[p.id] = d;
+        return d;
+      });
     }
 
     function renderExportOrderList() {
@@ -3517,9 +3674,9 @@
         if (isOn(advancedToggle)) {
           html +=
             '<span class="sk-media-viewpost" data-preview style="cursor:pointer;font-size:11px;margin:0;flex-shrink:0" title="open this clip, mark a range, and send it back here">set range</span>' +
-            '<input class="sk-input" data-trim-start placeholder="start" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.start)) : '') + '">' +
+            '<input class="sk-input" data-trim-start placeholder="0:00" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.start)) : '') + '">' +
             '<span style="color:' + C.dim + ';flex-shrink:0">–</span>' +
-            '<input class="sk-input" data-trim-end placeholder="end" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.end)) : '') + '">' +
+            '<input class="sk-input" data-trim-end placeholder="…" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.end)) : '') + '">' +
             (trim ? '<span class="sk-close" data-clear-trim style="font-size:13px;flex-shrink:0" title="clear this clip\'s trim range">&times;</span>' : '');
         }
         if (isOn(customToggle)) {
@@ -3534,6 +3691,18 @@
         if (isOn(advancedToggle)) {
           var startEl = row.querySelector('[data-trim-start]');
           var endEl = row.querySelector('[data-trim-end]');
+          // Leaving both blank already means "full clip, no trim" — nothing
+          // more to select. This just makes that visible: the end field's
+          // placeholder becomes the clip's real length once known, instead
+          // of a bare "…", so it's clear at a glance without ever writing an
+          // actual value into the field (which would risk quietly turning
+          // into a real trim, and the extra encode pass that comes with one,
+          // for a clip nobody meant to touch).
+          if (!trim) {
+            getClipDuration(p).then(function (duration) {
+              if (duration > 0) endEl.placeholder = 'end (' + formatTimeInput(duration) + ')';
+            });
+          }
           function commitTrim() {
             var start = parseTimeInput(startEl.value);
             var end = parseTimeInput(endEl.value);
@@ -3592,7 +3761,6 @@
       setOn(advancedToggle, false);
       customSection.style.display = 'none';
       advancedSection.style.display = 'none';
-      customDurationInput.value = '';
       centerBtn.classList.add('active');
       stretchBtn.classList.remove('active');
       view.querySelector('#sk-lp-export-info').textContent = videoPosts.length > MAX_GRID_CLIPS
@@ -3628,7 +3796,6 @@
       centerBtn.classList.remove('active');
       updateExportPreview();
     };
-    customDurationInput.onchange = updateExportPreview;
     view.querySelector('#sk-lp-export-cancel').onclick = function () { exportPanel.style.display = 'none'; };
 
     view.querySelector('#sk-lp-export-start').onclick = function () {
@@ -3639,11 +3806,9 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      var customDuration = isOn(advancedToggle) ? parseTimeInput(customDurationInput.value) : null;
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, customDuration).then(function (result) {
-        var url = URL.createObjectURL(result.blob);
-        statusEl.innerHTML = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips. ' +
-          '<a href="' + url + '" download="' + esc(pool.name) + '-grid.mp4" style="color:' + C.amber + '">Download</a>';
+      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims).then(function (result) {
+        statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
+        openGridResultModal(result.blob, pool.name);
       }).catch(function (err) {
         statusEl.textContent = err.message === 'cancelled' ? '' : 'export failed: ' + err.message;
         if (err.message === 'cancelled') statusEl.style.display = 'none';
