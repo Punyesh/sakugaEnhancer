@@ -1591,6 +1591,29 @@
 
   // Native <video> metadata loading is faster and simpler than shelling out
   // to ffmpeg just to read a duration — no need to touch the wasm side for this.
+  // Accepts either plain seconds ("7.5") or MM:SS ("1:23") for the advanced
+  // per-clip trim range and custom-duration inputs. Returns null for
+  // anything blank or unparseable, rather than guessing.
+  function parseTimeInput(str) {
+    str = (str || '').trim();
+    if (!str) return null;
+    if (str.indexOf(':') !== -1) {
+      var parts = str.split(':');
+      var mins = parseInt(parts[0], 10);
+      var secs = parseFloat(parts[1]);
+      if (isNaN(mins) || isNaN(secs)) return null;
+      return mins * 60 + secs;
+    }
+    var n = parseFloat(str);
+    return isNaN(n) ? null : n;
+  }
+  function formatTimeInput(seconds) {
+    if (seconds == null || isNaN(seconds)) return '';
+    var m = Math.floor(seconds / 60);
+    var s = Math.floor(seconds % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
   function probeVideoDuration(url) {
     return new Promise(function (resolve) {
       var v = document.createElement('video');
@@ -1610,16 +1633,55 @@
     });
   }
 
-  function performGridExport(clips, statusEl, orientation, mode) {
+  // Advanced-only: extracts a clip's chosen sub-range to its own file before
+  // looping it. Confirmed directly (against real ffmpeg) that looping and
+  // trimming the SAME input together doesn't do what you'd expect — combining
+  // -stream_loop with input-side -ss/-t on one -i either has no looping
+  // effect at all, or (seeking after -i instead) loops the WHOLE original
+  // clip and just starts playback at an offset — meaning a "trim to 5-15s"
+  // selection would eventually drift into showing 15s+ content once the
+  // target duration ran long enough, not repeat 5-15s indefinitely. The only
+  // way that actually holds up: extract the sub-range to a real intermediate
+  // file first, then loop that file like any other input. Costs a real,
+  // separate encode pass per trimmed clip — worth knowing before turning on
+  // trims for a lot of clips at once.
+  function extractTrimSegment(ffmpeg, inputName, start, duration, outputName) {
+    return ffmpeg.exec([
+      '-ss', String(start), '-t', String(duration), '-i', inputName,
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
+      outputName
+    ]);
+  }
+
+  function performGridExport(clips, statusEl, orientation, mode, trims, customDuration) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
+    trims = trims || {};
 
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
       .then(function (ffmpeg) {
         setBusyStatus(statusEl, 'checking clip lengths…');
-        return Promise.all(safeMap(clips, function (p) { return probeVideoDuration(p.file_url); })).then(function (durations) {
-          var targetDuration = 1; // guard against every probe failing
-          for (var di = 0; di < durations.length; di++) { if (durations[di] > targetDuration) targetDuration = durations[di]; }
+        return Promise.all(safeMap(clips, function (p) { return probeVideoDuration(p.file_url); })).then(function (naturalDurations) {
+          // Effective duration is the trimmed range's length when a clip has
+          // one, not the full clip's natural length — this is what actually
+          // determines whether it needs to loop and feeds the auto target
+          // duration calculation.
+          var effectiveDurations = safeMap(clips, function (p, i) {
+            var trim = trims[p.id];
+            if (!trim) return naturalDurations[i];
+            var end = Math.min(trim.end, naturalDurations[i] > 0 ? naturalDurations[i] : trim.end);
+            return Math.max(0.1, end - trim.start);
+          });
+
+          var targetDuration;
+          if (customDuration && customDuration > 0) {
+            targetDuration = customDuration;
+          } else {
+            targetDuration = 1; // guard against every probe failing
+            for (var di = 0; di < effectiveDurations.length; di++) {
+              if (effectiveDurations[di] > targetDuration) targetDuration = effectiveDurations[di];
+            }
+          }
           var positions = computeCellPositions(clips.length, orientation, mode);
 
           // Fetch + write each input sequentially rather than all at once —
@@ -1631,6 +1693,24 @@
               setBusyStatus(statusEl, 'fetching clip ' + (i + 1) + ' of ' + clips.length + '…');
               return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
                 return ffmpeg.writeFile('grid_in' + i + '.' + (p.file_ext || 'mp4'), new Uint8Array(buf));
+              });
+            });
+          });
+
+          // Extract each trimmed clip's sub-range to its own file — has to
+          // happen after every clip is downloaded (each is its own ffmpeg
+          // exec pass) but before the main compositing pass, which needs to
+          // know the final filename for every input up front.
+          var effectiveNames = new Array(clips.length);
+          clips.forEach(function (p, i) {
+            effectiveNames[i] = 'grid_in' + i + '.' + (p.file_ext || 'mp4');
+            var trim = trims[p.id];
+            if (!trim) return;
+            writeChain = writeChain.then(function () {
+              setBusyStatus(statusEl, 'trimming clip ' + (i + 1) + ' of ' + clips.length + '…');
+              var outputName = 'grid_trim' + i + '.mp4';
+              return extractTrimSegment(ffmpeg, effectiveNames[i], trim.start, trim.end - trim.start, outputName).then(function () {
+                effectiveNames[i] = outputName;
               });
             });
           });
@@ -1663,9 +1743,9 @@
             filterParts.push('color=c=black:s=' + canvasW + 'x' + canvasH + ':r=24[bg]');
 
             clips.forEach(function (p, i) {
-              var needsLoop = durations[i] > 0 && durations[i] < targetDuration - 0.1;
+              var needsLoop = effectiveDurations[i] > 0 && effectiveDurations[i] < targetDuration - 0.1;
               if (needsLoop) args.push('-stream_loop', '-1');
-              args.push('-i', 'grid_in' + i + '.' + (p.file_ext || 'mp4'));
+              args.push('-i', effectiveNames[i]);
               // Every box — including a 'stretch' mode featured clip's — is
               // sized to the source's own natural aspect ratio (matched to
               // the leftover grid's width, height following at 16:9), so
@@ -1704,7 +1784,10 @@
               // Best-effort cleanup — frees the wasm heap for a subsequent
               // export in the same session; a failure here doesn't affect
               // the result already in hand.
-              clips.forEach(function (p, i) { ffmpeg.deleteFile('grid_in' + i + '.' + (p.file_ext || 'mp4')).catch(function () {}); });
+              clips.forEach(function (p, i) {
+                ffmpeg.deleteFile('grid_in' + i + '.' + (p.file_ext || 'mp4')).catch(function () {});
+                if (trims[p.id]) ffmpeg.deleteFile('grid_trim' + i + '.mp4').catch(function () {});
+              });
               ffmpeg.deleteFile('grid_out.mp4').catch(function () {});
               return { blob: new Blob([data.buffer], { type: 'video/mp4' }), width: canvasW, height: canvasH, count: clips.length };
             });
@@ -3273,13 +3356,26 @@
         '<label class="sk-lock-label" style="margin-bottom:8px">' +
           '<input type="checkbox" id="sk-lp-custom-toggle"> Custom grid (stretch mode &amp; clip order)' +
         '</label>' +
+        '<label class="sk-lock-label" style="margin-bottom:8px">' +
+          '<input type="checkbox" id="sk-lp-advanced-toggle"> Advanced options (per-clip trim &amp; custom length)' +
+        '</label>' +
         '<div id="sk-lp-custom-section" style="display:none">' +
           '<div class="sk-mode-row" style="margin-bottom:6px">' +
             '<button class="sk-mode-btn active" id="sk-lp-mode-center" type="button">Center leftover</button>' +
             '<button class="sk-mode-btn" id="sk-lp-mode-stretch" type="button">Stretch first clip</button>' +
           '</div>' +
-          '<div class="sk-caption" style="margin:0 0 4px">Order — first clip is featured above the rest if that mode is on:</div>' +
-          '<div id="sk-lp-export-order" style="max-height:200px;overflow-y:auto;margin-bottom:8px"></div>' +
+        '</div>' +
+        '<div id="sk-lp-advanced-section" style="display:none;margin-bottom:8px">' +
+          '<div class="sk-row">' +
+            '<input class="sk-input" id="sk-lp-custom-duration" placeholder="output length, seconds or m:ss (blank = auto)">' +
+          '</div>' +
+          '<div class="sk-caption" style="margin:6px 0 0">' +
+            'each trimmed clip costs an extra encode pass before compositing — slower with more of them.' +
+          '</div>' +
+        '</div>' +
+        '<div id="sk-lp-clip-list-wrap" style="display:none">' +
+          '<div class="sk-caption" style="margin:0 0 4px" id="sk-lp-clip-list-label"></div>' +
+          '<div id="sk-lp-export-order" style="max-height:220px;overflow-y:auto;margin-bottom:8px"></div>' +
         '</div>' +
         '<div class="sk-caption" id="sk-lp-export-preview" style="margin:0 0 8px"></div>' +
         '<div class="sk-row">' +
@@ -3300,6 +3396,7 @@
     var exportOrientation = 'landscape';
     var exportMode = 'center';
     var exportClipOrder = [];
+    var exportTrims = {}; // postId -> {start, end}, seconds
     var exportPanel = view.querySelector('#sk-lp-export-panel');
     var landscapeBtn = view.querySelector('#sk-lp-orient-landscape');
     var portraitBtn = view.querySelector('#sk-lp-orient-portrait');
@@ -3307,9 +3404,21 @@
     var stretchBtn = view.querySelector('#sk-lp-mode-stretch');
     var customToggle = view.querySelector('#sk-lp-custom-toggle');
     var customSection = view.querySelector('#sk-lp-custom-section');
+    var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');
+    var advancedSection = view.querySelector('#sk-lp-advanced-section');
+    var customDurationInput = view.querySelector('#sk-lp-custom-duration');
+    var clipListWrap = view.querySelector('#sk-lp-clip-list-wrap');
 
     function defaultClipOrder() {
       return safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).slice(0, MAX_GRID_CLIPS);
+    }
+
+    function updateClipListVisibility() {
+      var show = customToggle.checked || advancedToggle.checked;
+      clipListWrap.style.display = show ? 'block' : 'none';
+      view.querySelector('#sk-lp-clip-list-label').textContent = customToggle.checked
+        ? 'Order — first clip is featured above the rest if that mode is on:'
+        : 'Per-clip trim range:';
     }
 
     customToggle.onchange = function () {
@@ -3325,6 +3434,21 @@
         stretchBtn.classList.remove('active');
         exportClipOrder = defaultClipOrder();
       }
+      updateClipListVisibility();
+      renderExportOrderList();
+      updateExportPreview();
+    };
+
+    advancedToggle.onchange = function () {
+      if (advancedToggle.checked) {
+        advancedSection.style.display = 'block';
+      } else {
+        advancedSection.style.display = 'none';
+        exportTrims = {};
+        customDurationInput.value = '';
+      }
+      updateClipListVisibility();
+      renderExportOrderList();
       updateExportPreview();
     };
 
@@ -3338,6 +3462,10 @@
         var layout = computeGridLayout(n, exportOrientation);
         text = n + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid';
       }
+      var customDuration = parseTimeInput(customDurationInput.value);
+      if (advancedToggle.checked && customDuration) {
+        text += ', ' + formatTimeInput(customDuration) + ' long';
+      }
       view.querySelector('#sk-lp-export-preview').textContent = text;
     }
 
@@ -3348,28 +3476,59 @@
         var row = document.createElement('div');
         row.className = 'sk-show-pick';
         row.style.cursor = 'default';
+        row.style.flexWrap = 'wrap';
         var label = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).slice(0, 3).join(' ');
-        row.innerHTML =
-          '<span style="display:flex;align-items:center;gap:6px;overflow:hidden">' +
+        var trim = exportTrims[p.id];
+        var html =
+          '<span style="display:flex;align-items:center;gap:6px;overflow:hidden;flex:1;min-width:0">' +
             '<img src="' + esc(p.preview_url || '') + '" style="width:36px;height:20px;object-fit:cover;border-radius:2px;flex-shrink:0">' +
             '<span class="name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(label) + '</span>' +
-          '</span>' +
-          '<span style="display:flex;gap:4px;flex-shrink:0">' +
-            '<button class="sk-nav-btn" data-dir="up" style="padding:2px 6px"' + (i === 0 ? ' disabled' : '') + '>&#8593;</button>' +
-            '<button class="sk-nav-btn" data-dir="down" style="padding:2px 6px"' + (i === exportClipOrder.length - 1 ? ' disabled' : '') + '>&#8595;</button>' +
           '</span>';
-        row.querySelector('[data-dir="up"]').onclick = function () {
-          if (i === 0) return;
-          var tmp = exportClipOrder[i - 1]; exportClipOrder[i - 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
-          renderExportOrderList();
-          updateExportPreview();
-        };
-        row.querySelector('[data-dir="down"]').onclick = function () {
-          if (i === exportClipOrder.length - 1) return;
-          var tmp = exportClipOrder[i + 1]; exportClipOrder[i + 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
-          renderExportOrderList();
-          updateExportPreview();
-        };
+        if (advancedToggle.checked) {
+          html +=
+            '<span class="sk-media-viewpost" data-preview style="cursor:pointer;font-size:11px;margin:0;flex-shrink:0" title="open this clip to check timestamps">preview</span>' +
+            '<input class="sk-input" data-trim-start placeholder="start" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.start)) : '') + '">' +
+            '<span style="color:' + C.dim + ';flex-shrink:0">–</span>' +
+            '<input class="sk-input" data-trim-end placeholder="end" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.end)) : '') + '">';
+        }
+        if (customToggle.checked) {
+          html +=
+            '<span style="display:flex;gap:4px;flex-shrink:0">' +
+              '<button class="sk-nav-btn" data-dir="up" style="padding:2px 6px"' + (i === 0 ? ' disabled' : '') + '>&#8593;</button>' +
+              '<button class="sk-nav-btn" data-dir="down" style="padding:2px 6px"' + (i === exportClipOrder.length - 1 ? ' disabled' : '') + '>&#8595;</button>' +
+            '</span>';
+        }
+        row.innerHTML = html;
+
+        if (advancedToggle.checked) {
+          row.querySelector('[data-preview]').onclick = function () { openVideoModal(p); };
+          function commitTrim() {
+            var startEl = row.querySelector('[data-trim-start]');
+            var endEl = row.querySelector('[data-trim-end]');
+            var start = parseTimeInput(startEl.value);
+            var end = parseTimeInput(endEl.value);
+            if (start == null && end == null) { delete exportTrims[p.id]; return; }
+            start = start || 0;
+            if (end == null || end <= start) { delete exportTrims[p.id]; return; }
+            exportTrims[p.id] = { start: start, end: end };
+          }
+          row.querySelector('[data-trim-start]').onchange = commitTrim;
+          row.querySelector('[data-trim-end]').onchange = commitTrim;
+        }
+        if (customToggle.checked) {
+          row.querySelector('[data-dir="up"]').onclick = function () {
+            if (i === 0) return;
+            var tmp = exportClipOrder[i - 1]; exportClipOrder[i - 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
+            renderExportOrderList();
+            updateExportPreview();
+          };
+          row.querySelector('[data-dir="down"]').onclick = function () {
+            if (i === exportClipOrder.length - 1) return;
+            var tmp = exportClipOrder[i + 1]; exportClipOrder[i + 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
+            renderExportOrderList();
+            updateExportPreview();
+          };
+        }
         container.appendChild(row);
       });
     }
@@ -3379,13 +3538,18 @@
       if (videoPosts.length < 2) { alert('need at least 2 video clips in this pool to export a grid.'); return; }
       exportClipOrder = videoPosts.slice(0, MAX_GRID_CLIPS);
       exportMode = 'center';
+      exportTrims = {};
       customToggle.checked = false;
+      advancedToggle.checked = false;
       customSection.style.display = 'none';
+      advancedSection.style.display = 'none';
+      customDurationInput.value = '';
       centerBtn.classList.add('active');
       stretchBtn.classList.remove('active');
       view.querySelector('#sk-lp-export-info').textContent = videoPosts.length > MAX_GRID_CLIPS
         ? exportClipOrder.length + ' of ' + videoPosts.length + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
         : exportClipOrder.length + ' video clips will be used';
+      updateClipListVisibility();
       renderExportOrderList();
       updateExportPreview();
       exportPanel.style.display = 'block';
@@ -3415,6 +3579,7 @@
       centerBtn.classList.remove('active');
       updateExportPreview();
     };
+    customDurationInput.onchange = updateExportPreview;
     view.querySelector('#sk-lp-export-cancel').onclick = function () { exportPanel.style.display = 'none'; };
 
     view.querySelector('#sk-lp-export-start').onclick = function () {
@@ -3425,7 +3590,8 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode).then(function (result) {
+      var customDuration = advancedToggle.checked ? parseTimeInput(customDurationInput.value) : null;
+      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, customDuration).then(function (result) {
         var url = URL.createObjectURL(result.blob);
         statusEl.innerHTML = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips. ' +
           '<a href="' + url + '" download="' + esc(pool.name) + '-grid.mp4" style="color:' + C.amber + '">Download</a>';
