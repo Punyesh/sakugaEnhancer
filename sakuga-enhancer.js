@@ -983,11 +983,11 @@
     var suggestDebounce = null;
     input.addEventListener('input', function () {
       clearTimeout(suggestDebounce);
-      var q = input.value.trim().toLowerCase().replace(/\s+/g, '_');
+      var q = normalizeForTagMatch(input.value.trim().toLowerCase().replace(/\s+/g, '_'));
       if (!q) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
       suggestDebounce = setTimeout(function () {
         ensureAllTags().then(function (list) {
-          var matches = safeFilter(list, function (t) { return t.name.indexOf(q) !== -1; });
+          var matches = safeFilter(list, function (t) { return normalizeForTagMatch(t.name).indexOf(q) !== -1; });
           matches = safeSort(matches, function (a, b) { return b.count - a.count; }).slice(0, 8);
           if (!matches.length) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
           suggestWrap.style.display = 'block';
@@ -1717,6 +1717,19 @@
     }
     document.addEventListener('keydown', onFrameKey);
     box._onClose(function () { document.removeEventListener('keydown', onFrameKey); });
+  }
+
+  // Real tag names on this booru always write a colon-subtitle boundary as
+  // ":_" (space becomes underscore just like everywhere else) — e.g.
+  // "re:_zero_kara_hajimeru...", "hunter_x_hunter:_greed_island". The type
+  // input's own space->underscore conversion means typing "re: zero" (a
+  // literal space after the colon) happens to reconstruct that exact ":_"
+  // sequence and matches fine, while "re:zero" (no space) doesn't — an
+  // arbitrary, non-obvious requirement to type a space there. Collapsing
+  // ":_" to ":" on both sides of the comparison makes the colon match
+  // regardless of whether that incidental space was typed.
+  function normalizeForTagMatch(s) {
+    return (s || '').replace(/:_/g, ':');
   }
 
   function probeVideoDuration(url) {
@@ -3278,7 +3291,7 @@
   function searchShowTags(q) {
     var content = body.querySelector('#sk-show-content');
     content.innerHTML = '<div class="sk-loading">loading tag dictionary…</div>';
-    var norm = q.trim().toLowerCase().replace(/\s+/g, '_');
+    var norm = normalizeForTagMatch(q.trim().toLowerCase().replace(/\s+/g, '_'));
 
     ensureAllTags(function (n) {
       if (!allTagsList) content.innerHTML = '<div class="sk-loading">loading tag dictionary… (' + n + ' so far)</div>';
@@ -3287,7 +3300,7 @@
         content.innerHTML = '<div class="sk-empty">couldn\'t load sakugabooru\'s tag list right now — try again in a moment</div>';
         return;
       }
-      var direct = safeFilter(list, function (t) { return t.type === 3 && t.name.indexOf(norm) !== -1; });
+      var direct = safeFilter(list, function (t) { return t.type === 3 && normalizeForTagMatch(t.name).indexOf(norm) !== -1; });
       var showsList = direct;
       if (!showsList.length) {
         // Multi-word query rarely matches one contiguous tag name — try each word.
@@ -3296,7 +3309,7 @@
         showsList = [];
         words.forEach(function (w) {
           list.forEach(function (t) {
-            if (t.type === 3 && t.name.indexOf(w) !== -1 && !seen[t.name]) {
+            if (t.type === 3 && normalizeForTagMatch(t.name).indexOf(w) !== -1 && !seen[t.name]) {
               seen[t.name] = true;
               showsList.push(t);
             }
