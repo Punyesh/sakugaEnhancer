@@ -1771,9 +1771,10 @@
     ]);
   }
 
-  function performGridExport(clips, statusEl, orientation, mode, trims) {
+  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
     trims = trims || {};
+    loopMode = loopMode || 'replay';
 
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
@@ -1860,7 +1861,8 @@
 
             clips.forEach(function (p, i) {
               var needsLoop = effectiveDurations[i] > 0 && effectiveDurations[i] < targetDuration - 0.1;
-              if (needsLoop) args.push('-stream_loop', '-1');
+              var willStopInstead = needsLoop && loopMode === 'stop';
+              if (needsLoop && !willStopInstead) args.push('-stream_loop', '-1');
               args.push('-i', effectiveNames[i]);
               // Every box — including a 'stretch' mode featured clip's — is
               // sized to the source's own natural aspect ratio (matched to
@@ -1868,11 +1870,23 @@
               // the same aspect-preserving scale+pad works uniformly; no
               // distortion needed anywhere.
               var pos = positions[i];
-              filterParts.push(
+              var chain =
                 '[' + i + ':v]scale=' + pos.w + ':' + pos.h +
                 ':force_original_aspect_ratio=decrease,pad=' + pos.w + ':' + pos.h +
-                ':(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=24[v' + i + ']'
-              );
+                ':(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=24';
+              if (willStopInstead) {
+                // Confirmed directly (against real ffmpeg, with a clip whose
+                // content changes partway through so looping vs. freezing
+                // would actually look different) that tpad's clone mode
+                // holds the clip's own last frame rather than restarting it
+                // — this is a genuine freeze, not a disguised loop. Without
+                // this, simply omitting -stream_loop would let this input
+                // hit EOF early and cut the whole composite short at that
+                // point, since xstack/overlay's default policy is bounded
+                // by the shortest input.
+                chain += ',tpad=stop_mode=clone:stop_duration=' + (targetDuration - effectiveDurations[i]).toFixed(2);
+              }
+              filterParts.push(chain + '[v' + i + ']');
             });
 
             var prevLabel = 'bg';
@@ -3718,9 +3732,14 @@
           '</div>' +
         '</div>' +
         '<div id="sk-lp-advanced-section" style="display:none;margin-bottom:8px">' +
-          '<div class="sk-caption" style="margin:0">' +
+          '<div class="sk-caption" style="margin:0 0 6px">' +
             'each trimmed clip costs an extra encode pass before compositing — slower with more of them. ' +
             'The exported grid\'s own length can be trimmed afterward, once you can see it.' +
+          '</div>' +
+          '<div class="sk-caption" style="margin:0 0 4px">Shorter clips than the target length:</div>' +
+          '<div class="sk-mode-row">' +
+            '<button class="sk-mode-btn active" id="sk-lp-loop-replay" type="button">Replay</button>' +
+            '<button class="sk-mode-btn" id="sk-lp-loop-stop" type="button">Stop</button>' +
           '</div>' +
         '</div>' +
         '<div id="sk-lp-clip-list-wrap" style="display:none">' +
@@ -3745,6 +3764,7 @@
 
     var exportOrientation = 'landscape';
     var exportMode = 'center';
+    var exportLoopMode = 'replay';
     var exportClipOrder = [];
     var exportTrims = {}; // postId -> {start, end}, seconds
     var exportPanel = view.querySelector('#sk-lp-export-panel');
@@ -3752,6 +3772,8 @@
     var portraitBtn = view.querySelector('#sk-lp-orient-portrait');
     var centerBtn = view.querySelector('#sk-lp-mode-center');
     var stretchBtn = view.querySelector('#sk-lp-mode-stretch');
+    var loopReplayBtn = view.querySelector('#sk-lp-loop-replay');
+    var loopStopBtn = view.querySelector('#sk-lp-loop-stop');
     var customToggle = view.querySelector('#sk-lp-custom-toggle');
     var customSection = view.querySelector('#sk-lp-custom-section');
     var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');
@@ -3798,6 +3820,9 @@
       } else {
         advancedSection.style.display = 'none';
         exportTrims = {};
+        exportLoopMode = 'replay';
+        loopReplayBtn.classList.add('active');
+        loopStopBtn.classList.remove('active');
       }
       updateClipListVisibility();
       renderExportOrderList();
@@ -3927,12 +3952,15 @@
       exportClipOrder = videoPosts.slice(0, MAX_GRID_CLIPS);
       exportMode = 'center';
       exportTrims = {};
+      exportLoopMode = 'replay';
       setOn(customToggle, false);
       setOn(advancedToggle, false);
       customSection.style.display = 'none';
       advancedSection.style.display = 'none';
       centerBtn.classList.add('active');
       stretchBtn.classList.remove('active');
+      loopReplayBtn.classList.add('active');
+      loopStopBtn.classList.remove('active');
       view.querySelector('#sk-lp-export-info').textContent = videoPosts.length > MAX_GRID_CLIPS
         ? exportClipOrder.length + ' of ' + videoPosts.length + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
         : exportClipOrder.length + ' video clips will be used';
@@ -3966,6 +3994,16 @@
       centerBtn.classList.remove('active');
       updateExportPreview();
     };
+    loopReplayBtn.onclick = function () {
+      exportLoopMode = 'replay';
+      loopReplayBtn.classList.add('active');
+      loopStopBtn.classList.remove('active');
+    };
+    loopStopBtn.onclick = function () {
+      exportLoopMode = 'stop';
+      loopStopBtn.classList.add('active');
+      loopReplayBtn.classList.remove('active');
+    };
     view.querySelector('#sk-lp-export-cancel').onclick = function () { exportPanel.style.display = 'none'; };
 
     view.querySelector('#sk-lp-export-start').onclick = function () {
@@ -3976,7 +4014,7 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims).then(function (result) {
+      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode).then(function (result) {
         statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
         openGridResultModal(result.blob, pool.name);
       }).catch(function (err) {
