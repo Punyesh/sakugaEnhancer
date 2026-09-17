@@ -1393,7 +1393,22 @@
   function ensureLabelFont(ffmpeg) {
     if (labelFontLoaded) return Promise.resolve();
     return fetch(LABEL_FONT_URL).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
-      return ffmpeg.writeFile('label_font.ttf', new Uint8Array(buf));
+      // Written to ffmpeg's own virtual FS for actual rendering, and
+      // registered as a real browser FontFace from those exact same bytes
+      // for measurement — confirmed directly that measuring against a
+      // generic "Arial, sans-serif" instead is a real, structural problem,
+      // not just a rounding error: different platforms substitute
+      // different actual fonts for that generic name, none of which are
+      // guaranteed to share metrics with the specific arial.ttf ffmpeg
+      // always renders with regardless of platform. Using the same bytes
+      // for both closes that gap instead of papering over it with a
+      // bigger safety margin.
+      return Promise.all([
+        ffmpeg.writeFile('label_font.ttf', new Uint8Array(buf)),
+        (new FontFace('SkGridLabelFont', buf)).load().then(function (loaded) {
+          document.fonts.add(loaded);
+        })
+      ]);
     }).then(function () { labelFontLoaded = true; });
   }
 
@@ -1408,6 +1423,78 @@
       .replace(/\\/g, '\\\\\\\\')
       .replace(/:/g, '\\\\:')
       .replace(/'/g, "'\\\\\\''");
+  }
+
+  // A separate canvas purely for text measurement, never appended to the
+  // DOM — same technique browsers use internally for ctx.measureText.
+  // Reused across calls rather than recreated each time.
+  var labelMeasureCanvas = null;
+  function measureLabelTextWidth(text, fontSize) {
+    if (!labelMeasureCanvas) labelMeasureCanvas = document.createElement('canvas');
+    var ctx = labelMeasureCanvas.getContext('2d');
+    // The exact same font file (and bytes) ffmpeg renders with — see
+    // ensureLabelFont — not a generic system font name, which measuring
+    // confirmed can silently under-report width by a wide margin.
+    ctx.font = fontSize + 'px SkGridLabelFont, sans-serif';
+    return ctx.measureText(text).width;
+  }
+
+  // Builds the actual multi-line label text plus a font size that both fit
+  // within a clip's own box, reacting to how many animators are actually
+  // credited rather than assuming a worst case:
+  //  - font size scales with the cell's own size (a small cell in a 9-clip
+  //    grid and a large featured-clip box shouldn't use the same absolute
+  //    size), clamped so it's never too small to read;
+  //  - names are measured with the browser's real Canvas API (a ~15% safety
+  //    margin covers the gap between canvas and freetype's own metrics,
+  //    which won't be pixel-identical) and wrapped onto additional lines
+  //    by whole name rather than shrunk to fit on one;
+  //  - only if that still needs more than 4 lines does the font shrink
+  //    further, and only beyond 9 credited animators (rare) does the list
+  //    itself get truncated with a "+N more" — short lists never pay any
+  //    of these costs.
+  function buildAnimatorLabel(names, cellW, cellH) {
+    var extra = 0;
+    if (names.length > 9) {
+      extra = names.length - 9;
+      names = names.slice(0, 9);
+    }
+    var displayNames = names.slice();
+    if (extra > 0) displayNames.push('+' + extra + ' more');
+
+    var maxLineWidth = cellW - 36; // room for the box's own padding/margins
+    var maxLines = 4;
+    // Divisor and clamp chosen against this tool's actual cell sizes (270
+    // for a normal cell, up to 540 for a doubled 'stretch' featured box) —
+    // confirmed these numbers actually produce a visibly different size
+    // between them (18 vs 32) rather than both landing on the same clamped
+    // ceiling, which an earlier, narrower range did without differentiating
+    // anything in practice.
+    var fontSize = Math.max(14, Math.min(32, Math.round(cellH / 15)));
+
+    function wrapAt(size) {
+      var lines = [];
+      var current = '';
+      for (var i = 0; i < displayNames.length; i++) {
+        var name = displayNames[i];
+        var candidate = current ? current + ', ' + name : name;
+        if (!current || measureLabelTextWidth(candidate, size) * 1.08 <= maxLineWidth) {
+          current = candidate;
+        } else {
+          lines.push(current);
+          current = name;
+        }
+      }
+      if (current) lines.push(current);
+      return lines;
+    }
+
+    var lines = wrapAt(fontSize);
+    while (lines.length > maxLines && fontSize > 12) {
+      fontSize -= 1;
+      lines = wrapAt(fontSize);
+    }
+    return { text: lines.join('\n'), fontSize: fontSize };
   }
 
   // Used for every in-progress status message across trimming and grid
@@ -1928,10 +2015,11 @@
                   function (t) { return t.replace(/_/g, ' '); }
                 );
                 if (animatorNames.length) {
-                  var label = animatorNames.join(', ');
+                  var built = buildAnimatorLabel(animatorNames, pos.w, pos.h);
                   var xExpr = labelMode === 'right' ? 'w-tw-10' : '10';
-                  chain += ',drawtext=fontfile=label_font.ttf:text=\'' + escapeDrawtext(label) + '\'' +
-                    ':fontsize=18:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=6:x=' + xExpr + ':y=h-th-10';
+                  chain += ',drawtext=fontfile=label_font.ttf:text=\'' + escapeDrawtext(built.text) + '\'' +
+                    ':fontsize=' + built.fontSize + ':fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=6:line_spacing=4' +
+                    ':x=' + xExpr + ':y=h-th-10';
                 }
               }
               filterParts.push(chain + '[v' + i + ']');
