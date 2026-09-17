@@ -1383,6 +1383,33 @@
   var ffmpegInstance = null;
   var ffmpegLoadPromise = null;
 
+  // Reused from ffmpeg.wasm's own official documentation example for
+  // drawtext (freetype2, which drawtext needs, has been part of
+  // @ffmpeg/core since v0.8.4 — well before the 0.12.x branch already in
+  // use here) — a real TTF file known to already work with this exact
+  // core build, rather than an untested font pulled from elsewhere.
+  var LABEL_FONT_URL = 'https://raw.githubusercontent.com/ffmpegwasm/testdata/master/arial.ttf';
+  var labelFontLoaded = false;
+  function ensureLabelFont(ffmpeg) {
+    if (labelFontLoaded) return Promise.resolve();
+    return fetch(LABEL_FONT_URL).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
+      return ffmpeg.writeFile('label_font.ttf', new Uint8Array(buf));
+    }).then(function () { labelFontLoaded = true; });
+  }
+
+  // Confirmed directly (against real ffmpeg, including a name with an
+  // apostrophe) that this two-stage escape — the filtergraph parser and
+  // drawtext's own string parser each need their own layer — renders
+  // correctly rather than leaving stray backslashes visible. Animator tags
+  // here are near-universally plain identifiers (letters/underscores), so
+  // this mostly matters for the rare edge case rather than everyday names.
+  function escapeDrawtext(s) {
+    return String(s)
+      .replace(/\\/g, '\\\\\\\\')
+      .replace(/:/g, '\\\\:')
+      .replace(/'/g, "'\\\\\\''");
+  }
+
   // Used for every in-progress status message across trimming and grid
   // export — both can genuinely take a while (grid export especially, since
   // it decodes/re-encodes multiple clips at once), so a spinner distinguishes
@@ -1771,14 +1798,18 @@
     ]);
   }
 
-  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode) {
+  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
     trims = trims || {};
     loopMode = loopMode || 'replay';
+    labelMode = labelMode || 'off';
 
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
       .then(function (ffmpeg) {
+        var fontReady = labelMode !== 'off' ? ensureLabelFont(ffmpeg) : Promise.resolve();
+        var tagsReady = labelMode !== 'off' ? ensureTagTypes() : Promise.resolve();
+        return Promise.all([fontReady, tagsReady]).then(function () {
         setBusyStatus(statusEl, 'checking clip lengths…');
         return Promise.all(safeMap(clips, function (p) { return probeVideoDuration(p.file_url); })).then(function (naturalDurations) {
           // Effective duration is the trimmed range's length when a clip has
@@ -1886,6 +1917,23 @@
                 // by the shortest input.
                 chain += ',tpad=stop_mode=clone:stop_duration=' + (targetDuration - effectiveDurations[i]).toFixed(2);
               }
+              if (labelMode !== 'off') {
+                // Only this clip's own animator tags — not the show, not
+                // other general tags — since the point is identifying who's
+                // credited on THIS specific cut, matching the community
+                // request this came from (identifying whose cut is whose in
+                // a multi-animator grid).
+                var animatorNames = safeMap(
+                  safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 1; }),
+                  function (t) { return t.replace(/_/g, ' '); }
+                );
+                if (animatorNames.length) {
+                  var label = animatorNames.join(', ');
+                  var xExpr = labelMode === 'right' ? 'w-tw-10' : '10';
+                  chain += ',drawtext=fontfile=label_font.ttf:text=\'' + escapeDrawtext(label) + '\'' +
+                    ':fontsize=18:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=6:x=' + xExpr + ':y=h-th-10';
+                }
+              }
               filterParts.push(chain + '[v' + i + ']');
             });
 
@@ -1922,6 +1970,7 @@
               return { blob: new Blob([data.buffer], { type: 'video/mp4' }), width: canvasW, height: canvasH, count: clips.length };
             });
           });
+        });
         });
       });
   }
@@ -3737,9 +3786,17 @@
             'The exported grid\'s own length can be trimmed afterward, once you can see it.' +
           '</div>' +
           '<div class="sk-caption" style="margin:0 0 4px">Shorter clips than the target length:</div>' +
-          '<div class="sk-mode-row">' +
+          '<div class="sk-mode-row" style="margin-bottom:10px">' +
             '<button class="sk-mode-btn active" id="sk-lp-loop-replay" type="button">Replay</button>' +
             '<button class="sk-mode-btn" id="sk-lp-loop-stop" type="button">Stop</button>' +
+          '</div>' +
+          '<div class="sk-toggle-row">' +
+            '<span class="sk-toggle-label">Show animator name(s) on each clip</span>' +
+            '<span class="sk-toggle-switch" id="sk-lp-labels-toggle"><span class="sk-toggle-knob"></span></span>' +
+          '</div>' +
+          '<div class="sk-mode-row" id="sk-lp-labels-side-row" style="display:none">' +
+            '<button class="sk-mode-btn active" id="sk-lp-labels-left" type="button">Bottom Left</button>' +
+            '<button class="sk-mode-btn" id="sk-lp-labels-right" type="button">Bottom Right</button>' +
           '</div>' +
         '</div>' +
         '<div id="sk-lp-clip-list-wrap" style="display:none">' +
@@ -3765,6 +3822,7 @@
     var exportOrientation = 'landscape';
     var exportMode = 'center';
     var exportLoopMode = 'replay';
+    var exportLabelMode = 'off';
     var exportClipOrder = [];
     var exportTrims = {}; // postId -> {start, end}, seconds
     var exportPanel = view.querySelector('#sk-lp-export-panel');
@@ -3774,6 +3832,10 @@
     var stretchBtn = view.querySelector('#sk-lp-mode-stretch');
     var loopReplayBtn = view.querySelector('#sk-lp-loop-replay');
     var loopStopBtn = view.querySelector('#sk-lp-loop-stop');
+    var labelsToggle = view.querySelector('#sk-lp-labels-toggle');
+    var labelsSideRow = view.querySelector('#sk-lp-labels-side-row');
+    var labelsLeftBtn = view.querySelector('#sk-lp-labels-left');
+    var labelsRightBtn = view.querySelector('#sk-lp-labels-right');
     var customToggle = view.querySelector('#sk-lp-custom-toggle');
     var customSection = view.querySelector('#sk-lp-custom-section');
     var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');
@@ -3823,6 +3885,14 @@
         exportLoopMode = 'replay';
         loopReplayBtn.classList.add('active');
         loopStopBtn.classList.remove('active');
+        // Reset the label toggle and its (now-hidden) side-choice back to
+        // their own defaults — order matters here: exportLabelMode must end
+        // up 'off' overall, not 'left' (the side-row's own default value).
+        setOn(labelsToggle, false);
+        labelsSideRow.style.display = 'none';
+        labelsLeftBtn.classList.add('active');
+        labelsRightBtn.classList.remove('active');
+        exportLabelMode = 'off';
       }
       updateClipListVisibility();
       renderExportOrderList();
@@ -3953,14 +4023,19 @@
       exportMode = 'center';
       exportTrims = {};
       exportLoopMode = 'replay';
+      exportLabelMode = 'off';
       setOn(customToggle, false);
       setOn(advancedToggle, false);
+      setOn(labelsToggle, false);
       customSection.style.display = 'none';
       advancedSection.style.display = 'none';
+      labelsSideRow.style.display = 'none';
       centerBtn.classList.add('active');
       stretchBtn.classList.remove('active');
       loopReplayBtn.classList.add('active');
       loopStopBtn.classList.remove('active');
+      labelsLeftBtn.classList.add('active');
+      labelsRightBtn.classList.remove('active');
       view.querySelector('#sk-lp-export-info').textContent = videoPosts.length > MAX_GRID_CLIPS
         ? exportClipOrder.length + ' of ' + videoPosts.length + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
         : exportClipOrder.length + ' video clips will be used';
@@ -4004,6 +4079,22 @@
       loopStopBtn.classList.add('active');
       loopReplayBtn.classList.remove('active');
     };
+    labelsToggle.onclick = function () {
+      setOn(labelsToggle, !isOn(labelsToggle));
+      var on = isOn(labelsToggle);
+      labelsSideRow.style.display = on ? 'flex' : 'none';
+      exportLabelMode = on ? 'left' : 'off';
+    };
+    labelsLeftBtn.onclick = function () {
+      exportLabelMode = 'left';
+      labelsLeftBtn.classList.add('active');
+      labelsRightBtn.classList.remove('active');
+    };
+    labelsRightBtn.onclick = function () {
+      exportLabelMode = 'right';
+      labelsRightBtn.classList.add('active');
+      labelsLeftBtn.classList.remove('active');
+    };
     view.querySelector('#sk-lp-export-cancel').onclick = function () { exportPanel.style.display = 'none'; };
 
     view.querySelector('#sk-lp-export-start').onclick = function () {
@@ -4014,7 +4105,7 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode).then(function (result) {
+      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode).then(function (result) {
         statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
         openGridResultModal(result.blob, pool.name);
       }).catch(function (err) {
