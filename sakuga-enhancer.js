@@ -1403,9 +1403,21 @@
       // always renders with regardless of platform. Using the same bytes
       // for both closes that gap instead of papering over it with a
       // bigger safety margin.
+      //
+      // Each consumer gets its OWN copy (.slice(0), a real byte copy, not
+      // just another view over the same memory) rather than sharing one
+      // ArrayBuffer between them — ffmpeg.wasm's writeFile runs across a
+      // Web Worker boundary and very plausibly transfers (not copies) the
+      // buffer via postMessage for performance, which would detach the
+      // original and leave whichever consumer reads it second holding an
+      // empty buffer. That failure mode matches a real "Invalid font data
+      // in ArrayBuffer" error seen from this exact shared-buffer pattern,
+      // so this isn't a hypothetical precaution.
+      var ffmpegBytes = new Uint8Array(buf.slice(0));
+      var fontFaceBuffer = buf.slice(0);
       return Promise.all([
-        ffmpeg.writeFile('label_font.ttf', new Uint8Array(buf)),
-        (new FontFace('SkGridLabelFont', buf)).load().then(function (loaded) {
+        ffmpeg.writeFile('label_font.ttf', ffmpegBytes),
+        (new FontFace('SkGridLabelFont', fontFaceBuffer)).load().then(function (loaded) {
           document.fonts.add(loaded);
         })
       ]);
