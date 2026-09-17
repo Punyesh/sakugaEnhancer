@@ -1658,6 +1658,10 @@
   // a handful of clips. Capped hard rather than left to degrade silently.
   var MAX_GRID_CLIPS = 9;
   var GRID_CELL_W = 480, GRID_CELL_H = 270; // 16:9 per cell; 3 cols = 1440px wide, a reasonable ceiling for wasm encode time
+  // Serial export shows one clip at a time, not a grid of small cells, so
+  // it can afford a noticeably bigger single frame for the same wasm-encode
+  // budget — double the grid cell's own linear size, still 16:9.
+  var SERIAL_LONG = 960, SERIAL_SHORT = 540;
 
   // Picks cols/rows for N clips minimizing empty cells, tie-broken toward
   // whichever candidate's aspect ratio is closest to 16:9 — e.g. 8 clips
@@ -1897,11 +1901,12 @@
     ]);
   }
 
-  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode) {
+  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
     trims = trims || {};
     loopMode = loopMode || 'replay';
     labelMode = labelMode || 'off';
+    format = format || 'grid';
 
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
@@ -1912,12 +1917,12 @@
         setBusyStatus(statusEl, 'checking clip lengths…');
         return Promise.all(safeMap(clips, function (p) { return probeVideoDuration(p.file_url); })).then(function (naturalDurations) {
           // Effective duration is the trimmed range's length when a clip has
-          // one, not the full clip's natural length — this is what actually
-          // determines whether it needs to loop and feeds the target
-          // duration calculation. The grid always generates at this
-          // auto-computed length — trimming the *result* down further is a
-          // separate, later step (see openGridResultModal), not a decision
-          // made blind before ever seeing the generated grid.
+          // one, not the full clip's natural length. For grid mode this
+          // feeds the target-duration/looping decision; for serial mode
+          // there's no target to loop toward — each clip just plays once,
+          // for however long its own (possibly trimmed) length is — but the
+          // number is still needed there too, just for the trim-extraction
+          // step below, not for any duration/looping decision.
           var effectiveDurations = safeMap(clips, function (p, i) {
             var trim = trims[p.id];
             if (!trim) return naturalDurations[i];
@@ -1925,11 +1930,28 @@
             return Math.max(0.1, end - trim.start);
           });
 
-          var targetDuration = 1; // guard against every probe failing
+          var targetDuration = 1; // guard against every probe failing; unused in serial mode
           for (var di = 0; di < effectiveDurations.length; di++) {
             if (effectiveDurations[di] > targetDuration) targetDuration = effectiveDurations[di];
           }
-          var positions = computeCellPositions(clips.length, orientation, mode);
+
+          // Serial mode has no grid to subdivide — every clip gets the same
+          // single, larger frame (see SERIAL_LONG/SHORT) instead of a
+          // computed cell position within a shared canvas.
+          var positions, canvasW, canvasH;
+          if (format === 'serial') {
+            var serialW = orientation === 'portrait' ? SERIAL_SHORT : SERIAL_LONG;
+            var serialH = orientation === 'portrait' ? SERIAL_LONG : SERIAL_SHORT;
+            canvasW = serialW; canvasH = serialH;
+            positions = safeMap(clips, function () { return { x: 0, y: 0, w: serialW, h: serialH }; });
+          } else {
+            positions = computeCellPositions(clips.length, orientation, mode);
+            canvasW = 0; canvasH = 0;
+            for (var pi0 = 0; pi0 < positions.length; pi0++) {
+              if (positions[pi0].x + positions[pi0].w > canvasW) canvasW = positions[pi0].x + positions[pi0].w;
+              if (positions[pi0].y + positions[pi0].h > canvasH) canvasH = positions[pi0].y + positions[pi0].h;
+            }
+          }
 
           // Fetch + write each input sequentially rather than all at once —
           // keeps peak memory lower given everything is decoded/held in the
@@ -1963,19 +1985,10 @@
           });
 
           return writeChain.then(function () {
-            setBusyStatus(statusEl, 'compositing grid (this can take a while)…');
+            setBusyStatus(statusEl, format === 'serial' ? 'joining clips (this can take a while)…' : 'compositing grid (this can take a while)…');
             var startedAt = Date.now();
             var args = [];
             var filterParts = [];
-            // Derived from the actual computed positions rather than a
-            // simple cols*rows — 'stretch' mode's canvas (featured clip
-            // stacked above a smaller grid) isn't a uniform rectangle of
-            // cells the way 'center' mode's is.
-            var canvasW = 0, canvasH = 0;
-            for (var pi = 0; pi < positions.length; pi++) {
-              if (positions[pi].x + positions[pi].w > canvasW) canvasW = positions[pi].x + positions[pi].w;
-              if (positions[pi].y + positions[pi].h > canvasH) canvasH = positions[pi].y + positions[pi].h;
-            }
 
             // Explicit black background, then chained `overlay` filters
             // instead of `xstack` — confirmed directly (by reproducing this
@@ -1983,21 +1996,22 @@
             // xstack leaves any canvas area no input covers as uninitialized
             // memory rather than actually black, which rendered as bright
             // green in exactly the gaps a "center leftover row" layout
-            // produces. An explicit `color=black` base plus overlay
-            // guarantees real black everywhere nothing is placed, and also
-            // sidesteps xstack's assumption of a uniform grid, which
-            // 'stretch' mode's mixed-size boxes don't fit anyway.
-            filterParts.push('color=c=black:s=' + canvasW + 'x' + canvasH + ':r=24[bg]');
+            // produces. Only grid mode needs this at all — serial mode's
+            // concat has no gaps to cover, every clip fills the one shared
+            // frame completely in its own turn.
+            if (format === 'grid') {
+              filterParts.push('color=c=black:s=' + canvasW + 'x' + canvasH + ':r=24[bg]');
+            }
 
             clips.forEach(function (p, i) {
-              var needsLoop = effectiveDurations[i] > 0 && effectiveDurations[i] < targetDuration - 0.1;
+              var needsLoop = format === 'grid' && effectiveDurations[i] > 0 && effectiveDurations[i] < targetDuration - 0.1;
               var willStopInstead = needsLoop && loopMode === 'stop';
               if (needsLoop && !willStopInstead) args.push('-stream_loop', '-1');
               args.push('-i', effectiveNames[i]);
-              // Every box — including a 'stretch' mode featured clip's — is
-              // sized to the source's own natural aspect ratio (matched to
-              // the leftover grid's width, height following at 16:9), so
-              // the same aspect-preserving scale+pad works uniformly; no
+              // Every box — including a 'stretch' mode featured clip's, or
+              // serial mode's single shared frame — is sized to the
+              // source's own natural aspect ratio, so the same
+              // aspect-preserving scale+pad works uniformly everywhere; no
               // distortion needed anywhere.
               var pos = positions[i];
               var chain =
@@ -2013,7 +2027,9 @@
                 // this, simply omitting -stream_loop would let this input
                 // hit EOF early and cut the whole composite short at that
                 // point, since xstack/overlay's default policy is bounded
-                // by the shortest input.
+                // by the shortest input. (Serial mode never sets needsLoop
+                // in the first place, so this never applies there — every
+                // clip in a sequence is meant to just play through once.)
                 chain += ',tpad=stop_mode=clone:stop_duration=' + (targetDuration - effectiveDurations[i]).toFixed(2);
               }
               if (labelMode !== 'off') {
@@ -2021,7 +2037,7 @@
                 // other general tags — since the point is identifying who's
                 // credited on THIS specific cut, matching the community
                 // request this came from (identifying whose cut is whose in
-                // a multi-animator grid).
+                // a multi-animator grid or sequence).
                 var animatorNames = safeMap(
                   safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 1; }),
                   function (t) { return t.replace(/_/g, ' '); }
@@ -2030,29 +2046,42 @@
                   var built = buildAnimatorLabel(animatorNames, pos.w, pos.h);
                   var xExpr = labelMode === 'right' ? 'w-tw-10' : '10';
                   chain += ',drawtext=fontfile=label_font.ttf:text=\'' + escapeDrawtext(built.text) + '\'' +
-                    ':fontsize=' + built.fontSize + ':fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=6:line_spacing=4' +
+                    ':fontsize=' + built.fontSize + ':fontcolor=white:bordercolor=black:borderw=2:line_spacing=4' +
                     ':x=' + xExpr + ':y=h-th-10';
                 }
               }
               filterParts.push(chain + '[v' + i + ']');
             });
 
-            var prevLabel = 'bg';
-            clips.forEach(function (p, i) {
-              var pos = positions[i];
-              var outLabel = (i === clips.length - 1) ? 'outv' : 't' + i;
-              filterParts.push('[' + prevLabel + '][v' + i + ']overlay=' + pos.x + ':' + pos.y + '[' + outLabel + ']');
-              prevLabel = outLabel;
-            });
+            if (format === 'serial') {
+              // Confirmed directly (against real ffmpeg, including a
+              // mid-sequence trimmed clip and per-clip labels together) that
+              // concat plays each input fully, in order, for its own
+              // natural/trimmed length — no explicit background or
+              // positions needed, unlike the grid's overlay chain, since
+              // nothing ever shares the frame with anything else.
+              var concatInputs = safeMap(clips, function (p, i) { return '[v' + i + ']'; }).join('');
+              filterParts.push(concatInputs + 'concat=n=' + clips.length + ':v=1:a=0[outv]');
+            } else {
+              var prevLabel = 'bg';
+              clips.forEach(function (p, i) {
+                var pos = positions[i];
+                var outLabel = (i === clips.length - 1) ? 'outv' : 't' + i;
+                filterParts.push('[' + prevLabel + '][v' + i + ']overlay=' + pos.x + ':' + pos.y + '[' + outLabel + ']');
+                prevLabel = outLabel;
+              });
+            }
 
             var filterComplex = filterParts.join(';');
 
-            args.push(
-              '-filter_complex', filterComplex,
-              '-map', '[outv]', '-an', '-t', String(targetDuration.toFixed(2)),
-              '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-r', '24',
-              'grid_out.mp4'
-            );
+            args.push('-filter_complex', filterComplex, '-map', '[outv]', '-an');
+            // Only grid mode needs an explicit cap — its duration is
+            // "however long until every looping/frozen clip has filled the
+            // longest one", which needs the -t to actually stop there.
+            // Serial mode's own total length already falls out naturally
+            // from concatenating each clip's real length once.
+            if (format === 'grid') args.push('-t', String(targetDuration.toFixed(2)));
+            args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-r', '24', 'grid_out.mp4');
 
             return ffmpeg.exec(args).then(function () {
               return ffmpeg.readFile('grid_out.mp4');
@@ -2092,7 +2121,7 @@
     box.className = 'sk-media-box';
     box.innerHTML =
       '<div class="sk-media-top">' +
-        '<span class="sk-caption" style="margin:0 auto 0 0">Grid Export Result</span>' +
+        '<span class="sk-caption" style="margin:0 auto 0 0">Export Result</span>' +
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
     backdrop.appendChild(box);
@@ -3858,16 +3887,20 @@
         '<button class="sk-nav-btn" id="sk-lp-delete">Delete</button>' +
       '</div>' +
       '<div class="sk-row" style="margin-bottom:8px">' +
-        '<button class="sk-btn" id="sk-lp-export" style="flex:1">Export as Grid Video</button>' +
+        '<button class="sk-btn" id="sk-lp-export" style="flex:1">Export Clips</button>' +
       '</div>' +
       '<div id="sk-lp-export-panel" style="display:none;border:1px solid ' + C.line + ';border-radius:6px;padding:10px;margin-bottom:8px">' +
         '<div class="sk-caption" id="sk-lp-export-info" style="margin:0 0 8px"></div>' +
+        '<div class="sk-mode-row" style="margin-bottom:8px">' +
+          '<button class="sk-mode-btn active" id="sk-lp-format-grid" type="button">Grid</button>' +
+          '<button class="sk-mode-btn" id="sk-lp-format-serial" type="button">Serial</button>' +
+        '</div>' +
         '<div class="sk-mode-row" style="margin-bottom:8px">' +
           '<button class="sk-mode-btn active" id="sk-lp-orient-landscape" type="button">Landscape</button>' +
           '<button class="sk-mode-btn" id="sk-lp-orient-portrait" type="button">Portrait</button>' +
         '</div>' +
         '<div class="sk-toggle-row">' +
-          '<span class="sk-toggle-label">Custom grid</span>' +
+          '<span class="sk-toggle-label" id="sk-lp-custom-label">Custom grid</span>' +
           '<span class="sk-toggle-switch" id="sk-lp-custom-toggle"><span class="sk-toggle-knob"></span></span>' +
         '</div>' +
         '<div class="sk-toggle-row">' +
@@ -3875,7 +3908,7 @@
           '<span class="sk-toggle-switch" id="sk-lp-advanced-toggle"><span class="sk-toggle-knob"></span></span>' +
         '</div>' +
         '<div id="sk-lp-custom-section" style="display:none">' +
-          '<div class="sk-mode-row" style="margin-bottom:6px">' +
+          '<div class="sk-mode-row" id="sk-lp-stretch-row" style="margin-bottom:6px">' +
             '<button class="sk-mode-btn active" id="sk-lp-mode-center" type="button">Center leftover</button>' +
             '<button class="sk-mode-btn" id="sk-lp-mode-stretch" type="button">Stretch first clip</button>' +
           '</div>' +
@@ -3885,10 +3918,12 @@
             'each trimmed clip costs an extra encode pass before compositing — slower with more of them. ' +
             'The exported grid\'s own length can be trimmed afterward, once you can see it.' +
           '</div>' +
-          '<div class="sk-caption" style="margin:0 0 4px">Shorter clips than the target length:</div>' +
-          '<div class="sk-mode-row" style="margin-bottom:10px">' +
-            '<button class="sk-mode-btn active" id="sk-lp-loop-replay" type="button">Replay</button>' +
-            '<button class="sk-mode-btn" id="sk-lp-loop-stop" type="button">Stop</button>' +
+          '<div id="sk-lp-loop-wrap">' +
+            '<div class="sk-caption" style="margin:0 0 4px">Shorter clips than the target length:</div>' +
+            '<div class="sk-mode-row" style="margin-bottom:10px">' +
+              '<button class="sk-mode-btn active" id="sk-lp-loop-replay" type="button">Replay</button>' +
+              '<button class="sk-mode-btn" id="sk-lp-loop-stop" type="button">Stop</button>' +
+            '</div>' +
           '</div>' +
           '<div class="sk-toggle-row">' +
             '<span class="sk-toggle-label">Show animator name(s) on each clip</span>' +
@@ -3919,6 +3954,7 @@
       renderLocalPoolsList(view);
     };
 
+    var exportFormat = 'grid';
     var exportOrientation = 'landscape';
     var exportMode = 'center';
     var exportLoopMode = 'replay';
@@ -3926,10 +3962,14 @@
     var exportClipOrder = [];
     var exportTrims = {}; // postId -> {start, end}, seconds
     var exportPanel = view.querySelector('#sk-lp-export-panel');
+    var formatGridBtn = view.querySelector('#sk-lp-format-grid');
+    var formatSerialBtn = view.querySelector('#sk-lp-format-serial');
     var landscapeBtn = view.querySelector('#sk-lp-orient-landscape');
     var portraitBtn = view.querySelector('#sk-lp-orient-portrait');
     var centerBtn = view.querySelector('#sk-lp-mode-center');
     var stretchBtn = view.querySelector('#sk-lp-mode-stretch');
+    var stretchRow = view.querySelector('#sk-lp-stretch-row');
+    var loopWrap = view.querySelector('#sk-lp-loop-wrap');
     var loopReplayBtn = view.querySelector('#sk-lp-loop-replay');
     var loopStopBtn = view.querySelector('#sk-lp-loop-stop');
     var labelsToggle = view.querySelector('#sk-lp-labels-toggle');
@@ -3937,6 +3977,7 @@
     var labelsLeftBtn = view.querySelector('#sk-lp-labels-left');
     var labelsRightBtn = view.querySelector('#sk-lp-labels-right');
     var customToggle = view.querySelector('#sk-lp-custom-toggle');
+    var customLabel = view.querySelector('#sk-lp-custom-label');
     var customSection = view.querySelector('#sk-lp-custom-section');
     var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');
     var advancedSection = view.querySelector('#sk-lp-advanced-section');
@@ -3948,13 +3989,52 @@
     function isOn(toggleEl) { return toggleEl.classList.contains('active'); }
     function setOn(toggleEl, on) { toggleEl.classList.toggle('active', on); }
 
+    function updateFormatVisibility() {
+      var isSerial = exportFormat === 'serial';
+      stretchRow.style.display = isSerial ? 'none' : 'flex';
+      loopWrap.style.display = isSerial ? 'none' : 'block';
+      customLabel.textContent = isSerial ? 'Custom order' : 'Custom grid';
+      if (isSerial) {
+        // Stretch/featured-clip only makes sense when there's a grid to
+        // feature above — reset the (now hidden) button back to its own
+        // default so it isn't left in a stale state if the person switches
+        // back to Grid format later.
+        exportMode = 'center';
+        centerBtn.classList.add('active');
+        stretchBtn.classList.remove('active');
+      }
+    }
+
     function updateClipListVisibility() {
       var show = isOn(customToggle) || isOn(advancedToggle);
       clipListWrap.style.display = show ? 'block' : 'none';
-      view.querySelector('#sk-lp-clip-list-label').textContent = isOn(customToggle)
-        ? 'Order — first clip is featured above the rest if that mode is on:'
-        : 'Per-clip trim range:';
+      var label;
+      if (isOn(customToggle)) {
+        label = exportFormat === 'serial'
+          ? 'Order — clips play in this order, one after another:'
+          : 'Order — first clip is featured above the rest if that mode is on:';
+      } else {
+        label = 'Per-clip trim range:';
+      }
+      view.querySelector('#sk-lp-clip-list-label').textContent = label;
     }
+
+    formatGridBtn.onclick = function () {
+      exportFormat = 'grid';
+      formatGridBtn.classList.add('active');
+      formatSerialBtn.classList.remove('active');
+      updateFormatVisibility();
+      updateClipListVisibility();
+      updateExportPreview();
+    };
+    formatSerialBtn.onclick = function () {
+      exportFormat = 'serial';
+      formatSerialBtn.classList.add('active');
+      formatGridBtn.classList.remove('active');
+      updateFormatVisibility();
+      updateClipListVisibility();
+      updateExportPreview();
+    };
 
     customToggle.onclick = function () {
       setOn(customToggle, !isOn(customToggle));
@@ -4002,7 +4082,9 @@
     function updateExportPreview() {
       var n = exportClipOrder.length;
       var text;
-      if (exportMode === 'stretch' && n >= 3) {
+      if (exportFormat === 'serial') {
+        text = n + ' clips → played back-to-back, one after another';
+      } else if (exportMode === 'stretch' && n >= 3) {
         var restLayout = computeGridLayout(n - 1, exportOrientation);
         text = n + ' clips → featured clip above a ' + restLayout.cols + ' × ' + restLayout.rows + ' grid';
       } else {
@@ -4118,8 +4200,9 @@
 
     view.querySelector('#sk-lp-export').onclick = function () {
       var videoPosts = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); });
-      if (videoPosts.length < 2) { alert('need at least 2 video clips in this pool to export a grid.'); return; }
+      if (videoPosts.length < 2) { alert('need at least 2 video clips in this pool to export.'); return; }
       exportClipOrder = videoPosts.slice(0, MAX_GRID_CLIPS);
+      exportFormat = 'grid';
       exportMode = 'center';
       exportTrims = {};
       exportLoopMode = 'replay';
@@ -4130,12 +4213,15 @@
       customSection.style.display = 'none';
       advancedSection.style.display = 'none';
       labelsSideRow.style.display = 'none';
+      formatGridBtn.classList.add('active');
+      formatSerialBtn.classList.remove('active');
       centerBtn.classList.add('active');
       stretchBtn.classList.remove('active');
       loopReplayBtn.classList.add('active');
       loopStopBtn.classList.remove('active');
       labelsLeftBtn.classList.add('active');
       labelsRightBtn.classList.remove('active');
+      updateFormatVisibility();
       view.querySelector('#sk-lp-export-info').textContent = videoPosts.length > MAX_GRID_CLIPS
         ? exportClipOrder.length + ' of ' + videoPosts.length + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
         : exportClipOrder.length + ' video clips will be used';
@@ -4205,7 +4291,7 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode).then(function (result) {
+      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat).then(function (result) {
         statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
         openGridResultModal(result.blob, pool.name);
       }).catch(function (err) {
