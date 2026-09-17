@@ -1451,30 +1451,32 @@
     return ctx.measureText(text).width;
   }
 
-  // Builds the actual multi-line label text plus a font size that both fit
-  // within a clip's own box, reacting to how many animators are actually
-  // credited rather than assuming a worst case:
+  // Capitalizes each word of an auto-detected animator name (tag names are
+  // plain lowercase with underscores, e.g. "yutaka_nakamura" — there's no
+  // real capitalization in the source to preserve). Never applied to a
+  // person's own custom label text, which is used verbatim — that's
+  // hand-authored, and forcing a casing convention on someone's own typed
+  // text would be presumptuous, unlike a raw tag name that never had any
+  // intentional casing to begin with.
+  function titleCase(s) {
+    return s.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+
+  // General wrapping shared by both label sources: auto-detected animator
+  // names (joined with ", ", each name kept atomic — never split mid-name)
+  // and a person's own freeform custom text (joined with " ", wrapped at
+  // its own natural word breaks like ordinary text). Same fitting logic
+  // either way:
   //  - font size scales with the cell's own size (a small cell in a 9-clip
   //    grid and a large featured-clip box shouldn't use the same absolute
   //    size), clamped so it's never too small to read;
-  //  - names are measured with the browser's real Canvas API (a ~15% safety
-  //    margin covers the gap between canvas and freetype's own metrics,
-  //    which won't be pixel-identical) and wrapped onto additional lines
-  //    by whole name rather than shrunk to fit on one;
-  //  - only if that still needs more than 4 lines does the font shrink
-  //    further, and only beyond 9 credited animators (rare) does the list
-  //    itself get truncated with a "+N more" — short lists never pay any
-  //    of these costs.
-  function buildAnimatorLabel(names, cellW, cellH) {
-    var extra = 0;
-    if (names.length > 9) {
-      extra = names.length - 9;
-      names = names.slice(0, 9);
-    }
-    var displayNames = names.slice();
-    if (extra > 0) displayNames.push('+' + extra + ' more');
-
-    var maxLineWidth = cellW - 36; // room for the box's own padding/margins
+  //  - tokens are measured with the browser's real Canvas API (a ~8% safety
+  //    margin covers the residual gap between canvas and freetype's own
+  //    metrics once both use the identical font file) and wrapped onto
+  //    additional lines rather than shrunk to fit on one;
+  //  - only if that still needs more than 4 lines does the font shrink further.
+  function buildClipLabel(tokens, joiner, cellW, cellH) {
+    var maxLineWidth = cellW - 36; // room for margins (and the box's own padding, when that style is on)
     var maxLines = 4;
     // Divisor and clamp chosen against this tool's actual cell sizes (270
     // for a normal cell, up to 540 for a doubled 'stretch' featured box) —
@@ -1487,14 +1489,14 @@
     function wrapAt(size) {
       var lines = [];
       var current = '';
-      for (var i = 0; i < displayNames.length; i++) {
-        var name = displayNames[i];
-        var candidate = current ? current + ', ' + name : name;
+      for (var i = 0; i < tokens.length; i++) {
+        var tok = tokens[i];
+        var candidate = current ? current + joiner + tok : tok;
         if (!current || measureLabelTextWidth(candidate, size) * 1.08 <= maxLineWidth) {
           current = candidate;
         } else {
           lines.push(current);
-          current = name;
+          current = tok;
         }
       }
       if (current) lines.push(current);
@@ -1506,7 +1508,22 @@
       fontSize -= 1;
       lines = wrapAt(fontSize);
     }
-    return { text: lines.join('\n'), fontSize: fontSize };
+    return { text: lines.join(String.fromCharCode(10)), fontSize: fontSize };
+  }
+
+  // Only beyond 9 credited animators (rare) does the list itself get
+  // truncated with a "+N more" — short lists never pay that cost, and it
+  // only applies to the auto-detected name list, not a custom override
+  // (which is one freeform block of text, not a list of discrete names).
+  function buildAnimatorLabel(names, cellW, cellH) {
+    var extra = 0;
+    if (names.length > 9) {
+      extra = names.length - 9;
+      names = names.slice(0, 9);
+    }
+    var displayNames = names.slice();
+    if (extra > 0) displayNames.push('+' + extra + ' more');
+    return buildClipLabel(displayNames, ', ', cellW, cellH);
   }
 
   // Used for every in-progress status message across trimming and grid
@@ -1901,12 +1918,14 @@
     ]);
   }
 
-  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format) {
+  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
     trims = trims || {};
     loopMode = loopMode || 'replay';
     labelMode = labelMode || 'off';
     format = format || 'grid';
+    labelStyle = labelStyle || 'outline';
+    labelOverrides = labelOverrides || {};
 
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
@@ -2033,20 +2052,33 @@
                 chain += ',tpad=stop_mode=clone:stop_duration=' + (targetDuration - effectiveDurations[i]).toFixed(2);
               }
               if (labelMode !== 'off') {
-                // Only this clip's own animator tags — not the show, not
-                // other general tags — since the point is identifying who's
-                // credited on THIS specific cut, matching the community
-                // request this came from (identifying whose cut is whose in
-                // a multi-animator grid or sequence).
-                var animatorNames = safeMap(
-                  safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 1; }),
-                  function (t) { return t.replace(/_/g, ' '); }
-                );
-                if (animatorNames.length) {
-                  var built = buildAnimatorLabel(animatorNames, pos.w, pos.h);
+                var override = labelOverrides[p.id];
+                var built;
+                if (override && override.trim()) {
+                  // A custom label replaces the auto-detected staff names
+                  // entirely for this clip — wrapped at its own natural
+                  // word breaks like ordinary text, not treated as a single
+                  // atomic name the way a real animator name is.
+                  built = buildClipLabel(safeFilter(override.trim().split(/\s+/), function (w) { return !!w; }), ' ', pos.w, pos.h);
+                } else {
+                  // Only this clip's own animator tags — not the show, not
+                  // other general tags — since the point is identifying
+                  // who's credited on THIS specific cut, matching the
+                  // community request this came from (identifying whose
+                  // cut is whose in a multi-animator grid or sequence).
+                  var animatorNames = safeMap(
+                    safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 1; }),
+                    function (t) { return titleCase(t.replace(/_/g, ' ')); }
+                  );
+                  built = animatorNames.length ? buildAnimatorLabel(animatorNames, pos.w, pos.h) : null;
+                }
+                if (built) {
                   var xExpr = labelMode === 'right' ? 'w-tw-10' : '10';
+                  var styleExpr = labelStyle === 'box'
+                    ? 'box=1:boxcolor=black@0.5:boxborderw=6'
+                    : 'bordercolor=black:borderw=2';
                   chain += ',drawtext=fontfile=label_font.ttf:text=\'' + escapeDrawtext(built.text) + '\'' +
-                    ':fontsize=' + built.fontSize + ':fontcolor=white:bordercolor=black:borderw=2:line_spacing=4' +
+                    ':fontsize=' + built.fontSize + ':fontcolor=white:' + styleExpr + ':line_spacing=4' +
                     ':x=' + xExpr + ':y=h-th-10';
                 }
               }
@@ -3929,9 +3961,13 @@
             '<span class="sk-toggle-label">Show animator name(s) on each clip</span>' +
             '<span class="sk-toggle-switch" id="sk-lp-labels-toggle"><span class="sk-toggle-knob"></span></span>' +
           '</div>' +
-          '<div class="sk-mode-row" id="sk-lp-labels-side-row" style="display:none">' +
+          '<div class="sk-mode-row" id="sk-lp-labels-side-row" style="display:none;margin-bottom:6px">' +
             '<button class="sk-mode-btn active" id="sk-lp-labels-left" type="button">Bottom Left</button>' +
             '<button class="sk-mode-btn" id="sk-lp-labels-right" type="button">Bottom Right</button>' +
+          '</div>' +
+          '<div class="sk-mode-row" id="sk-lp-labels-style-row" style="display:none">' +
+            '<button class="sk-mode-btn active" id="sk-lp-labels-style-outline" type="button">Outline</button>' +
+            '<button class="sk-mode-btn" id="sk-lp-labels-style-box" type="button">Box</button>' +
           '</div>' +
         '</div>' +
         '<div id="sk-lp-clip-list-wrap" style="display:none">' +
@@ -3959,6 +3995,8 @@
     var exportMode = 'center';
     var exportLoopMode = 'replay';
     var exportLabelMode = 'off';
+    var exportLabelStyle = 'outline';
+    var exportLabelOverrides = {}; // postId -> custom text, replaces the auto-detected staff names for that clip
     var exportClipOrder = [];
     var exportTrims = {}; // postId -> {start, end}, seconds
     var exportPanel = view.querySelector('#sk-lp-export-panel');
@@ -3976,6 +4014,9 @@
     var labelsSideRow = view.querySelector('#sk-lp-labels-side-row');
     var labelsLeftBtn = view.querySelector('#sk-lp-labels-left');
     var labelsRightBtn = view.querySelector('#sk-lp-labels-right');
+    var labelsStyleRow = view.querySelector('#sk-lp-labels-style-row');
+    var labelsStyleOutlineBtn = view.querySelector('#sk-lp-labels-style-outline');
+    var labelsStyleBoxBtn = view.querySelector('#sk-lp-labels-style-box');
     var customToggle = view.querySelector('#sk-lp-custom-toggle');
     var customLabel = view.querySelector('#sk-lp-custom-label');
     var customSection = view.querySelector('#sk-lp-custom-section');
@@ -4070,9 +4111,14 @@
         // up 'off' overall, not 'left' (the side-row's own default value).
         setOn(labelsToggle, false);
         labelsSideRow.style.display = 'none';
+        labelsStyleRow.style.display = 'none';
         labelsLeftBtn.classList.add('active');
         labelsRightBtn.classList.remove('active');
+        labelsStyleOutlineBtn.classList.add('active');
+        labelsStyleBoxBtn.classList.remove('active');
         exportLabelMode = 'off';
+        exportLabelStyle = 'outline';
+        exportLabelOverrides = {};
       }
       updateClipListVisibility();
       renderExportOrderList();
@@ -4133,7 +4179,21 @@
               '<button class="sk-nav-btn" data-dir="down" style="padding:2px 6px"' + (i === exportClipOrder.length - 1 ? ' disabled' : '') + '>&#8595;</button>' +
             '</span>';
         }
+        if (isOn(labelsToggle)) {
+          var override = exportLabelOverrides[p.id] || '';
+          html +=
+            '<input class="sk-input" data-label-override placeholder="custom label text (replaces staff names)" ' +
+            'style="flex-basis:100%;font-size:11px;padding:3px 6px;margin-top:4px" value="' + esc(override) + '">';
+        }
         row.innerHTML = html;
+
+        if (isOn(labelsToggle)) {
+          row.querySelector('[data-label-override]').onchange = function (e) {
+            var text = e.currentTarget.value.trim();
+            if (text) exportLabelOverrides[p.id] = text;
+            else delete exportLabelOverrides[p.id];
+          };
+        }
 
         if (isOn(advancedToggle)) {
           var startEl = row.querySelector('[data-trim-start]');
@@ -4207,12 +4267,15 @@
       exportTrims = {};
       exportLoopMode = 'replay';
       exportLabelMode = 'off';
+      exportLabelStyle = 'outline';
+      exportLabelOverrides = {};
       setOn(customToggle, false);
       setOn(advancedToggle, false);
       setOn(labelsToggle, false);
       customSection.style.display = 'none';
       advancedSection.style.display = 'none';
       labelsSideRow.style.display = 'none';
+      labelsStyleRow.style.display = 'none';
       formatGridBtn.classList.add('active');
       formatSerialBtn.classList.remove('active');
       centerBtn.classList.add('active');
@@ -4221,6 +4284,8 @@
       loopStopBtn.classList.remove('active');
       labelsLeftBtn.classList.add('active');
       labelsRightBtn.classList.remove('active');
+      labelsStyleOutlineBtn.classList.add('active');
+      labelsStyleBoxBtn.classList.remove('active');
       updateFormatVisibility();
       view.querySelector('#sk-lp-export-info').textContent = videoPosts.length > MAX_GRID_CLIPS
         ? exportClipOrder.length + ' of ' + videoPosts.length + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
@@ -4269,7 +4334,19 @@
       setOn(labelsToggle, !isOn(labelsToggle));
       var on = isOn(labelsToggle);
       labelsSideRow.style.display = on ? 'flex' : 'none';
+      labelsStyleRow.style.display = on ? 'flex' : 'none';
       exportLabelMode = on ? 'left' : 'off';
+      renderExportOrderList();
+    };
+    labelsStyleOutlineBtn.onclick = function () {
+      exportLabelStyle = 'outline';
+      labelsStyleOutlineBtn.classList.add('active');
+      labelsStyleBoxBtn.classList.remove('active');
+    };
+    labelsStyleBoxBtn.onclick = function () {
+      exportLabelStyle = 'box';
+      labelsStyleBoxBtn.classList.add('active');
+      labelsStyleOutlineBtn.classList.remove('active');
     };
     labelsLeftBtn.onclick = function () {
       exportLabelMode = 'left';
@@ -4291,7 +4368,7 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat).then(function (result) {
+      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat, exportLabelStyle, exportLabelOverrides).then(function (result) {
         statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
         openGridResultModal(result.blob, pool.name);
       }).catch(function (err) {
