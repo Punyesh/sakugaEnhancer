@@ -4413,10 +4413,19 @@
         var row = document.createElement('div');
         row.className = 'sk-show-pick';
         row.style.cursor = 'default';
-        row.style.flexWrap = 'wrap';
+        // Deliberately NOT a single flex row for everything (the class's
+        // own default) — confirmed this fragile in practice: a flex:1
+        // sibling (min-width:0, so its own hypothetical basis is ~0) can
+        // get judged as "fitting" on the same line as a flex-basis:100%
+        // item, since 0% + 100% doesn't exceed the container width, so no
+        // wrap happens — the 100% item then claims all the space, leaving
+        // the flex:1 item nothing to grow into and rendering it invisible.
+        // Each logical line below is its own independent flex container
+        // instead, so nothing can interact across them this way.
+        row.style.display = 'block';
         var label = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).slice(0, 3).join(' ');
         var trim = exportTrims[instId];
-        var html =
+        var html = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
           '<span style="display:flex;align-items:center;gap:6px;overflow:hidden;flex:1;min-width:0">' +
             '<img src="' + esc(p.preview_url || '') + '" style="width:36px;height:20px;object-fit:cover;border-radius:2px;flex-shrink:0">' +
             '<span class="name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(label) + '</span>' +
@@ -4429,19 +4438,20 @@
             '<input class="sk-input" data-trim-end placeholder="…" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.end)) : '') + '">' +
             (trim ? '<span class="sk-close" data-clear-trim style="font-size:13px;flex-shrink:0" title="clear this clip\'s trim range">&times;</span>' : '');
         }
+        html += '</div>';
         if (isOn(customToggle)) {
           html +=
-            '<span style="display:flex;gap:4px;flex-shrink:0;flex-basis:100%;margin-top:4px;justify-content:flex-end">' +
+            '<div style="display:flex;gap:4px;justify-content:flex-end;margin-top:4px">' +
               '<button class="sk-nav-btn" data-duplicate style="padding:2px 8px;color:' + C.amber + ';border-color:' + C.amber + '" title="add this clip again right after — useful for showing a different segment, or the same segment again, later in the sequence">+ Duplicate</button>' +
               '<button class="sk-nav-btn" data-dir="up" style="padding:2px 6px"' + (i === 0 ? ' disabled' : '') + '>&#8593;</button>' +
               '<button class="sk-nav-btn" data-dir="down" style="padding:2px 6px"' + (i === exportClipOrder.length - 1 ? ' disabled' : '') + '>&#8595;</button>' +
-            '</span>';
+            '</div>';
         }
         if (isOn(labelsToggle)) {
           var override = exportLabelOverrides[instId] || '';
           html +=
             '<input class="sk-input" data-label-override placeholder="custom label text (replaces staff names)" ' +
-            'style="flex-basis:100%;font-size:11px;padding:3px 6px;margin-top:4px" value="' + esc(override) + '">';
+            'style="display:block;width:100%;box-sizing:border-box;font-size:11px;padding:3px 6px;margin-top:4px" value="' + esc(override) + '">';
         }
         row.innerHTML = html;
 
