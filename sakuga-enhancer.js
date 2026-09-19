@@ -60,9 +60,11 @@
     '.sk-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:5px 1px;}',
     '.sk-toggle-label{font-size:12px;color:' + C.text + ';}',
     '.sk-mad-tag{font-size:10px;color:' + C.dim + ';font-weight:normal;font-style:italic;margin-left:2px;}',
-    '.sk-file-input{font-size:11px;color:' + C.dim + ';max-width:100%;}',
-    '.sk-file-input::file-selector-button{background:' + C.panel2 + ';color:' + C.text + ';border:1px solid ' + C.line + ';border-radius:4px;padding:4px 10px;font-size:11px;margin-right:8px;cursor:pointer;}',
-    '.sk-file-input::file-selector-button:hover{border-color:' + C.amber + ';}',
+    '.sk-dropzone{border:1.5px dashed ' + C.line + ';border-radius:6px;padding:14px 10px;text-align:center;',
+      'font-size:12px;color:' + C.dim + ';cursor:pointer;transition:border-color .15s,background .15s,color .15s;}',
+    '.sk-dropzone:hover{border-color:' + C.amber + ';color:' + C.text + ';}',
+    '.sk-dropzone.is-dragover{border-color:' + C.amber + ';background:' + C.panel2 + ';color:' + C.text + ';}',
+
     '.sk-toggle-switch{position:relative;width:32px;height:17px;border-radius:9px;flex-shrink:0;',
     'background:' + C.line + ';cursor:pointer;transition:background .15s ease;}',
     '.sk-toggle-switch.active{background:' + C.amberDim + ';}',
@@ -4071,7 +4073,8 @@
         '</div>' +
         '<div id="sk-lp-music-section" style="display:none;margin-bottom:8px">' +
           '<div id="sk-lp-music-list" style="margin-bottom:6px"></div>' +
-          '<input type="file" class="sk-file-input" id="sk-lp-music-file" accept="audio/*" multiple>' +
+          '<div class="sk-dropzone" id="sk-lp-music-dropzone">drop audio files here, or click to browse</div>' +
+          '<input type="file" id="sk-lp-music-file" accept="audio/*" multiple style="display:none">' +
           '<div class="sk-caption" id="sk-lp-music-hint" style="margin:4px 0 0"></div>' +
           '<div class="sk-caption" style="margin:6px 0 4px">Multiple tracks play back-to-back, combined into one. Plays from the start, trimmed to fit if longer. If shorter than the export:</div>' +
           '<div class="sk-mode-row">' +
@@ -4164,6 +4167,7 @@
     var musicToggle = view.querySelector('#sk-lp-music-toggle');
     var musicSection = view.querySelector('#sk-lp-music-section');
     var musicFileInput = view.querySelector('#sk-lp-music-file');
+    var musicDropzone = view.querySelector('#sk-lp-music-dropzone');
     var musicHintEl = view.querySelector('#sk-lp-music-hint');
     var musicOnceBtn = view.querySelector('#sk-lp-music-once');
     var musicLoopBtn = view.querySelector('#sk-lp-music-loop');
@@ -4286,6 +4290,26 @@
       updateExportPreview();
     };
 
+    // Shared by both the click-to-browse file input and the drag-and-drop
+    // target below — accepts a FileList from either source. Additive
+    // rather than a fresh replace each time: adding more (by either route)
+    // extends the existing list instead of losing what was already chosen.
+    // Non-audio files are silently skipped (a stray image or video dragged
+    // in alongside real tracks shouldn't produce a confusing ffmpeg
+    // failure later), and anything beyond the 5-track cap is dropped too,
+    // since the hint text already explains the limit and hides the picker
+    // once it's reached.
+    function addMusicFiles(fileList) {
+      var files = fileList || [];
+      for (var i = 0; i < files.length; i++) {
+        if (exportMusicFiles.length >= MAX_MUSIC_TRACKS) break;
+        var f = files[i];
+        if (f.type && f.type.indexOf('audio/') !== 0) continue;
+        exportMusicFiles.push(f);
+      }
+      renderMusicList();
+    }
+
     function renderMusicList() {
       var container = view.querySelector('#sk-lp-music-list');
       container.innerHTML = '';
@@ -4304,10 +4328,10 @@
       });
       if (exportMusicFiles.length >= MAX_MUSIC_TRACKS) {
         musicHintEl.textContent = 'maximum of ' + MAX_MUSIC_TRACKS + ' tracks reached';
-        musicFileInput.style.display = 'none';
+        musicDropzone.style.display = 'none';
       } else {
         musicHintEl.textContent = '';
-        musicFileInput.style.display = '';
+        musicDropzone.style.display = '';
       }
     }
 
@@ -4325,16 +4349,25 @@
       }
     };
     musicFileInput.onchange = function (e) {
-      // Additive rather than a fresh replace each time — picking again adds
-      // more tracks to the existing list instead of losing what was already
-      // chosen. Files beyond the 5-track cap are simply ignored rather than
-      // erroring, since the hint text already explains the limit and hides
-      // the picker once reached.
-      var picked = e.currentTarget.files || [];
-      var room = MAX_MUSIC_TRACKS - exportMusicFiles.length;
-      for (var i = 0; i < picked.length && i < room; i++) exportMusicFiles.push(picked[i]);
+      addMusicFiles(e.currentTarget.files);
       musicFileInput.value = ''; // lets picking the exact same file again still fire onchange
-      renderMusicList();
+    };
+    // A visibly-styled drop target that also acts as the click trigger for
+    // the (hidden) native input — chosen over trying to style the native
+    // "Choose File" button directly, since ::file-selector-button rendering
+    // turned out to be unreliable in practice rather than just unstyled.
+    musicDropzone.onclick = function () { musicFileInput.click(); };
+    musicDropzone.ondragover = function (e) {
+      e.preventDefault();
+      musicDropzone.classList.add('is-dragover');
+    };
+    musicDropzone.ondragleave = function () {
+      musicDropzone.classList.remove('is-dragover');
+    };
+    musicDropzone.ondrop = function (e) {
+      e.preventDefault();
+      musicDropzone.classList.remove('is-dragover');
+      addMusicFiles(e.dataTransfer.files);
     };
     musicOnceBtn.onclick = function () {
       exportMusicLoop = false;
