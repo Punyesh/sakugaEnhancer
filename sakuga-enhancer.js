@@ -59,6 +59,10 @@
     '.sk-icon-btn:disabled{opacity:.35;cursor:default;}',
     '.sk-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:5px 1px;}',
     '.sk-toggle-label{font-size:12px;color:' + C.text + ';}',
+    '.sk-mad-tag{font-size:10px;color:' + C.dim + ';font-weight:normal;font-style:italic;margin-left:2px;}',
+    '.sk-file-input{font-size:11px;color:' + C.dim + ';max-width:100%;}',
+    '.sk-file-input::file-selector-button{background:' + C.panel2 + ';color:' + C.text + ';border:1px solid ' + C.line + ';border-radius:4px;padding:4px 10px;font-size:11px;margin-right:8px;cursor:pointer;}',
+    '.sk-file-input::file-selector-button:hover{border-color:' + C.amber + ';}',
     '.sk-toggle-switch{position:relative;width:32px;height:17px;border-radius:9px;flex-shrink:0;',
     'background:' + C.line + ';cursor:pointer;transition:background .15s ease;}',
     '.sk-toggle-switch.active{background:' + C.amberDim + ';}',
@@ -1918,7 +1922,7 @@
     ]);
   }
 
-  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides, musicFile, musicLoop) {
+  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides, musicFiles, musicLoop) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
     // Each entry in clips is a {post, instId} occurrence, not a bare post —
     // this is what lets the same clip appear twice in a sequence (see the
@@ -1940,6 +1944,7 @@
     format = format || 'grid';
     labelStyle = labelStyle || 'outline';
     labelOverrides = labelOverrides || {};
+    musicFiles = musicFiles || [];
 
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
@@ -2137,13 +2142,54 @@
             // browser I/O (no separate ffmpeg pass needed, unlike the
             // trim-extraction step), so this can happen right before the
             // main exec call rather than earlier in the pipeline.
-            var musicReady = musicFile
-              ? musicFile.arrayBuffer().then(function (buf) {
-                  var ext = (musicFile.name.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3';
-                  var musicName = 'grid_music.' + ext;
-                  return ffmpeg.writeFile(musicName, new Uint8Array(buf)).then(function () { return musicName; });
-                })
-              : Promise.resolve(null);
+            // Reading the uploaded music file(s) is plain synchronous-feeling
+            // browser I/O (no separate ffmpeg pass needed for a single
+            // track, unlike the trim-extraction step), so this can happen
+            // right before the main exec call rather than earlier in the
+            // pipeline.
+            var musicReady = musicFiles.length === 0
+              ? Promise.resolve(null)
+              : Promise.all(safeMap(musicFiles, function (f, i) {
+                  return f.arrayBuffer().then(function (buf) {
+                    var ext = (f.name.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3';
+                    var name = 'grid_music_in' + i + '.' + ext;
+                    return ffmpeg.writeFile(name, new Uint8Array(buf)).then(function () { return name; });
+                  });
+                })).then(function (musicNames) {
+                  if (musicNames.length === 1) return musicNames[0];
+                  // More than one track: combine them into a single track
+                  // first, in their own separate ffmpeg pass, before this
+                  // gets treated as "the music" for everything below —
+                  // confirmed directly (against real ffmpeg, using three
+                  // tracks with deliberately different sample rates,
+                  // channel layouts, and even container formats/codecs)
+                  // that normalizing each to a common sample rate and
+                  // channel layout via aformat before concatenating
+                  // produces a correctly-ordered combined track regardless
+                  // of how mismatched the originals were — verified by
+                  // checking the dominant frequency of three distinct test
+                  // tones landed in the right order at the right times in
+                  // the combined result, not just that the total duration
+                  // added up.
+                  var inputArgs = [];
+                  var filterParts = [];
+                  musicNames.forEach(function (name, i) {
+                    inputArgs.push('-i', name);
+                    filterParts.push('[' + i + ':a]aformat=sample_rates=44100:channel_layouts=stereo,asetpts=PTS-STARTPTS[ma' + i + ']');
+                  });
+                  var concatInputs = safeMap(musicNames, function (n, i) { return '[ma' + i + ']'; }).join('');
+                  filterParts.push(concatInputs + 'concat=n=' + musicNames.length + ':v=0:a=1[outa]');
+                  var combinedName = 'grid_music_combined.m4a';
+                  var concatArgs = inputArgs.concat([
+                    '-filter_complex', filterParts.join(';'), '-map', '[outa]',
+                    '-c:a', 'aac', '-b:a', '192k', combinedName
+                  ]);
+                  setBusyStatus(statusEl, 'combining ' + musicNames.length + ' music tracks…');
+                  return ffmpeg.exec(concatArgs).then(function () {
+                    musicNames.forEach(function (name) { ffmpeg.deleteFile(name).catch(function () {}); });
+                    return combinedName;
+                  });
+                });
 
             return musicReady.then(function (musicName) {
               if (musicName) {
@@ -4012,7 +4058,7 @@
           '<button class="sk-mode-btn" id="sk-lp-orient-portrait" type="button">Portrait</button>' +
         '</div>' +
         '<div class="sk-toggle-row">' +
-          '<span class="sk-toggle-label" id="sk-lp-custom-label">Custom grid</span>' +
+          '<span class="sk-toggle-label" id="sk-lp-custom-label">Custom order</span>' +
           '<span class="sk-toggle-switch" id="sk-lp-custom-toggle"><span class="sk-toggle-knob"></span></span>' +
         '</div>' +
         '<div class="sk-toggle-row">' +
@@ -4020,13 +4066,14 @@
           '<span class="sk-toggle-switch" id="sk-lp-advanced-toggle"><span class="sk-toggle-knob"></span></span>' +
         '</div>' +
         '<div class="sk-toggle-row">' +
-          '<span class="sk-toggle-label">Add music</span>' +
+          '<span class="sk-toggle-label">Add music <span class="sk-mad-tag">Sakuga MAD</span></span>' +
           '<span class="sk-toggle-switch" id="sk-lp-music-toggle"><span class="sk-toggle-knob"></span></span>' +
         '</div>' +
         '<div id="sk-lp-music-section" style="display:none;margin-bottom:8px">' +
-          '<input type="file" id="sk-lp-music-file" accept="audio/*" style="font-size:11px;color:' + C.text + '">' +
-          '<div class="sk-caption" id="sk-lp-music-filename" style="margin:4px 0 0"></div>' +
-          '<div class="sk-caption" style="margin:6px 0 4px">Plays from the start, trimmed to fit if longer. If shorter than the export:</div>' +
+          '<div id="sk-lp-music-list" style="margin-bottom:6px"></div>' +
+          '<input type="file" class="sk-file-input" id="sk-lp-music-file" accept="audio/*" multiple>' +
+          '<div class="sk-caption" id="sk-lp-music-hint" style="margin:4px 0 0"></div>' +
+          '<div class="sk-caption" style="margin:6px 0 4px">Multiple tracks play back-to-back, combined into one. Plays from the start, trimmed to fit if longer. If shorter than the export:</div>' +
           '<div class="sk-mode-row">' +
             '<button class="sk-mode-btn active" id="sk-lp-music-once" type="button">Once (silence after)</button>' +
             '<button class="sk-mode-btn" id="sk-lp-music-loop" type="button">Loop</button>' +
@@ -4111,17 +4158,17 @@
     var labelsStyleOutlineBtn = view.querySelector('#sk-lp-labels-style-outline');
     var labelsStyleBoxBtn = view.querySelector('#sk-lp-labels-style-box');
     var customToggle = view.querySelector('#sk-lp-custom-toggle');
-    var customLabel = view.querySelector('#sk-lp-custom-label');
     var customSection = view.querySelector('#sk-lp-custom-section');
     var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');
     var advancedSection = view.querySelector('#sk-lp-advanced-section');
     var musicToggle = view.querySelector('#sk-lp-music-toggle');
     var musicSection = view.querySelector('#sk-lp-music-section');
     var musicFileInput = view.querySelector('#sk-lp-music-file');
-    var musicFilenameEl = view.querySelector('#sk-lp-music-filename');
+    var musicHintEl = view.querySelector('#sk-lp-music-hint');
     var musicOnceBtn = view.querySelector('#sk-lp-music-once');
     var musicLoopBtn = view.querySelector('#sk-lp-music-loop');
-    var exportMusicFile = null;
+    var MAX_MUSIC_TRACKS = 5;
+    var exportMusicFiles = [];
     var exportMusicLoop = false;
     var clipListWrap = view.querySelector('#sk-lp-clip-list-wrap');
 
@@ -4149,7 +4196,6 @@
       var isSerial = exportFormat === 'serial';
       stretchRow.style.display = isSerial ? 'none' : 'flex';
       loopWrap.style.display = isSerial ? 'none' : 'block';
-      customLabel.textContent = isSerial ? 'Custom order' : 'Custom grid';
       if (isSerial) {
         // Stretch/featured-clip only makes sense when there's a grid to
         // feature above — reset the (now hidden) button back to its own
@@ -4167,8 +4213,8 @@
       var label;
       if (isOn(customToggle)) {
         label = exportFormat === 'serial'
-          ? 'Order — clips play in this order, one after another:'
-          : 'Order — first clip is featured above the rest if that mode is on:';
+          ? 'Order — clips play in this order, one after another. Use +Duplicate to show a clip again later with a different segment:'
+          : 'Order — first clip is featured above the rest if that mode is on. Use +Duplicate to show a clip again elsewhere in the grid:';
       } else {
         label = 'Per-clip trim range:';
       }
@@ -4240,23 +4286,55 @@
       updateExportPreview();
     };
 
+    function renderMusicList() {
+      var container = view.querySelector('#sk-lp-music-list');
+      container.innerHTML = '';
+      exportMusicFiles.forEach(function (file, i) {
+        var row = document.createElement('div');
+        row.className = 'sk-show-pick';
+        row.style.cursor = 'default';
+        row.innerHTML =
+          '<span class="name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(file.name) + '</span>' +
+          '<span class="sk-close" data-remove-music style="font-size:14px;flex-shrink:0" title="remove this track">&times;</span>';
+        row.querySelector('[data-remove-music]').onclick = function () {
+          exportMusicFiles.splice(i, 1);
+          renderMusicList();
+        };
+        container.appendChild(row);
+      });
+      if (exportMusicFiles.length >= MAX_MUSIC_TRACKS) {
+        musicHintEl.textContent = 'maximum of ' + MAX_MUSIC_TRACKS + ' tracks reached';
+        musicFileInput.style.display = 'none';
+      } else {
+        musicHintEl.textContent = '';
+        musicFileInput.style.display = '';
+      }
+    }
+
     musicToggle.onclick = function () {
       setOn(musicToggle, !isOn(musicToggle));
       var on = isOn(musicToggle);
       musicSection.style.display = on ? 'block' : 'none';
       if (!on) {
-        exportMusicFile = null;
+        exportMusicFiles = [];
         musicFileInput.value = '';
-        musicFilenameEl.textContent = '';
+        renderMusicList();
         exportMusicLoop = false;
         musicOnceBtn.classList.add('active');
         musicLoopBtn.classList.remove('active');
       }
     };
     musicFileInput.onchange = function (e) {
-      var file = e.currentTarget.files && e.currentTarget.files[0];
-      exportMusicFile = file || null;
-      musicFilenameEl.textContent = file ? ('selected: ' + file.name) : '';
+      // Additive rather than a fresh replace each time — picking again adds
+      // more tracks to the existing list instead of losing what was already
+      // chosen. Files beyond the 5-track cap are simply ignored rather than
+      // erroring, since the hint text already explains the limit and hides
+      // the picker once reached.
+      var picked = e.currentTarget.files || [];
+      var room = MAX_MUSIC_TRACKS - exportMusicFiles.length;
+      for (var i = 0; i < picked.length && i < room; i++) exportMusicFiles.push(picked[i]);
+      musicFileInput.value = ''; // lets picking the exact same file again still fire onchange
+      renderMusicList();
     };
     musicOnceBtn.onclick = function () {
       exportMusicLoop = false;
@@ -4320,8 +4398,8 @@
         }
         if (isOn(customToggle)) {
           html +=
-            '<span style="display:flex;gap:4px;flex-shrink:0">' +
-              '<span class="sk-media-viewpost" data-duplicate style="cursor:pointer;font-size:11px;margin:0" title="add this clip again right after — useful for showing a different segment, or the same segment again, later in the sequence">duplicate</span>' +
+            '<span style="display:flex;gap:4px;flex-shrink:0;flex-basis:100%;margin-top:4px;justify-content:flex-end">' +
+              '<button class="sk-nav-btn" data-duplicate style="padding:2px 8px;color:' + C.amber + ';border-color:' + C.amber + '" title="add this clip again right after — useful for showing a different segment, or the same segment again, later in the sequence">+ Duplicate</button>' +
               '<button class="sk-nav-btn" data-dir="up" style="padding:2px 6px"' + (i === 0 ? ' disabled' : '') + '>&#8593;</button>' +
               '<button class="sk-nav-btn" data-dir="down" style="padding:2px 6px"' + (i === exportClipOrder.length - 1 ? ' disabled' : '') + '>&#8595;</button>' +
             '</span>';
@@ -4426,9 +4504,9 @@
       exportLabelMode = 'off';
       exportLabelStyle = 'outline';
       exportLabelOverrides = {};
-      exportMusicFile = null;
+      exportMusicFiles = [];
       musicFileInput.value = '';
-      musicFilenameEl.textContent = '';
+      renderMusicList();
       exportMusicLoop = false;
       musicOnceBtn.classList.add('active');
       musicLoopBtn.classList.remove('active');
@@ -4533,7 +4611,7 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat, exportLabelStyle, exportLabelOverrides, exportMusicFile, exportMusicLoop).then(function (result) {
+      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat, exportLabelStyle, exportLabelOverrides, exportMusicFiles, exportMusicLoop).then(function (result) {
         statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
         openGridResultModal(result.blob, pool.name, result.hasAudio);
       }).catch(function (err) {
