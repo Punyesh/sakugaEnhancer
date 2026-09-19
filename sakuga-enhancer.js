@@ -64,6 +64,11 @@
       'font-size:12px;color:' + C.dim + ';cursor:pointer;transition:border-color .15s,background .15s,color .15s;}',
     '.sk-dropzone:hover{border-color:' + C.amber + ';color:' + C.text + ';}',
     '.sk-dropzone.is-dragover{border-color:' + C.amber + ';background:' + C.panel2 + ';color:' + C.text + ';}',
+    '.sk-section-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:' + C.dim + ';',
+      'margin:14px 0 8px;padding-top:10px;border-top:1px solid ' + C.line + ';}',
+    '.sk-section-label:first-child{margin-top:0;padding-top:0;border-top:none;}',
+    '.sk-subpanel{border-left:2px solid ' + C.line + ';padding:8px 0 2px 10px;margin:2px 0 10px;}',
+    '.sk-subdivider{border-top:1px solid ' + C.line + ';margin:10px 0;padding-top:10px;}',
 
     '.sk-toggle-switch{position:relative;width:32px;height:17px;border-radius:9px;flex-shrink:0;',
     'background:' + C.line + ';cursor:pointer;transition:background .15s ease;}',
@@ -4051,27 +4056,70 @@
       '</div>' +
       '<div id="sk-lp-export-panel" style="display:none;border:1px solid ' + C.line + ';border-radius:6px;padding:10px;margin-bottom:8px">' +
         '<div class="sk-caption" id="sk-lp-export-info" style="margin:0 0 8px"></div>' +
+
+        '<div class="sk-section-label">Layout</div>' +
         '<div class="sk-mode-row" style="margin-bottom:8px">' +
           '<button class="sk-mode-btn active" id="sk-lp-format-grid" type="button">Grid</button>' +
           '<button class="sk-mode-btn" id="sk-lp-format-serial" type="button">Serial</button>' +
         '</div>' +
-        '<div class="sk-mode-row" style="margin-bottom:8px">' +
+        '<div class="sk-mode-row">' +
           '<button class="sk-mode-btn active" id="sk-lp-orient-landscape" type="button">Landscape</button>' +
           '<button class="sk-mode-btn" id="sk-lp-orient-portrait" type="button">Portrait</button>' +
         '</div>' +
+
+        '<div class="sk-section-label">Clips</div>' +
         '<div class="sk-toggle-row">' +
           '<span class="sk-toggle-label" id="sk-lp-custom-label">Custom order</span>' +
           '<span class="sk-toggle-switch" id="sk-lp-custom-toggle"><span class="sk-toggle-knob"></span></span>' +
+        '</div>' +
+        '<div id="sk-lp-custom-section" class="sk-subpanel" style="display:none">' +
+          '<div class="sk-mode-row" id="sk-lp-stretch-row" style="margin-bottom:6px">' +
+            '<button class="sk-mode-btn active" id="sk-lp-mode-center" type="button">Center leftover</button>' +
+            '<button class="sk-mode-btn" id="sk-lp-mode-stretch" type="button">Stretch first clip</button>' +
+          '</div>' +
         '</div>' +
         '<div class="sk-toggle-row">' +
           '<span class="sk-toggle-label">Advanced options</span>' +
           '<span class="sk-toggle-switch" id="sk-lp-advanced-toggle"><span class="sk-toggle-knob"></span></span>' +
         '</div>' +
+        '<div id="sk-lp-advanced-section" class="sk-subpanel" style="display:none">' +
+          '<div class="sk-caption" style="margin:0 0 6px">' +
+            'each trimmed clip costs an extra encode pass before compositing — slower with more of them. ' +
+            'The exported grid\'s own length can be trimmed afterward, once you can see it.' +
+          '</div>' +
+          '<div id="sk-lp-loop-wrap">' +
+            '<div class="sk-caption" style="margin:0 0 4px">Shorter clips than the target length:</div>' +
+            '<div class="sk-mode-row">' +
+              '<button class="sk-mode-btn active" id="sk-lp-loop-replay" type="button">Replay</button>' +
+              '<button class="sk-mode-btn" id="sk-lp-loop-stop" type="button">Stop</button>' +
+            '</div>' +
+          '</div>' +
+          '<div id="sk-lp-labels-block" class="sk-subdivider">' +
+            '<div class="sk-toggle-row">' +
+              '<span class="sk-toggle-label">Show animator name(s) on each clip</span>' +
+              '<span class="sk-toggle-switch" id="sk-lp-labels-toggle"><span class="sk-toggle-knob"></span></span>' +
+            '</div>' +
+            '<div class="sk-mode-row" id="sk-lp-labels-side-row" style="display:none;margin-bottom:6px">' +
+              '<button class="sk-mode-btn active" id="sk-lp-labels-left" type="button">Bottom Left</button>' +
+              '<button class="sk-mode-btn" id="sk-lp-labels-right" type="button">Bottom Right</button>' +
+            '</div>' +
+            '<div class="sk-mode-row" id="sk-lp-labels-style-row" style="display:none">' +
+              '<button class="sk-mode-btn active" id="sk-lp-labels-style-outline" type="button">Outline</button>' +
+              '<button class="sk-mode-btn" id="sk-lp-labels-style-box" type="button">Box</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div id="sk-lp-clip-list-wrap" style="display:none">' +
+          '<div class="sk-caption" style="margin:0 0 4px" id="sk-lp-clip-list-label"></div>' +
+          '<div id="sk-lp-export-order" style="max-height:220px;overflow-y:auto;margin-bottom:8px"></div>' +
+        '</div>' +
+
+        '<div class="sk-section-label">Audio</div>' +
         '<div class="sk-toggle-row">' +
           '<span class="sk-toggle-label">Add music <span class="sk-mad-tag">Sakuga MAD</span></span>' +
           '<span class="sk-toggle-switch" id="sk-lp-music-toggle"><span class="sk-toggle-knob"></span></span>' +
         '</div>' +
-        '<div id="sk-lp-music-section" style="display:none;margin-bottom:8px">' +
+        '<div id="sk-lp-music-section" class="sk-subpanel" style="display:none">' +
           '<div id="sk-lp-music-list" style="margin-bottom:6px"></div>' +
           '<div class="sk-dropzone" id="sk-lp-music-dropzone">drop audio files here, or click to browse</div>' +
           '<input type="file" id="sk-lp-music-file" accept="audio/*" multiple style="display:none">' +
@@ -4082,42 +4130,8 @@
             '<button class="sk-mode-btn" id="sk-lp-music-loop" type="button">Loop</button>' +
           '</div>' +
         '</div>' +
-        '<div id="sk-lp-custom-section" style="display:none">' +
-          '<div class="sk-mode-row" id="sk-lp-stretch-row" style="margin-bottom:6px">' +
-            '<button class="sk-mode-btn active" id="sk-lp-mode-center" type="button">Center leftover</button>' +
-            '<button class="sk-mode-btn" id="sk-lp-mode-stretch" type="button">Stretch first clip</button>' +
-          '</div>' +
-        '</div>' +
-        '<div id="sk-lp-advanced-section" style="display:none;margin-bottom:8px">' +
-          '<div class="sk-caption" style="margin:0 0 6px">' +
-            'each trimmed clip costs an extra encode pass before compositing — slower with more of them. ' +
-            'The exported grid\'s own length can be trimmed afterward, once you can see it.' +
-          '</div>' +
-          '<div id="sk-lp-loop-wrap">' +
-            '<div class="sk-caption" style="margin:0 0 4px">Shorter clips than the target length:</div>' +
-            '<div class="sk-mode-row" style="margin-bottom:10px">' +
-              '<button class="sk-mode-btn active" id="sk-lp-loop-replay" type="button">Replay</button>' +
-              '<button class="sk-mode-btn" id="sk-lp-loop-stop" type="button">Stop</button>' +
-            '</div>' +
-          '</div>' +
-          '<div class="sk-toggle-row">' +
-            '<span class="sk-toggle-label">Show animator name(s) on each clip</span>' +
-            '<span class="sk-toggle-switch" id="sk-lp-labels-toggle"><span class="sk-toggle-knob"></span></span>' +
-          '</div>' +
-          '<div class="sk-mode-row" id="sk-lp-labels-side-row" style="display:none;margin-bottom:6px">' +
-            '<button class="sk-mode-btn active" id="sk-lp-labels-left" type="button">Bottom Left</button>' +
-            '<button class="sk-mode-btn" id="sk-lp-labels-right" type="button">Bottom Right</button>' +
-          '</div>' +
-          '<div class="sk-mode-row" id="sk-lp-labels-style-row" style="display:none">' +
-            '<button class="sk-mode-btn active" id="sk-lp-labels-style-outline" type="button">Outline</button>' +
-            '<button class="sk-mode-btn" id="sk-lp-labels-style-box" type="button">Box</button>' +
-          '</div>' +
-        '</div>' +
-        '<div id="sk-lp-clip-list-wrap" style="display:none">' +
-          '<div class="sk-caption" style="margin:0 0 4px" id="sk-lp-clip-list-label"></div>' +
-          '<div id="sk-lp-export-order" style="max-height:220px;overflow-y:auto;margin-bottom:8px"></div>' +
-        '</div>' +
-        '<div class="sk-caption" id="sk-lp-export-preview" style="margin:0 0 8px"></div>' +
+
+        '<div class="sk-caption" id="sk-lp-export-preview" style="margin:12px 0 8px"></div>' +
         '<div class="sk-row">' +
           '<button class="sk-btn" id="sk-lp-export-start" style="flex:1">Start Export</button>' +
           '<button class="sk-nav-btn" id="sk-lp-export-cancel">Cancel</button>' +
