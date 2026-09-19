@@ -1918,8 +1918,22 @@
     ]);
   }
 
-  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides) {
+  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides, musicFile, musicLoop) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
+    // Each entry in clips is a {post, instId} occurrence, not a bare post —
+    // this is what lets the same clip appear twice in a sequence (see the
+    // export panel's 'duplicate' button) with its own independent trim
+    // range and label the second time. Flattening to the post's own fields
+    // plus .id = instId here, once, means nothing below this point needs to
+    // change at all: every existing p.id / p.file_url / p.tags / p.file_ext
+    // reference already does the right thing, whether or not this
+    // particular occurrence shares its underlying post with another one.
+    clips = safeMap(clips, function (c) {
+      var flat = {};
+      for (var k in c.post) { if (Object.prototype.hasOwnProperty.call(c.post, k)) flat[k] = c.post[k]; }
+      flat.id = c.instId;
+      return flat;
+    });
     trims = trims || {};
     loopMode = loopMode || 'replay';
     labelMode = labelMode || 'off';
@@ -2106,18 +2120,75 @@
 
             var filterComplex = filterParts.join(';');
 
-            args.push('-filter_complex', filterComplex, '-map', '[outv]', '-an');
-            // Only grid mode needs an explicit cap — its duration is
-            // "however long until every looping/frozen clip has filled the
-            // longest one", which needs the -t to actually stop there.
-            // Serial mode's own total length already falls out naturally
-            // from concatenating each clip's real length once.
-            if (format === 'grid') args.push('-t', String(targetDuration.toFixed(2)));
-            args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-r', '24', 'grid_out.mp4');
+            // Serial mode's own total length is the SUM of every clip's
+            // real length (nothing overlaps in time); grid mode's is
+            // whatever the longest single clip's own length is (everything
+            // else loops or freezes to fill that). Only actually needed as
+            // an explicit cap when music is involved (see below) — grid
+            // mode already computed and used targetDuration for its own -t
+            // regardless of music.
+            var outputDurationSec = targetDuration;
+            if (format === 'serial') {
+              outputDurationSec = 0;
+              for (var sdi = 0; sdi < effectiveDurations.length; sdi++) outputDurationSec += effectiveDurations[sdi];
+            }
 
-            return ffmpeg.exec(args).then(function () {
-              return ffmpeg.readFile('grid_out.mp4');
-            }).then(function (data) {
+            // Reading the uploaded music file is plain synchronous-feeling
+            // browser I/O (no separate ffmpeg pass needed, unlike the
+            // trim-extraction step), so this can happen right before the
+            // main exec call rather than earlier in the pipeline.
+            var musicReady = musicFile
+              ? musicFile.arrayBuffer().then(function (buf) {
+                  var ext = (musicFile.name.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3';
+                  var musicName = 'grid_music.' + ext;
+                  return ffmpeg.writeFile(musicName, new Uint8Array(buf)).then(function () { return musicName; });
+                })
+              : Promise.resolve(null);
+
+            return musicReady.then(function (musicName) {
+              if (musicName) {
+                // Confirmed directly (against real ffmpeg) that mixing a
+                // LONGER audio track in without an explicit -t is genuinely
+                // broken, not just untidy: it silently extends the whole
+                // output past where the video itself ends (the video
+                // stream simply has no frames there, while the container
+                // still claims the longer duration) rather than the video
+                // freezing or looping. An explicit -t matching the video's
+                // own real length avoids that regardless of format.
+                //
+                // For a SHORTER track, -stream_loop -1 (the same technique
+                // already used to loop a shorter video clip elsewhere in
+                // this file) repeats it to fill the remainder instead of
+                // leaving silence, when that's what's asked for. Confirmed
+                // directly this is a genuine loop, not just an extended
+                // duration: comparing raw waveform samples at the same
+                // offset in two different loop iterations showed identical
+                // values (an AAC-encoded first attempt at this same
+                // comparison showed mismatched samples, which turned out to
+                // be a lossy-compression artifact from encoding the test
+                // source itself, not an actual looping bug — re-verified
+                // with uncompressed PCM audio throughout to be sure).
+                var musicInputIndex = clips.length;
+                if (musicLoop) args.push('-stream_loop', '-1');
+                args.push('-i', musicName);
+                args.push('-filter_complex', filterComplex, '-map', '[outv]', '-map', musicInputIndex + ':a');
+                args.push('-t', String(outputDurationSec.toFixed(2)));
+                args.push('-c:a', 'aac', '-b:a', '192k');
+              } else {
+                args.push('-filter_complex', filterComplex, '-map', '[outv]', '-an');
+                // Only grid mode needs an explicit cap without music — its
+                // duration is "however long until every looping/frozen clip
+                // has filled the longest one", which needs the -t to
+                // actually stop there. Serial mode's own total length
+                // already falls out naturally from concatenating each
+                // clip's real length once.
+                if (format === 'grid') args.push('-t', String(targetDuration.toFixed(2)));
+              }
+              args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-r', '24', 'grid_out.mp4');
+
+              return ffmpeg.exec(args).then(function () {
+                return ffmpeg.readFile('grid_out.mp4');
+              }).then(function (data) {
               var seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
               statusEl.textContent = 'done in ' + seconds + 's';
               // Best-effort cleanup — frees the wasm heap for a subsequent
@@ -2128,7 +2199,9 @@
                 if (trims[p.id]) ffmpeg.deleteFile('grid_trim' + i + '.mp4').catch(function () {});
               });
               ffmpeg.deleteFile('grid_out.mp4').catch(function () {});
-              return { blob: new Blob([data.buffer], { type: 'video/mp4' }), width: canvasW, height: canvasH, count: clips.length };
+              if (musicName) ffmpeg.deleteFile(musicName).catch(function () {});
+              return { blob: new Blob([data.buffer], { type: 'video/mp4' }), width: canvasW, height: canvasH, count: clips.length, hasAudio: !!musicName };
+            });
             });
           });
         });
@@ -2146,7 +2219,7 @@
   // modal that reuses the same frame-stepping bar and the same generalized
   // performTrim used for single-clip trimming, just fed the grid's own
   // in-memory bytes instead of a fetched URL.
-  function openGridResultModal(blob, filenamePrefix) {
+  function openGridResultModal(blob, filenamePrefix, hasAudio) {
     var backdrop = document.createElement('div');
     backdrop.className = 'sk-media-backdrop';
     var box = document.createElement('div');
@@ -2178,7 +2251,14 @@
 
     var vid = document.createElement('video');
     vid.controls = true;
-    vid.autoplay = true;
+    // Autoplay-with-sound is commonly blocked by browsers regardless of the
+    // recent "Start Export" click, since the gesture wasn't on this
+    // specific element — attempting it anyway would just fail silently,
+    // leaving the person no clue why nothing happened. A silent export has
+    // no such policy to run into, so it keeps the immediate preview it had
+    // before; a music export simply opens paused with controls visible,
+    // same as any normal video player waiting for a tap.
+    vid.autoplay = !hasAudio;
     vid.playsInline = true;
     vid.loop = true; // grids are made to be watched looping, same as wherever they end up posted
     vid.src = videoUrl;
@@ -3939,6 +4019,19 @@
           '<span class="sk-toggle-label">Advanced options</span>' +
           '<span class="sk-toggle-switch" id="sk-lp-advanced-toggle"><span class="sk-toggle-knob"></span></span>' +
         '</div>' +
+        '<div class="sk-toggle-row">' +
+          '<span class="sk-toggle-label">Add music</span>' +
+          '<span class="sk-toggle-switch" id="sk-lp-music-toggle"><span class="sk-toggle-knob"></span></span>' +
+        '</div>' +
+        '<div id="sk-lp-music-section" style="display:none;margin-bottom:8px">' +
+          '<input type="file" id="sk-lp-music-file" accept="audio/*" style="font-size:11px;color:' + C.text + '">' +
+          '<div class="sk-caption" id="sk-lp-music-filename" style="margin:4px 0 0"></div>' +
+          '<div class="sk-caption" style="margin:6px 0 4px">Plays from the start, trimmed to fit if longer. If shorter than the export:</div>' +
+          '<div class="sk-mode-row">' +
+            '<button class="sk-mode-btn active" id="sk-lp-music-once" type="button">Once (silence after)</button>' +
+            '<button class="sk-mode-btn" id="sk-lp-music-loop" type="button">Loop</button>' +
+          '</div>' +
+        '</div>' +
         '<div id="sk-lp-custom-section" style="display:none">' +
           '<div class="sk-mode-row" id="sk-lp-stretch-row" style="margin-bottom:6px">' +
             '<button class="sk-mode-btn active" id="sk-lp-mode-center" type="button">Center leftover</button>' +
@@ -4022,10 +4115,32 @@
     var customSection = view.querySelector('#sk-lp-custom-section');
     var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');
     var advancedSection = view.querySelector('#sk-lp-advanced-section');
+    var musicToggle = view.querySelector('#sk-lp-music-toggle');
+    var musicSection = view.querySelector('#sk-lp-music-section');
+    var musicFileInput = view.querySelector('#sk-lp-music-file');
+    var musicFilenameEl = view.querySelector('#sk-lp-music-filename');
+    var musicOnceBtn = view.querySelector('#sk-lp-music-once');
+    var musicLoopBtn = view.querySelector('#sk-lp-music-loop');
+    var exportMusicFile = null;
+    var exportMusicLoop = false;
     var clipListWrap = view.querySelector('#sk-lp-clip-list-wrap');
 
+    // Each entry in exportClipOrder is an independent "occurrence" of a
+    // clip, not the clip itself — this is what makes duplicating a clip
+    // (see the 'duplicate' button below) actually useful rather than just
+    // showing the same segment twice: two occurrences of the SAME
+    // underlying post get their own trim range and label override, keyed
+    // by instId rather than the post's own id, so the second showing can
+    // be a different segment credited to a different animator.
+    var nextInstId = 0;
+    function makeClipInstance(post) {
+      return { post: post, instId: 'inst' + (nextInstId++) };
+    }
     function defaultClipOrder() {
-      return safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).slice(0, MAX_GRID_CLIPS);
+      return safeMap(
+        safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).slice(0, MAX_GRID_CLIPS),
+        makeClipInstance
+      );
     }
     function isOn(toggleEl) { return toggleEl.classList.contains('active'); }
     function setOn(toggleEl, on) { toggleEl.classList.toggle('active', on); }
@@ -4125,6 +4240,35 @@
       updateExportPreview();
     };
 
+    musicToggle.onclick = function () {
+      setOn(musicToggle, !isOn(musicToggle));
+      var on = isOn(musicToggle);
+      musicSection.style.display = on ? 'block' : 'none';
+      if (!on) {
+        exportMusicFile = null;
+        musicFileInput.value = '';
+        musicFilenameEl.textContent = '';
+        exportMusicLoop = false;
+        musicOnceBtn.classList.add('active');
+        musicLoopBtn.classList.remove('active');
+      }
+    };
+    musicFileInput.onchange = function (e) {
+      var file = e.currentTarget.files && e.currentTarget.files[0];
+      exportMusicFile = file || null;
+      musicFilenameEl.textContent = file ? ('selected: ' + file.name) : '';
+    };
+    musicOnceBtn.onclick = function () {
+      exportMusicLoop = false;
+      musicOnceBtn.classList.add('active');
+      musicLoopBtn.classList.remove('active');
+    };
+    musicLoopBtn.onclick = function () {
+      exportMusicLoop = true;
+      musicLoopBtn.classList.add('active');
+      musicOnceBtn.classList.remove('active');
+    };
+
     function updateExportPreview() {
       var n = exportClipOrder.length;
       var text;
@@ -4152,13 +4296,15 @@
     function renderExportOrderList() {
       var container = view.querySelector('#sk-lp-export-order');
       container.innerHTML = '';
-      exportClipOrder.forEach(function (p, i) {
+      exportClipOrder.forEach(function (inst, i) {
+        var p = inst.post;
+        var instId = inst.instId;
         var row = document.createElement('div');
         row.className = 'sk-show-pick';
         row.style.cursor = 'default';
         row.style.flexWrap = 'wrap';
         var label = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).slice(0, 3).join(' ');
-        var trim = exportTrims[p.id];
+        var trim = exportTrims[instId];
         var html =
           '<span style="display:flex;align-items:center;gap:6px;overflow:hidden;flex:1;min-width:0">' +
             '<img src="' + esc(p.preview_url || '') + '" style="width:36px;height:20px;object-fit:cover;border-radius:2px;flex-shrink:0">' +
@@ -4175,12 +4321,13 @@
         if (isOn(customToggle)) {
           html +=
             '<span style="display:flex;gap:4px;flex-shrink:0">' +
+              '<span class="sk-media-viewpost" data-duplicate style="cursor:pointer;font-size:11px;margin:0" title="add this clip again right after — useful for showing a different segment, or the same segment again, later in the sequence">duplicate</span>' +
               '<button class="sk-nav-btn" data-dir="up" style="padding:2px 6px"' + (i === 0 ? ' disabled' : '') + '>&#8593;</button>' +
               '<button class="sk-nav-btn" data-dir="down" style="padding:2px 6px"' + (i === exportClipOrder.length - 1 ? ' disabled' : '') + '>&#8595;</button>' +
             '</span>';
         }
         if (isOn(labelsToggle)) {
-          var override = exportLabelOverrides[p.id] || '';
+          var override = exportLabelOverrides[instId] || '';
           html +=
             '<input class="sk-input" data-label-override placeholder="custom label text (replaces staff names)" ' +
             'style="flex-basis:100%;font-size:11px;padding:3px 6px;margin-top:4px" value="' + esc(override) + '">';
@@ -4190,8 +4337,8 @@
         if (isOn(labelsToggle)) {
           row.querySelector('[data-label-override]').onchange = function (e) {
             var text = e.currentTarget.value.trim();
-            if (text) exportLabelOverrides[p.id] = text;
-            else delete exportLabelOverrides[p.id];
+            if (text) exportLabelOverrides[instId] = text;
+            else delete exportLabelOverrides[instId];
           };
         }
 
@@ -4213,10 +4360,10 @@
           function commitTrim() {
             var start = parseTimeInput(startEl.value);
             var end = parseTimeInput(endEl.value);
-            if (start == null && end == null) { delete exportTrims[p.id]; return; }
+            if (start == null && end == null) { delete exportTrims[instId]; return; }
             start = start || 0;
-            if (end == null || end <= start) { delete exportTrims[p.id]; return; }
-            exportTrims[p.id] = { start: start, end: end };
+            if (end == null || end <= start) { delete exportTrims[instId]; return; }
+            exportTrims[instId] = { start: start, end: end };
           }
           startEl.onchange = commitTrim;
           endEl.onchange = commitTrim;
@@ -4229,18 +4376,28 @@
             openVideoModal(p, function (start, end) {
               startEl.value = formatTimeInput(start);
               endEl.value = formatTimeInput(end);
-              exportTrims[p.id] = { start: start, end: end };
+              exportTrims[instId] = { start: start, end: end };
             });
           };
           var clearBtn = row.querySelector('[data-clear-trim]');
           if (clearBtn) {
             clearBtn.onclick = function () {
-              delete exportTrims[p.id];
+              delete exportTrims[instId];
               renderExportOrderList();
             };
           }
         }
         if (isOn(customToggle)) {
+          row.querySelector('[data-duplicate]').onclick = function () {
+            // A fresh instance id — deliberately starts with its own blank
+            // trim/label rather than copying the original's, since the
+            // whole point is usually to show a DIFFERENT segment (or credit
+            // a different animator) the second time around, not repeat the
+            // first occurrence verbatim.
+            exportClipOrder.splice(i + 1, 0, makeClipInstance(p));
+            renderExportOrderList();
+            updateExportPreview();
+          };
           row.querySelector('[data-dir="up"]').onclick = function () {
             if (i === 0) return;
             var tmp = exportClipOrder[i - 1]; exportClipOrder[i - 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
@@ -4261,7 +4418,7 @@
     view.querySelector('#sk-lp-export').onclick = function () {
       var videoPosts = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); });
       if (videoPosts.length < 2) { alert('need at least 2 video clips in this pool to export.'); return; }
-      exportClipOrder = videoPosts.slice(0, MAX_GRID_CLIPS);
+      exportClipOrder = safeMap(videoPosts.slice(0, MAX_GRID_CLIPS), makeClipInstance);
       exportFormat = 'grid';
       exportMode = 'center';
       exportTrims = {};
@@ -4269,9 +4426,17 @@
       exportLabelMode = 'off';
       exportLabelStyle = 'outline';
       exportLabelOverrides = {};
+      exportMusicFile = null;
+      musicFileInput.value = '';
+      musicFilenameEl.textContent = '';
+      exportMusicLoop = false;
+      musicOnceBtn.classList.add('active');
+      musicLoopBtn.classList.remove('active');
       setOn(customToggle, false);
       setOn(advancedToggle, false);
       setOn(labelsToggle, false);
+      setOn(musicToggle, false);
+      musicSection.style.display = 'none';
       customSection.style.display = 'none';
       advancedSection.style.display = 'none';
       labelsSideRow.style.display = 'none';
@@ -4368,9 +4533,9 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat, exportLabelStyle, exportLabelOverrides).then(function (result) {
+      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat, exportLabelStyle, exportLabelOverrides, exportMusicFile, exportMusicLoop).then(function (result) {
         statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
-        openGridResultModal(result.blob, pool.name);
+        openGridResultModal(result.blob, pool.name, result.hasAudio);
       }).catch(function (err) {
         statusEl.textContent = err.message === 'cancelled' ? '' : 'export failed: ' + err.message;
         if (err.message === 'cancelled') statusEl.style.display = 'none';
