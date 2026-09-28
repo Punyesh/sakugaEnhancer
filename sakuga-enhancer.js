@@ -4768,6 +4768,27 @@
     else renderSearch();
   }
 
+  // ---------- optional cross-tool integration: seed from the page's own tag ----------
+  // Other tools (e.g. KeyFrame Lookup's Sakugabooru links) just send people to
+  // an ordinary sakugabooru.com/post?tags=<name> URL -- no coupling either
+  // way, and this page behaves identically whether or not Enhancer is
+  // installed at all. The one real gap on THIS side: manually opening
+  // Enhancer after arriving via such a link used to land on an empty search
+  // box, so the name had to be retyped. This reads whatever single tag the
+  // page's own URL already carries and feeds it through the same
+  // sync.artistTag handoff the Stats tab already uses to pass a name to
+  // Search -- so it's a no-op (nothing changes) on any page without a
+  // recognizable ?tags= value, like the homepage, a multi-tag browse, or a
+  // post page with no tags param at all.
+  (function seedFromPageUrl() {
+    try {
+      var raw = new URLSearchParams(location.search).get('tags');
+      if (!raw) return;
+      var firstTag = raw.trim().split(/\s+/)[0];
+      if (firstTag) sync.artistTag = firstTag.toLowerCase();
+    } catch (e) { /* malformed URL -- just skip seeding, page still works normally */ }
+  })();
+
   renderTab('search');
   panel.style.display = 'flex';
   // Warms the tag-dictionary cache in the background so chip colors are
