@@ -3230,7 +3230,7 @@
       '</label>';
     box.appendChild(accuracyRow);
 
-    var getExportOpts = buildExportOptions(box, vid, true);
+    var getExportOpts = buildExportOptions(box, vid, false); // booru clips never have audio, so no mute option
 
     var actionRow = document.createElement('div');
     actionRow.className = 'sk-action-row';
