@@ -286,6 +286,11 @@
     'border-top-color:' + C.amber + ';border-radius:50%;vertical-align:middle;margin-right:6px;',
     'animation:sk-spin .7s linear infinite;}',
     '@keyframes sk-spin{to{transform:rotate(360deg);}}',
+    '.sk-progress{height:4px;background:' + C.line + ';border-radius:2px;margin-top:6px;overflow:hidden;position:relative;}',
+    '.sk-progress-fill{height:100%;width:0;background:' + C.amber + ';border-radius:2px;transition:width .25s linear;}',
+    '.sk-progress.ind .sk-progress-fill{position:absolute;width:35%;transition:none;animation:sk-ind 1.2s ease-in-out infinite;}',
+    '@keyframes sk-ind{0%{left:-35%;}100%{left:100%;}}',
+    '.sk-st-pct{margin-left:6px;opacity:.75;}',
     '.sk-close{cursor:pointer;color:' + C.dim + ';font-size:16px;line-height:1;}',
     '.sk-media-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2147483600;',
     'display:flex;align-items:center;justify-content:center;padding:24px;}',
@@ -1542,8 +1547,63 @@
   // it decodes/re-encodes multiple clips at once), so a spinner distinguishes
   // "still working" from "stalled" at a glance rather than relying on text
   // alone. Never used for a final "done"/error state — those stay plain text.
-  function setBusyStatus(el, text) {
-    el.innerHTML = '<span class="sk-spinner"></span>' + esc(text);
+  // frac: omitted = spinner + text only (as before); a number 0..1 = determinate
+  // progress bar; null = indeterminate (moving) bar for a step with no
+  // measurable progress.
+  function setBusyStatus(el, text, frac) {
+    var bar = '';
+    if (frac !== undefined) {
+      bar = '<div class="sk-progress' + (frac === null ? ' ind' : '') + '"><div class="sk-progress-fill" style="width:' +
+        (frac === null ? 0 : Math.round(frac * 100)) + '%"></div></div>';
+    }
+    el.innerHTML = '<span class="sk-spinner"></span>' + esc(text) +
+      (frac === undefined || frac === null ? '' : '<span class="sk-st-pct">' + Math.round(frac * 100) + '%</span>') + bar;
+  }
+
+  // Updates an existing bar in place (no re-render, so no flicker).
+  function setProgressFraction(el, frac) {
+    var fill = el.querySelector('.sk-progress-fill');
+    if (!fill) return;
+    var pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
+    fill.style.width = pct + '%';
+    var label = el.querySelector('.sk-st-pct');
+    if (label) label.textContent = pct + '%';
+  }
+
+  // Runs ffmpeg.exec while driving the status bar. Progress comes from
+  // ffmpeg's own periodic "time=HH:MM:SS.xx" stats line (output time encoded
+  // so far) divided by how long the output is expected to be — a plain-text
+  // format, so it doesn't depend on ffmpeg.wasm's own progress-event units.
+  // `base`/`span` map this one pass onto a slice of a larger multi-step bar.
+  // Without an expected duration it falls back to the library's progress
+  // event, which is a ratio against the first input's length.
+  function execTracked(ffmpeg, args, statusEl, expectedSec, base, span) {
+    base = base || 0;
+    span = span === undefined ? 1 : span;
+    var seenTime = false;
+    function report(f) {
+      setProgressFraction(statusEl, base + span * Math.max(0, Math.min(0.99, f)));
+    }
+    function onLog(e) {
+      if (!(expectedSec > 0)) return;
+      var m = /time=(\d+):(\d+):(\d+(?:\.\d+)?)/.exec((e && e.message) || '');
+      if (!m) return;
+      seenTime = true;
+      report((parseInt(m[1], 10) * 3600 + parseInt(m[2], 10) * 60 + parseFloat(m[3])) / expectedSec);
+    }
+    function onProg(e) {
+      if (expectedSec > 0 || seenTime) return;
+      if (e && isFinite(e.progress) && e.progress >= 0) report(e.progress);
+    }
+    function detach() {
+      try { ffmpeg.off('log', onLog); ffmpeg.off('progress', onProg); } catch (err) { /* non-fatal */ }
+    }
+    try { ffmpeg.on('log', onLog); ffmpeg.on('progress', onProg); } catch (err) { /* no event support — bar just stays put */ }
+    return ffmpeg.exec(args).then(function (r) {
+      detach();
+      setProgressFraction(statusEl, base + span);
+      return r;
+    }, function (err) { detach(); throw err; });
   }
 
   function withTimeout(promise, ms, message) {
@@ -1620,7 +1680,7 @@
     if (localStorage.getItem(FFMPEG_CONSENT_KEY) === '1') return Promise.resolve();
     return new Promise(function (resolve, reject) {
       statusEl.innerHTML =
-        'trimming needs a one-time ~25–30MB download (your browser caches it afterward, so this only happens once) — ' +
+        'this needs a one-time ~25–30MB download (your browser caches it afterward, so this only happens once) — ' +
         '<a href="#" id="sk-ffmpeg-yes" style="color:' + C.amber + '">continue</a> · ' +
         '<a href="#" id="sk-ffmpeg-no" style="color:' + C.dim + '">cancel</a>';
       statusEl.querySelector('#sk-ffmpeg-yes').onclick = function (e) {
@@ -1651,7 +1711,7 @@
         return ffmpeg.writeFile(inputName, new Uint8Array(sourceBuffer)).then(function () {
           var args;
           if (accurate) {
-            setBusyStatus(statusEl, 'trimming (re-encoding for frame accuracy — slower)…');
+            setBusyStatus(statusEl, 'trimming (re-encoding for frame accuracy — slower)…', 0);
             // `-ss`/`-to` placed AFTER `-i`, with real encoders instead of `-c copy`:
             // stream-copy can only cut on keyframe boundaries since it never decodes
             // the video, so the actual start/end can drift from what was marked.
@@ -1660,13 +1720,13 @@
             args = ['-i', inputName, '-ss', String(inTime), '-to', String(outTime),
               '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-c:a', 'aac', outputName];
           } else {
-            setBusyStatus(statusEl, 'trimming (fast mode)…');
+            setBusyStatus(statusEl, 'trimming (fast mode)…', 0);
             // Fast stream-copy: no decoding, just remuxing existing compressed data —
             // much quicker, but can only cut on the nearest keyframe, so the actual
             // start/end may land a little before/after what was marked.
             args = ['-ss', String(inTime), '-to', String(outTime), '-i', inputName, '-c', 'copy', outputName];
           }
-          return ffmpeg.exec(args);
+          return execTracked(ffmpeg, args, statusEl, outTime - inTime);
         }).then(function () {
           return ffmpeg.readFile(outputName);
         }).then(function (data) {
@@ -1676,6 +1736,156 @@
           return { blob: new Blob([data.buffer], { type: 'video/' + ext }), ext: ext };
         });
       });
+  }
+
+  // ---------- Export options (format / quality) for the download windows ----------
+  // Ported from Klippit's export logic: MP4 re-encodes with libx264 at a
+  // chosen CRF, GIF uses a single palettegen+paletteuse graph, APNG is a
+  // direct lossless pass with -plays 0 (loop forever). Resolution means the
+  // SHORT side of the frame (so 480p is sensible for portrait grids too) and
+  // never upscales. GIF/APNG have no audio, so audio is dropped for them.
+  function performExport(sourceBuffer, sourceExt, inTime, outTime, opts, statusEl) {
+    return getFfmpegConsent(statusEl)
+      .then(function () { return ensureFfmpegLoaded(statusEl); })
+      .then(function (ffmpeg) {
+        var inputName = 'input.' + (sourceExt || 'mp4');
+        var outExt = opts.format === 'gif' ? 'gif' : opts.format === 'apng' ? 'png' : 'mp4';
+        var outputName = 'output.' + outExt;
+        var paletteName = 'palette.png';
+        var startedAt = Date.now();
+        var hasRange = inTime !== null && outTime !== null;
+        // How long the output will be — what the progress bar measures against.
+        var expectedSec = hasRange ? (outTime - inTime) : (opts.duration || 0);
+
+        var scale = '';
+        if (opts.res && opts.srcW && opts.srcH && Math.min(opts.srcW, opts.srcH) > opts.res) {
+          scale = opts.srcH <= opts.srcW ? ('scale=-2:' + opts.res) : ('scale=' + opts.res + ':-2');
+        }
+        // Range as INPUT options: seeks first, then decodes+re-encodes only
+        // the wanted span, still frame-accurate since this always re-encodes.
+        var inArgs = hasRange ? ['-ss', String(inTime), '-to', String(outTime), '-i', inputName] : ['-i', inputName];
+        var shape = 'fps=' + opts.fps + (scale ? ',' + scale + ':flags=lanczos' : '');
+        var label = opts.format.toUpperCase();
+
+        function cleanup() {
+          [inputName, outputName, paletteName].forEach(function (n) { ffmpeg.deleteFile(n).catch(function () {}); });
+        }
+
+        return ffmpeg.writeFile(inputName, new Uint8Array(sourceBuffer)).then(function () {
+          if (opts.format === 'gif') {
+            // Two passes (palette, then encode) rather than one split graph:
+            // the palette pass can't report progress (it emits a single
+            // frame at the very end), so it gets a moving bar of its own and
+            // the encode pass gets the real percentage.
+            setBusyStatus(statusEl, 'GIF 1 of 2: building palette…', null);
+            return ffmpeg.exec(inArgs.concat(['-vf', shape + ',palettegen', paletteName])).then(function () {
+              setBusyStatus(statusEl, 'GIF 2 of 2: encoding…', 0);
+              return execTracked(ffmpeg, inArgs.concat([
+                '-i', paletteName,
+                '-filter_complex', shape + '[x];[x][1:v]paletteuse=dither=bayer',
+                '-loop', '0', outputName]), statusEl, expectedSec);
+            });
+          }
+          var args = inArgs.slice();
+          if (opts.format === 'apng') {
+            args.push('-an', '-vf', shape, '-plays', '0', '-f', 'apng', outputName);
+          } else {
+            args.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(opts.crf));
+            if (scale) args.push('-vf', scale);
+            if (opts.mute) args.push('-an'); else args.push('-c:a', 'aac');
+            args.push(outputName);
+          }
+          setBusyStatus(statusEl, 'exporting ' + label + '… (re-encoding — can take a while for long or large clips)', 0);
+          return execTracked(ffmpeg, args, statusEl, expectedSec);
+        }).then(function () {
+          return ffmpeg.readFile(outputName);
+        }).then(function (data) {
+          cleanup();
+          statusEl.textContent = 'done in ' + ((Date.now() - startedAt) / 1000).toFixed(1) + 's' +
+            ' (' + (data.length / 1048576).toFixed(1) + ' MB)';
+          var mime = outExt === 'mp4' ? 'video/mp4' : 'image/' + (outExt === 'gif' ? 'gif' : 'png');
+          return { blob: new Blob([data.buffer], { type: mime }), ext: outExt };
+        }, function (err) { cleanup(); throw err; });
+      });
+  }
+
+  // Adds a quiet "more options" tickbox + a collapsible settings block above
+  // the Download buttons. Returns getOpts(): null while unticked (so callers
+  // keep their existing behavior untouched), else the chosen settings.
+  function buildExportOptions(box, vid, hasAudio) {
+    var wrap = document.createElement('div');
+    wrap.className = 'sk-trim-row';
+    wrap.innerHTML =
+      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:' + C.dim + ';cursor:pointer">' +
+        '<input type="checkbox" id="sk-more-opts" style="accent-color:' + C.amber + '">' +
+        'more options (format, quality)' +
+      '</label>';
+    box.appendChild(wrap);
+
+    var panel = document.createElement('div');
+    panel.className = 'sk-trim-row';
+    panel.style.display = 'none';
+    var selStyle = 'style="min-width:0"';
+    panel.innerHTML =
+      '<span class="sk-trim-label">format</span>' +
+      '<select class="sk-select" id="sk-xo-fmt" ' + selStyle + '>' +
+        '<option value="mp4">MP4</option><option value="gif">GIF</option><option value="apng">APNG</option></select>' +
+      '<span class="sk-trim-label">size</span>' +
+      '<select class="sk-select" id="sk-xo-res" ' + selStyle + '>' +
+        '<option value="0">Source</option><option value="1080">1080p</option>' +
+        '<option value="720">720p</option><option value="480">480p</option><option value="360">360p</option></select>' +
+      '<span id="sk-xo-crf-wrap" style="display:flex;align-items:center;gap:6px">' +
+        '<span class="sk-trim-label">crf <b id="sk-xo-crf-val">23</b></span>' +
+        '<input type="range" id="sk-xo-crf" min="15" max="35" value="23" style="width:90px;accent-color:' + C.amber + '" ' +
+        'title="lower = better quality, bigger file">' +
+      '</span>' +
+      '<span id="sk-xo-fps-wrap" style="display:none;align-items:center;gap:6px">' +
+        '<span class="sk-trim-label">fps</span>' +
+        '<select class="sk-select" id="sk-xo-fps" ' + selStyle + '>' +
+          '<option value="24">24</option><option value="15" selected>15</option><option value="10">10</option></select>' +
+      '</span>' +
+      (hasAudio
+        ? '<label id="sk-xo-mute-wrap" style="display:flex;align-items:center;gap:6px;font-size:11px;color:' + C.dim + ';cursor:pointer">' +
+          '<input type="checkbox" id="sk-xo-mute" style="accent-color:' + C.amber + '">mute audio</label>'
+        : '');
+    box.appendChild(panel);
+
+    var tick = wrap.querySelector('#sk-more-opts');
+    var fmt = panel.querySelector('#sk-xo-fmt');
+    var res = panel.querySelector('#sk-xo-res');
+    var crf = panel.querySelector('#sk-xo-crf');
+    var crfVal = panel.querySelector('#sk-xo-crf-val');
+    var fps = panel.querySelector('#sk-xo-fps');
+    var mute = panel.querySelector('#sk-xo-mute');
+    var muteWrap = panel.querySelector('#sk-xo-mute-wrap');
+
+    function syncFormat() {
+      var isMp4 = fmt.value === 'mp4';
+      panel.querySelector('#sk-xo-crf-wrap').style.display = isMp4 ? 'flex' : 'none';
+      panel.querySelector('#sk-xo-fps-wrap').style.display = isMp4 ? 'none' : 'flex';
+      if (muteWrap) muteWrap.style.display = isMp4 ? 'flex' : 'none';
+    }
+    fmt.onchange = function () {
+      // Sensible default size per format: GIF/APNG get big fast, so start small.
+      res.value = fmt.value === 'mp4' ? '0' : '480';
+      syncFormat();
+    };
+    crf.oninput = function () { crfVal.textContent = crf.value; };
+    tick.onchange = function () { panel.style.display = tick.checked ? 'flex' : 'none'; };
+
+    return function getOpts() {
+      if (!tick.checked) return null;
+      return {
+        format: fmt.value,
+        res: parseInt(res.value, 10) || 0,
+        crf: parseInt(crf.value, 10) || 23,
+        fps: parseInt(fps.value, 10) || 15,
+        mute: !!(mute && mute.checked),
+        srcW: vid.videoWidth || 0,
+        srcH: vid.videoHeight || 0,
+        duration: isFinite(vid.duration) ? vid.duration : 0
+      };
+    };
   }
 
   // ---------- Pool grid export (multiple clips composited into one video) ----------
@@ -1921,12 +2131,12 @@
   // file first, then loop that file like any other input. Costs a real,
   // separate encode pass per trimmed clip — worth knowing before turning on
   // trims for a lot of clips at once.
-  function extractTrimSegment(ffmpeg, inputName, start, duration, outputName) {
-    return ffmpeg.exec([
+  function extractTrimSegment(ffmpeg, inputName, start, duration, outputName, statusEl, base, span) {
+    return execTracked(ffmpeg, [
       '-ss', String(start), '-t', String(duration), '-i', inputName,
       '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
       outputName
-    ]);
+    ], statusEl, duration, base, span);
   }
 
   function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides, musicFiles, musicLoop) {
@@ -1959,7 +2169,7 @@
         var fontReady = labelMode !== 'off' ? ensureLabelFont(ffmpeg) : Promise.resolve();
         var tagsReady = labelMode !== 'off' ? ensureTagTypes() : Promise.resolve();
         return Promise.all([fontReady, tagsReady]).then(function () {
-        setBusyStatus(statusEl, 'checking clip lengths…');
+        setBusyStatus(statusEl, 'checking clip lengths…', null);
         return Promise.all(safeMap(clips, function (p) { return probeVideoDuration(p.file_url); })).then(function (naturalDurations) {
           // Effective duration is the trimmed range's length when a clip has
           // one, not the full clip's natural length. For grid mode this
@@ -2001,10 +2211,21 @@
           // Fetch + write each input sequentially rather than all at once —
           // keeps peak memory lower given everything is decoded/held in the
           // same wasm heap during the actual encode step regardless.
+          // Progress bar budget across the whole export: fetching clips,
+          // extracting trims (if any), combining music (if more than one
+          // track) and the main encode, which gets whatever's left.
+          var trimCount = 0;
+          clips.forEach(function (p) { if (trims[p.id]) trimCount++; });
+          var fetchW = 0.1;
+          var trimW = trimCount ? 0.2 : 0;
+          var musicW = musicFiles.length > 1 ? 0.05 : 0;
+          var compBase = fetchW + trimW + musicW;
+          var compSpan = 1 - compBase;
+
           var writeChain = Promise.resolve();
           clips.forEach(function (p, i) {
             writeChain = writeChain.then(function () {
-              setBusyStatus(statusEl, 'fetching clip ' + (i + 1) + ' of ' + clips.length + '…');
+              setBusyStatus(statusEl, 'fetching clip ' + (i + 1) + ' of ' + clips.length + '…', fetchW * (i / clips.length));
               return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
                 return ffmpeg.writeFile('grid_in' + i + '.' + (p.file_ext || 'mp4'), new Uint8Array(buf));
               });
@@ -2016,21 +2237,24 @@
           // exec pass) but before the main compositing pass, which needs to
           // know the final filename for every input up front.
           var effectiveNames = new Array(clips.length);
+          var trimDone = 0;
           clips.forEach(function (p, i) {
             effectiveNames[i] = 'grid_in' + i + '.' + (p.file_ext || 'mp4');
             var trim = trims[p.id];
             if (!trim) return;
             writeChain = writeChain.then(function () {
-              setBusyStatus(statusEl, 'trimming clip ' + (i + 1) + ' of ' + clips.length + '…');
+              var tBase = fetchW + trimW * (trimDone / trimCount);
+              var tSpan = trimW / trimCount;
+              trimDone++;
+              setBusyStatus(statusEl, 'trimming clip ' + (i + 1) + ' of ' + clips.length + '…', tBase);
               var outputName = 'grid_trim' + i + '.mp4';
-              return extractTrimSegment(ffmpeg, effectiveNames[i], trim.start, trim.end - trim.start, outputName).then(function () {
+              return extractTrimSegment(ffmpeg, effectiveNames[i], trim.start, trim.end - trim.start, outputName, statusEl, tBase, tSpan).then(function () {
                 effectiveNames[i] = outputName;
               });
             });
           });
 
           return writeChain.then(function () {
-            setBusyStatus(statusEl, format === 'serial' ? 'joining clips (this can take a while)…' : 'compositing grid (this can take a while)…');
             var startedAt = Date.now();
             var args = [];
             var filterParts = [];
@@ -2191,7 +2415,7 @@
                     '-filter_complex', filterParts.join(';'), '-map', '[outa]',
                     '-c:a', 'aac', '-b:a', '192k', combinedName
                   ]);
-                  setBusyStatus(statusEl, 'combining ' + musicNames.length + ' music tracks…');
+                  setBusyStatus(statusEl, 'combining ' + musicNames.length + ' music tracks…', null);
                   return ffmpeg.exec(concatArgs).then(function () {
                     musicNames.forEach(function (name) { ffmpeg.deleteFile(name).catch(function () {}); });
                     return combinedName;
@@ -2239,7 +2463,8 @@
               }
               args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-r', '24', 'grid_out.mp4');
 
-              return ffmpeg.exec(args).then(function () {
+              setBusyStatus(statusEl, (format === 'serial' ? 'joining clips' : 'compositing grid') + ' (this can take a while)…', compBase);
+              return execTracked(ffmpeg, args, statusEl, outputDurationSec, compBase, compSpan).then(function () {
                 return ffmpeg.readFile('grid_out.mp4');
               }).then(function (data) {
               var seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
@@ -2346,6 +2571,8 @@
       '</label>';
     box.appendChild(accuracyRow);
 
+    var getExportOpts = buildExportOptions(box, vid, hasAudio);
+
     var actionRow = document.createElement('div');
     actionRow.className = 'sk-action-row';
     actionRow.innerHTML =
@@ -2388,16 +2615,31 @@
       updateTrimBtn();
     };
 
-    actionRow.querySelector('#sk-dl-full').onclick = function () {
-      triggerBlobDownload(blob, filenamePrefix + '-grid.mp4');
+    var dlFullBtn = actionRow.querySelector('#sk-dl-full');
+    dlFullBtn.onclick = function () {
+      var xo = getExportOpts();
+      if (!xo) { triggerBlobDownload(blob, filenamePrefix + '-grid.mp4'); return; }
+      dlFullBtn.disabled = true;
+      setBusyStatus(statusEl, 'reading grid…');
+      blob.arrayBuffer().then(function (buf) {
+        return performExport(buf, 'mp4', null, null, xo, statusEl);
+      }).then(function (res) {
+        triggerBlobDownload(res.blob, filenamePrefix + '-grid.' + res.ext);
+        dlFullBtn.disabled = false;
+      }).catch(function (err) {
+        if (err.message !== 'cancelled') statusEl.textContent = 'export failed: ' + err.message;
+        dlFullBtn.disabled = false;
+      });
     };
 
     dlTrimBtn.onclick = function () {
       if (dlTrimBtn.disabled) return;
       dlTrimBtn.disabled = true;
       setBusyStatus(statusEl, 'reading grid…');
+      var xo = getExportOpts();
       blob.arrayBuffer().then(function (buf) {
-        return performTrim(buf, 'mp4', inTime, outTime, statusEl, accurateCheckbox.checked);
+        return xo ? performExport(buf, 'mp4', inTime, outTime, xo, statusEl)
+                  : performTrim(buf, 'mp4', inTime, outTime, statusEl, accurateCheckbox.checked);
       }).then(function (res) {
         triggerBlobDownload(res.blob, filenamePrefix + '-grid-trim.' + res.ext);
         updateTrimBtn();
@@ -2969,6 +3211,8 @@
       '</label>';
     box.appendChild(accuracyRow);
 
+    var getExportOpts = buildExportOptions(box, vid, true);
+
     var actionRow = document.createElement('div');
     actionRow.className = 'sk-action-row';
     actionRow.innerHTML =
@@ -3030,16 +3274,31 @@
       // modal closes it'll just finish silently in the background rather than error out.
     });
 
-    actionRow.querySelector('#sk-dl-full').onclick = function () {
-      triggerDownload(p.file_url, 'sakuga_' + p.id + '.' + (p.file_ext || 'webm'));
+    var dlFullBtn = actionRow.querySelector('#sk-dl-full');
+    dlFullBtn.onclick = function () {
+      var xo = getExportOpts();
+      if (!xo) { triggerDownload(p.file_url, 'sakuga_' + p.id + '.' + (p.file_ext || 'webm')); return; }
+      dlFullBtn.disabled = true;
+      setBusyStatus(statusEl, 'reading clip…');
+      fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
+        return performExport(buf, p.file_ext, null, null, xo, statusEl);
+      }).then(function (res) {
+        triggerBlobDownload(res.blob, 'sakuga_' + p.id + '.' + res.ext);
+        dlFullBtn.disabled = false;
+      }).catch(function (err) {
+        if (err.message !== 'cancelled') statusEl.textContent = 'export failed: ' + err.message;
+        dlFullBtn.disabled = false;
+      });
     };
 
     dlTrimBtn.onclick = function () {
       if (dlTrimBtn.disabled) return;
       dlTrimBtn.disabled = true;
       setBusyStatus(statusEl, 'reading clip…');
+      var xo = getExportOpts();
       fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
-        return performTrim(buf, p.file_ext, inTime, outTime, statusEl, accurateCheckbox.checked);
+        return xo ? performExport(buf, p.file_ext, inTime, outTime, xo, statusEl)
+                  : performTrim(buf, p.file_ext, inTime, outTime, statusEl, accurateCheckbox.checked);
       }).then(function (res) {
         triggerBlobDownload(res.blob, 'sakuga_' + p.id + '_trim.' + res.ext);
         updateTrimBtn();
@@ -4767,27 +5026,6 @@
     else if (name === 'pools') renderPools();
     else renderSearch();
   }
-
-  // ---------- optional cross-tool integration: seed from the page's own tag ----------
-  // Other tools (e.g. KeyFrame Lookup's Sakugabooru links) just send people to
-  // an ordinary sakugabooru.com/post?tags=<name> URL -- no coupling either
-  // way, and this page behaves identically whether or not Enhancer is
-  // installed at all. The one real gap on THIS side: manually opening
-  // Enhancer after arriving via such a link used to land on an empty search
-  // box, so the name had to be retyped. This reads whatever single tag the
-  // page's own URL already carries and feeds it through the same
-  // sync.artistTag handoff the Stats tab already uses to pass a name to
-  // Search -- so it's a no-op (nothing changes) on any page without a
-  // recognizable ?tags= value, like the homepage, a multi-tag browse, or a
-  // post page with no tags param at all.
-  (function seedFromPageUrl() {
-    try {
-      var raw = new URLSearchParams(location.search).get('tags');
-      if (!raw) return;
-      var firstTag = raw.trim().split(/\s+/)[0];
-      if (firstTag) sync.artistTag = firstTag.toLowerCase();
-    } catch (e) { /* malformed URL -- just skip seeding, page still works normally */ }
-  })();
 
   renderTab('search');
   panel.style.display = 'flex';
