@@ -3766,7 +3766,12 @@
           searchState.tags = [show, tagName];
           searchViewMode = 'results';
           searchOrigin = null;
+          // Same pitfall as the show screen's animator list: leaving the
+          // Stats animator set here would make the Search tab's sync step
+          // replace [show, animator] with just [animator].
+          sync.artistTag = null;
           switchToTab('search');
+          renderChips();
           runSearch();
         };
       }
@@ -4079,9 +4084,16 @@
           // their entire catalog everywhere.
           searchState.tags = [showTag, tag];
           searchViewMode = 'results';
-          sync.artistTag = tag;
+          // Must be null here, NOT the clicked animator: switching to the
+          // Search tab runs its "sync to the Stats animator" step, which
+          // sees an animator that isn't in the previous results and
+          // replaces the whole tag list with just that animator — silently
+          // dropping the show tag. runSearch() sets this itself afterward
+          // once it finds the animator among the query's tags.
+          sync.artistTag = null;
           searchOrigin = { type: 'shows', showTag: showTag };
           switchToTab('search');
+          renderChips();
           runSearch();
         };
       }
