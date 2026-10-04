@@ -1104,8 +1104,12 @@
     view.innerHTML =
       '<div id="sk-back-to-shows" style="display:none"></div>' +
       '<div id="sk-show-animators-wrap" style="margin-bottom:8px"></div>' +
-      '<div id="sk-solo-row" style="display:none;margin-bottom:8px">' +
+      '<div id="sk-solo-row" style="display:none;gap:6px;margin-bottom:8px">' +
         '<button type="button" class="sk-icon-btn" id="sk-solo-toggle">&#9312;</button>' +
+        '<button type="button" class="sk-icon-btn" id="sk-unknown-toggle">' +
+          '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block">' +
+            '<path d="M5 5.2a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.3"/><circle cx="7" cy="10.7" r=".4" fill="currentColor"/><path d="M2 12.5 12 1.5"/></svg>' +
+        '</button>' +
       '</div>' +
       '<div class="sk-meta" id="sk-facet-head" style="display:none;justify-content:space-between;align-items:center">' +
         '<button class="sk-filter-toggle" id="sk-filter-toggle" type="button">' +
@@ -3406,6 +3410,16 @@
     return card;
   }
 
+  var UNKNOWN_ARTIST_TAG = 'artist_unknown';
+  // Animator-type tags on a post other than the artist_unknown catch-all.
+  function countRealAnimators(tags) {
+    var n = 0;
+    for (var i = 0; i < tags.length; i++) {
+      if (tags[i] !== UNKNOWN_ARTIST_TAG && tagTypeMap && tagTypeMap[tags[i]] === 1) n++;
+    }
+    return n;
+  }
+
   function paintSearchResults(cache) {
     var results = body.querySelector('#sk-results');
     var facetHead = body.querySelector('#sk-facet-head');
@@ -3448,8 +3462,9 @@
 
     var soloRow = body.querySelector('#sk-solo-row');
     var soloBtn = body.querySelector('#sk-solo-toggle');
+    var unknownBtn = body.querySelector('#sk-unknown-toggle');
     if (cache.posts.length) {
-      soloRow.style.display = 'block';
+      soloRow.style.display = 'flex';
       // Contradicts a search that already requires 2+ animators to all be
       // credited together (every result would necessarily have 2+ animator
       // tags, so "exactly 1" could never match anything) — disable rather
@@ -3466,6 +3481,24 @@
         cache.soloOnly = !cache.soloOnly;
         paintSearchResults(cache);
       };
+
+      // Hides cuts with no real credit: tagged only artist_unknown (the
+      // catch-all for "no confirmed animator") or with no animator tag at
+      // all. A cut with artist_unknown AND a real animator is kept, since
+      // there IS info about who did something. Pointless while searching
+      // for artist_unknown itself, so it's disabled then.
+      var unknownDisabled = cache.tags.indexOf(UNKNOWN_ARTIST_TAG) !== -1;
+      if (unknownDisabled && cache.hideUnknown) cache.hideUnknown = false;
+      unknownBtn.disabled = unknownDisabled;
+      unknownBtn.classList.toggle('active', !!cache.hideUnknown);
+      unknownBtn.title = unknownDisabled
+        ? 'hide uncredited cuts — disabled, this search is for artist_unknown'
+        : (cache.hideUnknown ? 'hiding cuts with no known animator — click to show all' : 'hide cuts with no known animator (only artist_unknown, or no animator tag)');
+      unknownBtn.onclick = function () {
+        if (unknownBtn.disabled) return;
+        cache.hideUnknown = !cache.hideUnknown;
+        paintSearchResults(cache);
+      };
     } else {
       soloRow.style.display = 'none';
     }
@@ -3479,6 +3512,7 @@
       for (var i = 0; i < tags.length; i++) {
         if (cache.excluded[tags[i]]) return false;
       }
+      if (cache.hideUnknown && tagTypeMap && countRealAnimators(tags) === 0) return false;
       if (cache.soloOnly) {
         var animatorCount = 0;
         for (var j = 0; j < tags.length; j++) {
