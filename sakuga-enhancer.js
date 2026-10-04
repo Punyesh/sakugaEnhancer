@@ -1831,9 +1831,7 @@
       '<select class="sk-select" id="sk-xo-fmt" ' + selStyle + '>' +
         '<option value="mp4">MP4</option><option value="gif">GIF</option><option value="apng">APNG</option></select>' +
       '<span class="sk-trim-label">size</span>' +
-      '<select class="sk-select" id="sk-xo-res" ' + selStyle + '>' +
-        '<option value="0">Source</option><option value="1080">1080p</option>' +
-        '<option value="720">720p</option><option value="480">480p</option><option value="360">360p</option></select>' +
+      '<select class="sk-select" id="sk-xo-res" ' + selStyle + '></select>' +
       '<span id="sk-xo-crf-wrap" style="display:flex;align-items:center;gap:6px">' +
         '<span class="sk-trim-label">crf <b id="sk-xo-crf-val">23</b></span>' +
         '<input type="range" id="sk-xo-crf" min="15" max="35" value="23" style="width:90px;accent-color:' + C.amber + '" ' +
@@ -1865,9 +1863,30 @@
       panel.querySelector('#sk-xo-fps-wrap').style.display = isMp4 ? 'none' : 'flex';
       if (muteWrap) muteWrap.style.display = isMp4 ? 'flex' : 'none';
     }
-    fmt.onchange = function () {
-      // Sensible default size per format: GIF/APNG get big fast, so start small.
+    // Booru clips are 480p, so bigger-than-source choices are pointless —
+    // only offer sizes below the actual video's short side (a large grid
+    // or serial export can still be scaled down). Rebuilt once the video's
+    // real dimensions are known.
+    function refreshResOptions() {
+      var short = Math.min(vid.videoWidth || 0, vid.videoHeight || 0);
+      var html = '<option value="0">Source</option>';
+      [480, 360, 240].forEach(function (h) {
+        if (!short || h < short) html += '<option value="' + h + '">' + h + 'p</option>';
+      });
+      var prev = res.value;
+      res.innerHTML = html;
+      res.value = prev;
+      if (!res.value) res.value = '0';
+    }
+    function applyFormatDefaultRes() {
+      // GIF/APNG get big fast, so start small when a smaller size exists.
       res.value = fmt.value === 'mp4' ? '0' : '480';
+      if (!res.value) res.value = '0'; // 480p isn't offered when the video is already 480p or smaller
+    }
+    refreshResOptions();
+    vid.addEventListener('loadedmetadata', refreshResOptions);
+    fmt.onchange = function () {
+      applyFormatDefaultRes();
       syncFormat();
     };
     crf.oninput = function () { crfVal.textContent = crf.value; };
