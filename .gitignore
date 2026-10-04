@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Internal handoff notes (kept locally, not in the repo)
+SAKUGA_ENHANCER_HANDOFF.md
