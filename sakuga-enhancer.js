@@ -885,6 +885,7 @@
   var sync = { artistTag: null }; // canonical animator tag currently "in focus"
   var searchCache = null; // { tags, order, posts, excluded, facetTags }
   var searchScrollObserver = null; // watches the load-more sentinel; recreated each render since the sentinel itself is a fresh DOM node each time
+  var searchHistory = []; // previous searches in the Search tab, newest last — drives the "← back" button
   var searchOrigin = null; // e.g. {type:'shows'} — set right before a Shows-originated search, consumed by runSearch
   var statsCache = null;  // { tagName, allPosts }
 
@@ -3413,7 +3414,25 @@
     var badge = body.querySelector('#sk-filter-badge');
     var backWrap = body.querySelector('#sk-back-to-shows');
 
-    if (cache.origin && cache.origin.type === 'shows') {
+    if (searchHistory.length) {
+      var prev = searchHistory[searchHistory.length - 1];
+      var prevLabel = prev.tags.join(' ');
+      if (prevLabel.length > 40) prevLabel = prevLabel.slice(0, 39) + '…';
+      backWrap.style.display = 'block';
+      backWrap.innerHTML = '<a href="#" id="sk-back-link" class="sk-mini-toggle" style="display:inline-block;margin-bottom:8px">← back to ' + esc(prevLabel || 'previous search') + '</a>';
+      backWrap.querySelector('#sk-back-link').onclick = function (e) {
+        e.preventDefault();
+        var entry = searchHistory.pop();
+        if (!entry) return;
+        searchState.tags = entry.tags.slice();
+        searchState.order = entry.order;
+        searchOrigin = entry.origin;
+        var orderSel = body.querySelector('#sk-order');
+        if (orderSel) orderSel.value = entry.order;
+        renderChips();
+        runSearch({ noHistory: true });
+      };
+    } else if (cache.origin && cache.origin.type === 'shows') {
       backWrap.style.display = 'block';
       backWrap.innerHTML = '<a href="#" id="sk-back-to-shows-link" class="sk-mini-toggle" style="display:inline-block;margin-bottom:8px">← back to episode list</a>';
       backWrap.querySelector('#sk-back-to-shows-link').onclick = function (e) {
@@ -3570,7 +3589,19 @@
     }
   }
 
-  function runSearch() {
+  function runSearch(opts) {
+    opts = opts || {};
+    // Remember where we were so "← back" can return to it. A search launched
+    // from the Shows tab (searchOrigin set) starts a fresh trail instead —
+    // its way back is the episode list. Going back itself passes noHistory.
+    if (!opts.noHistory) {
+      if (searchOrigin) {
+        searchHistory = [];
+      } else if (searchCache && !tagsEqual(searchCache.tags, searchState.tags)) {
+        searchHistory.push({ tags: searchCache.tags.slice(), order: searchCache.order, origin: searchCache.origin || null });
+        if (searchHistory.length > 20) searchHistory.shift();
+      }
+    }
     var results = body.querySelector('#sk-results');
     results.innerHTML = '<div class="sk-loading">fetching…</div>';
     body.querySelector('#sk-facet-head').style.display = 'none';
@@ -4101,6 +4132,16 @@
           // alone — this list means "who shows up a lot in this show", so
           // clicking one means "show me their cuts in this show", not
           // their entire catalog everywhere.
+          // The show-only search is the step "back" returns to. From the Shows
+          // tab it was never run in the Search tab, so it's recorded here
+          // (with the episode-list origin); from the Search tab's own panel
+          // it's simply the search currently on screen.
+          var fromShowsTab = !!body.querySelector('#sk-show-content');
+          searchHistory = [{
+            tags: [showTag],
+            order: searchState.order,
+            origin: fromShowsTab ? { type: 'shows', showTag: showTag } : (searchCache && searchCache.origin) || null
+          }];
           searchState.tags = [showTag, tag];
           searchViewMode = 'results';
           // Must be null here, NOT the clicked animator: switching to the
@@ -4110,10 +4151,12 @@
           // dropping the show tag. runSearch() sets this itself afterward
           // once it finds the animator among the query's tags.
           sync.artistTag = null;
-          searchOrigin = { type: 'shows', showTag: showTag };
+          // No searchOrigin: this is a show+animator search, not an episode
+          // lookup. The back link comes from searchHistory above instead.
+          searchOrigin = null;
           switchToTab('search');
           renderChips();
-          runSearch();
+          runSearch({ noHistory: true });
         };
       }
     });
