@@ -4110,7 +4110,9 @@
           // dropping the show tag. runSearch() sets this itself afterward
           // once it finds the animator among the query's tags.
           sync.artistTag = null;
-          searchOrigin = { type: 'shows', showTag: showTag };
+          // No searchOrigin: this is a show+animator search, not an episode
+          // lookup, so the "back to episode list" link would just be noise.
+          searchOrigin = null;
           switchToTab('search');
           renderChips();
           runSearch();
