@@ -282,18 +282,67 @@
     '.sk-empty{color:' + C.dim + ';font-size:12px;text-align:center;padding:20px 0;}',
     '.sk-loading{color:' + C.amber + ';font-size:12px;text-align:center;padding:20px 0;',
     'font-family:"Courier New",monospace;}',
-    '.sk-xp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 1px;}',
-    '.sk-xp-row .lbl,.sk-xp-link .lbl{font-size:12px;color:' + C.text + ';flex-shrink:0;}',
-    '.sk-xp-link{display:flex;align-items:center;gap:8px;padding:8px 1px;cursor:pointer;border-top:1px solid ' + C.line + ';}',
-    '.sk-xp-link .sum{flex:1;min-width:0;text-align:right;font-size:11px;color:' + C.dim + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
-    '.sk-xp-link .chev{color:' + C.dim + ';font-size:14px;line-height:1;}',
-    '.sk-xp-link:hover .lbl,.sk-xp-link:hover .chev{color:' + C.amber + ';}',
-    '.sk-xp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}',
-    '.sk-xp-head .ttl{font-size:12px;color:' + C.amber + ';letter-spacing:.04em;}',
-    '.sk-place-box{position:relative;width:176px;height:99px;box-sizing:border-box;border:1px solid ' + C.line + ';border-radius:5px;',
-    'background:rgba(255,255,255,.03);touch-action:none;cursor:crosshair;overflow:hidden;user-select:none;}',
-    '.sk-place-dot{position:absolute;width:3px;height:3px;border-radius:50%;background:' + C.dim + ';opacity:.6;transform:translate(-50%,-50%);pointer-events:none;}',
-    '.sk-place-chip{position:absolute;width:56px;height:22px;box-sizing:border-box;border:1px solid ' + C.amber + ';background:' + C.amberDim + ';border-radius:3px;pointer-events:none;}',
+    '.sk-xc-box{max-width:1120px;height:min(90vh,800px);max-height:none;display:flex;flex-direction:column;overflow:hidden;',
+    'font-family:"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif;color:' + C.text + ';}',
+    '.sk-xc-box button,.sk-xc-box input,.sk-xc-box select{font-family:inherit;}',
+    '.sk-xc-title{font-size:13px;color:' + C.text + ';}',
+    '.sk-xc-title span{color:' + C.dim + ';margin-left:6px;}',
+    '.sk-xc-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);}',
+    '.sk-xc-left{overflow-y:auto;padding:14px 16px;border-right:1px solid ' + C.line + ';min-height:0;}',
+    '.sk-xc-right{display:flex;flex-direction:column;min-height:0;}',
+    '.sk-xc-stage{display:flex;align-items:center;justify-content:center;background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:6px;padding:10px;box-sizing:border-box;}',
+    '.sk-xc-canvas{position:relative;background:#000;flex-shrink:0;overflow:hidden;}',
+    '.sk-xc-cell{position:absolute;box-sizing:border-box;border:1px solid #000;overflow:hidden;cursor:pointer;background:#1a1a1a;}',
+    '.sk-xc-box .sk-xc-cell img{max-height:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:transparent;}',
+    '.sk-xc-cell.hl{outline:2px solid ' + C.amber + ';outline-offset:-2px;z-index:1;}',
+    '.sk-xc-num{position:absolute;top:3px;right:4px;font:10px "Courier New",monospace;color:' + C.text + ';background:rgba(0,0,0,.6);padding:0 4px;border-radius:2px;}',
+    '.sk-xc-lblwrap{position:absolute;pointer-events:none;}',
+    '.sk-xc-chip{position:absolute;white-space:pre;color:#fff;font-family:Arial,Helvetica,sans-serif;pointer-events:auto;cursor:grab;touch-action:none;user-select:none;}',
+    '.sk-xc-chip:hover{outline:1px dashed ' + C.amber + ';}',
+    '.sk-xc-hint{min-height:16px;margin:6px 2px 0;font-size:11px;color:' + C.dim + ';}',
+    '.sk-xc-hint a{color:' + C.amber + ';}',
+    '.sk-xc-set{margin-top:12px;border-top:1px solid ' + C.line + ';padding-top:8px;}',
+    '.sk-xc-line{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;padding:5px 0;}',
+    '.sk-xc-line .k{width:108px;flex-shrink:0;font-size:12px;color:' + C.dim + ';}',
+    '.sk-xc-seg{display:inline-flex;border:1px solid ' + C.line + ';border-radius:5px;overflow:hidden;}',
+    '.sk-xc-seg button{background:transparent;border:0;color:' + C.dim + ';padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;}',
+    '.sk-xc-seg button+button{border-left:1px solid ' + C.line + ';}',
+    '.sk-xc-seg button:hover{color:' + C.text + ';}',
+    '.sk-xc-seg button.on{background:' + C.amberDim + ';color:' + C.amber + ';}',
+    '.sk-xc-seg.dis{opacity:.4;pointer-events:none;}',
+    '#xc-music-line{border:1px dashed transparent;border-radius:6px;}',
+    '#xc-music-line.is-dragover{border-color:' + C.amber + ';background:' + C.panel2 + ';}',
+    '.sk-xc-tracks{display:inline-flex;flex-wrap:wrap;gap:4px;}',
+    '.sk-xc-track{display:inline-flex;align-items:center;gap:6px;max-width:170px;padding:2px 8px;border:1px solid ' + C.line + ';border-radius:10px;font-size:11px;color:' + C.text + ';}',
+    '.sk-xc-track .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-xc-cap{margin:0 0 0 116px;font-size:11px;color:' + C.dim + ';}',
+    '.sk-xc-cap:empty{display:none;}',
+    '.sk-xc-listhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid ' + C.line + ';font-size:12px;color:' + C.text + ';}',
+    '.sk-xc-listhead b{font-weight:normal;color:' + C.dim + ';}',
+    '.sk-xc-list{flex:1;min-height:0;overflow-y:auto;}',
+    '.sk-xc-row{border-bottom:1px solid ' + C.line + ';}',
+    '.sk-xc-row.open{background:' + C.panel2 + ';}',
+    '.sk-xc-row.dragging{opacity:.55;background:' + C.panel2 + ';}',
+    '.sk-xc-rowhead{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;}',
+    '.sk-xc-rowhead:hover .sk-xc-name{color:' + C.amber + ';}',
+    '.sk-xc-grip{cursor:grab;color:' + C.dim + ';font-size:12px;letter-spacing:-2px;line-height:1;touch-action:none;user-select:none;padding:2px 2px;border-radius:3px;}',
+    '.sk-xc-grip:hover,.sk-xc-grip:focus{color:' + C.amber + ';outline:none;}',
+    '.sk-xc-n{width:14px;text-align:right;font:11px "Courier New",monospace;color:' + C.dim + ';flex-shrink:0;}',
+    '.sk-xc-box .sk-xc-rowhead img{width:44px;height:25px;max-height:none;object-fit:cover;border-radius:2px;background:#000;flex-shrink:0;}',
+    '.sk-xc-name{flex:1;min-width:0;font-size:12px;color:' + C.text + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-xc-badge{font-size:10px;color:' + C.amber + ';white-space:nowrap;}',
+    '.sk-xc-badge:empty{display:none;}',
+    '.sk-xc-chev{color:' + C.dim + ';font-size:10px;width:10px;text-align:center;}',
+    '.sk-xc-edit{padding:2px 12px 10px 34px;}',
+    '.sk-xc-field{display:flex;align-items:center;gap:6px;padding:3px 0;}',
+    '.sk-xc-field .k{width:40px;flex-shrink:0;font-size:11px;color:' + C.dim + ';}',
+    '.sk-xc-field .dash{color:' + C.dim + ';}',
+    '.sk-xc-field .sk-input{min-width:0;font-size:12px;padding:4px 6px;}',
+    '.sk-xc-field input[data-s],.sk-xc-field input[data-e]{flex:0 1 84px;}',
+    '.sk-xc-actions{display:flex;gap:6px;justify-content:flex-end;padding-top:4px;}',
+    '.sk-xc-foot{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid ' + C.line + ';background:' + C.panel2 + ';}',
+    '.sk-xc-sum{flex:1;min-width:0;font-size:12px;color:' + C.dim + ';}',
+    '@media (max-width:760px){.sk-xc-box{height:92vh;}.sk-xc-body{display:block;overflow-y:auto;}.sk-xc-left{overflow:visible;border-right:0;}.sk-xc-list{overflow:visible;}}',
     '.sk-spinner{display:inline-block;width:12px;height:12px;border:2px solid ' + C.line + ';',
     'border-top-color:' + C.amber + ';border-radius:50%;vertical-align:middle;margin-right:6px;',
     'animation:sk-spin .7s linear infinite;}',
@@ -1477,6 +1526,7 @@
   function measureLabelTextWidth(text, fontSize) {
     if (!labelMeasureCanvas) labelMeasureCanvas = document.createElement('canvas');
     var ctx = labelMeasureCanvas.getContext('2d');
+    if (!ctx) return String(text).length * fontSize * 0.56; // no canvas support: rough estimate rather than failing
     // The exact same font file (and bytes) ffmpeg renders with — see
     // ensureLabelFont — not a generic system font name, which measuring
     // confirmed can silently under-report width by a wide margin.
@@ -2175,6 +2225,26 @@
     ], statusEl, duration, base, span);
   }
 
+  // Names credited on one clip: its artist-type tags, title-cased.
+  function clipAnimatorNames(p) {
+    return safeMap(
+      safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 1; }),
+      function (t) { return titleCase(t.replace(/_/g, ' ')); }
+    );
+  }
+
+  // The text block drawn on one clip: the custom override if there is one
+  // (wrapped at its own word breaks), else the animator names, else null.
+  // Shared by the real export and the composer's live preview so the two
+  // can never disagree about what a label says or how it wraps.
+  function buildLabelFor(p, override, cellW, cellH) {
+    if (override && override.trim()) {
+      return buildClipLabel(safeFilter(override.trim().split(/\s+/), function (w) { return !!w; }), ' ', cellW, cellH);
+    }
+    var names = clipAnimatorNames(p);
+    return names.length ? buildAnimatorLabel(names, cellW, cellH) : null;
+  }
+
   function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides, musicFiles, musicLoop, labelPos) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
     // Each entry in clips is a {post, instId} occurrence, not a bare post —
@@ -2339,26 +2409,10 @@
                 chain += ',tpad=stop_mode=clone:stop_duration=' + (targetDuration - effectiveDurations[i]).toFixed(2);
               }
               if (labelMode !== 'off') {
-                var override = labelOverrides[p.id];
-                var built;
-                if (override && override.trim()) {
-                  // A custom label replaces the auto-detected staff names
-                  // entirely for this clip — wrapped at its own natural
-                  // word breaks like ordinary text, not treated as a single
-                  // atomic name the way a real animator name is.
-                  built = buildClipLabel(safeFilter(override.trim().split(/\s+/), function (w) { return !!w; }), ' ', pos.w, pos.h);
-                } else {
-                  // Only this clip's own animator tags — not the show, not
-                  // other general tags — since the point is identifying
-                  // who's credited on THIS specific cut, matching the
-                  // community request this came from (identifying whose
-                  // cut is whose in a multi-animator grid or sequence).
-                  var animatorNames = safeMap(
-                    safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 1; }),
-                    function (t) { return titleCase(t.replace(/_/g, ' ')); }
-                  );
-                  built = animatorNames.length ? buildAnimatorLabel(animatorNames, pos.w, pos.h) : null;
-                }
+                // A custom label replaces the auto-detected staff names
+                // entirely for this clip; otherwise only this clip's own
+                // animator tags are used (not the show or other tags).
+                var built = buildLabelFor(p, labelOverrides[p.id], pos.w, pos.h);
                 if (built) {
                   // Free room = frame size minus the text block; the label sits
                   // at that fraction of it (0 = left/top, 1 = right/bottom),
@@ -4430,6 +4484,580 @@
     });
   }
 
+  // ===========================================================================
+  // Export Composer
+  //
+  // One modal for building a pool export. The centrepiece is a live preview
+  // that draws the real layout — the actual thumbnails in the actual cells,
+  // numbered, with each clip's real label text where it will land — so the
+  // person arranges the thing itself instead of filling in a form about it.
+  // Everything is visible at once: five aligned settings rows under the
+  // preview, the clip list beside it (reorder by dragging, open a row for
+  // trim / custom text / duplicate / remove). No panel toggles, no sub-screens.
+  //
+  // onStart(cfg) receives exactly what performGridExport needs.
+  // ===========================================================================
+  var COMPOSER_MAX_MUSIC = 5;
+
+  function openExportComposer(pool, videoPosts, onStart) {
+    var st = {
+      format: 'grid',            // 'grid' | 'serial'
+      orientation: 'landscape',
+      featured: false,           // first clip larger above the rest (grid only)
+      loopMode: 'replay',        // 'replay' | 'stop'
+      labelsOn: false,
+      labelStyle: 'outline',     // 'outline' | 'box'
+      labelPos: { fx: 0, fy: 1 },// fractions of the free room inside a clip; 0,1 = bottom-left
+      musicFiles: [],
+      musicLoop: false,
+      clips: [],                 // [{post, instId}]
+      trims: {},                 // instId -> {start, end}
+      overrides: {},             // instId -> custom label text
+      expanded: null             // instId of the open row
+    };
+    var nextInst = 0;
+    function mk(post) { return { post: post, instId: 'inst' + (nextInst++) }; }
+    st.clips = safeMap(videoPosts.slice(0, MAX_GRID_CLIPS), mk);
+
+    function seg(key, opts) {
+      var h = '<span class="sk-xc-seg" data-seg="' + key + '">';
+      for (var i = 0; i < opts.length; i++) h += '<button type="button" data-v="' + opts[i][0] + '">' + opts[i][1] + '</button>';
+      return h + '</span>';
+    }
+
+    var backdrop = document.createElement('div');
+    backdrop.className = 'sk-media-backdrop';
+    backdrop.innerHTML =
+      '<div class="sk-media-box sk-xc-box" role="dialog" aria-label="Export clips">' +
+        '<div class="sk-media-top"><span class="sk-xc-title">Export <span>' + esc(pool.name) + '</span></span>' +
+          '<span class="sk-media-close" data-close style="margin-left:auto" title="close (Esc)">&times;</span></div>' +
+        '<div class="sk-xc-body">' +
+          '<div class="sk-xc-left">' +
+            '<div class="sk-xc-stage" id="xc-stage"><div class="sk-xc-canvas" id="xc-canvas"></div></div>' +
+            '<div class="sk-xc-hint" id="xc-hint"></div>' +
+            '<div class="sk-xc-set">' +
+              '<div class="sk-xc-line"><span class="k">Layout</span>' +
+                seg('format', [['grid', 'Grid'], ['serial', 'Back to back']]) + ' ' +
+                seg('orientation', [['landscape', 'Landscape'], ['portrait', 'Portrait']]) + '</div>' +
+              '<div class="sk-xc-line" data-gridonly><span class="k">First clip</span>' +
+                seg('featured', [['no', 'Same size'], ['yes', 'Featured']]) + '</div>' +
+              '<div class="sk-xc-line" data-gridonly><span class="k">Shorter clips</span>' +
+                seg('loopMode', [['replay', 'Replay'], ['stop', 'Hold last frame']]) + '</div>' +
+              '<div class="sk-xc-line"><span class="k">Labels</span>' +
+                seg('labels', [['off', 'Off'], ['on', 'Animator names']]) +
+                '<span id="xc-style-wrap"> ' + seg('labelStyle', [['outline', 'Outline'], ['box', 'Box']]) + '</span></div>' +
+              '<div class="sk-xc-line" id="xc-music-line"><span class="k">Music <span class="sk-mad-tag">Sakuga MAD</span></span>' +
+                '<span class="sk-xc-tracks" id="xc-tracks"></span>' +
+                '<button class="sk-nav-btn" id="xc-addaudio" type="button">+ Add audio</button>' +
+                '<span id="xc-musicloop-wrap"> ' + seg('musicLoop', [['once', 'Play once'], ['loop', 'Loop']]) + '</span>' +
+                '<input type="file" id="xc-audiofile" accept="audio/*" multiple style="display:none"></div>' +
+              '<div class="sk-xc-cap" id="xc-music-cap"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="sk-xc-right">' +
+            '<div class="sk-xc-listhead"><span>Clips <b id="xc-count"></b></span>' +
+              '<select class="sk-select" id="xc-add" style="max-width:55%"></select></div>' +
+            '<div class="sk-xc-list" id="xc-list"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="sk-xc-foot">' +
+          '<span class="sk-xc-sum" id="xc-sum"></span>' +
+          '<button class="sk-nav-btn" data-close type="button">Cancel</button>' +
+          '<button class="sk-btn" id="xc-go" type="button">Export</button>' +
+        '</div>' +
+      '</div>';
+
+    function $(sel) { return backdrop.querySelector(sel); }
+    var stageEl = $('#xc-stage'), canvasEl = $('#xc-canvas'), listEl = $('#xc-list');
+    var tagsReady = false;
+
+    // ---------- derived layout ----------
+    function effectiveMode() { return st.format === 'grid' && st.featured && st.clips.length >= 3 ? 'stretch' : 'center'; }
+    function frameInfo() {
+      var n = st.clips.length;
+      if (st.format === 'serial') {
+        var w = st.orientation === 'portrait' ? SERIAL_SHORT : SERIAL_LONG;
+        var h = st.orientation === 'portrait' ? SERIAL_LONG : SERIAL_SHORT;
+        return { W: w, H: h, positions: [{ x: 0, y: 0, w: w, h: h }] };
+      }
+      var pos = computeCellPositions(Math.max(n, 1), st.orientation, effectiveMode());
+      var W = 0, H = 0;
+      for (var i = 0; i < pos.length; i++) {
+        if (pos[i].x + pos[i].w > W) W = pos[i].x + pos[i].w;
+        if (pos[i].y + pos[i].h > H) H = pos[i].y + pos[i].h;
+      }
+      return { W: W, H: H, positions: pos };
+    }
+    function posName() {
+      var fx = st.labelPos.fx, fy = st.labelPos.fy;
+      var xs = fx === 0 ? 'left' : fx === 1 ? 'right' : fx === 0.5 ? 'centre' : null;
+      var ys = fy === 0 ? 'top' : fy === 1 ? 'bottom' : fy === 0.5 ? 'middle' : null;
+      if (!xs || !ys) return 'custom position';
+      if (xs === 'centre' && ys === 'middle') return 'centre';
+      if (xs === 'centre') return ys + ' centre';
+      if (ys === 'middle') return 'middle ' + xs;
+      return ys + ' ' + xs;
+    }
+    function pct(f) { return (Math.round(f * 10000) / 100) + '%'; }
+
+    // ---------- preview ----------
+    var previewScale = 0.4;
+    function renderPreview() {
+      var n = st.clips.length;
+      var f = frameInfo();
+      var availW = Math.max(160, (stageEl.clientWidth || 440) - 20);
+      var maxH = Math.max(180, Math.round((window.innerHeight || 700) * 0.46));
+      var aspect = f.W / f.H;
+      var boxW = Math.min(availW, maxH * aspect);
+      var boxH = boxW / aspect;
+      canvasEl.style.width = Math.round(boxW) + 'px';
+      canvasEl.style.height = Math.round(boxH) + 'px';
+      var s = boxW / f.W;
+      previewScale = s;
+      if (n < 1) { canvasEl.innerHTML = ''; return; }
+
+      var html = '';
+      var cells = st.format === 'serial' ? 1 : n;
+      for (var i = 0; i < cells; i++) {
+        var inst = st.clips[i];
+        var pz = f.positions[i];
+        var p = inst.post;
+        html += '<div class="sk-xc-cell" data-inst="' + inst.instId + '" style="left:' + pct(pz.x / f.W) + ';top:' + pct(pz.y / f.H) +
+          ';width:' + pct(pz.w / f.W) + ';height:' + pct(pz.h / f.H) + '">' +
+          '<img src="' + esc(p.preview_url || '') + '" alt="" draggable="false">' +
+          '<span class="sk-xc-num">' + (st.format === 'serial' ? '1&ndash;' + n : (i + 1)) + '</span>';
+        if (st.labelsOn) {
+          var built = buildLabelFor(p, st.overrides[inst.instId], pz.w, pz.h);
+          if (built) {
+            var lines = built.text.split(String.fromCharCode(10));
+            var fs = built.fontSize * s;
+            var chipStyle = 'font-size:' + fs.toFixed(2) + 'px;line-height:' + ((built.fontSize + 4) / built.fontSize).toFixed(3) + ';' +
+              (st.labelStyle === 'box'
+                ? 'background:rgba(0,0,0,.5);padding:' + (6 * s).toFixed(2) + 'px;'
+                : '-webkit-text-stroke:' + (4 * s).toFixed(2) + 'px #000;paint-order:stroke fill;text-shadow:0 0 ' + (2 * s).toFixed(2) + 'px #000;');
+            html += '<div class="sk-xc-lblwrap" style="inset:' + (10 * s).toFixed(2) + 'px">' +
+              '<div class="sk-xc-chip" data-chip style="' + chipStyle + '">' + safeMap(lines, esc).join('<br>') + '</div></div>';
+          }
+        }
+        html += '</div>';
+      }
+      canvasEl.innerHTML = html;
+      applyChipPos();
+      hlRow(st.expanded);
+    }
+    function applyChipPos() {
+      var chips = canvasEl.querySelectorAll('.sk-xc-chip');
+      var fx = st.labelPos.fx, fy = st.labelPos.fy;
+      for (var i = 0; i < chips.length; i++) {
+        chips[i].style.left = pct(fx);
+        chips[i].style.top = pct(fy);
+        chips[i].style.transform = 'translate(' + pct(-fx) + ',' + pct(-fy) + ')';
+      }
+      renderHint();
+    }
+    function renderHint() {
+      var h = $('#xc-hint');
+      if (!st.labelsOn) { h.innerHTML = st.format === 'serial' ? 'Each clip plays in this frame, one after another.' : ''; return; }
+      var any = canvasEl.querySelector('.sk-xc-chip');
+      var moved = st.labelPos.fx !== 0 || st.labelPos.fy !== 1;
+      h.innerHTML = any
+        ? 'Label: ' + esc(posName()) + ' &middot; drag it to move (same spot on every clip)' +
+          (moved ? ' &middot; <a href="#" id="xc-resetpos">reset</a>' : '')
+        : 'None of these clips has an animator tag. Open a clip and type its label text.';
+      var r = $('#xc-resetpos');
+      if (r) r.onclick = function (e) { e.preventDefault(); st.labelPos = { fx: 0, fy: 1 }; applyChipPos(); };
+    }
+
+    // Dragging a chip: movement is measured against the free room inside its
+    // own clip (the same maths the export uses), applied to every clip at once.
+    var chipDrag = null;
+    function snap(v) {
+      var t = [0, 0.5, 1];
+      for (var i = 0; i < t.length; i++) if (Math.abs(v - t[i]) < 0.06) return t[i];
+      return v;
+    }
+    canvasEl.addEventListener('pointerdown', function (e) {
+      var chip = e.target.closest ? e.target.closest('.sk-xc-chip') : null;
+      if (!chip) return;
+      var wrap = chip.parentNode;
+      chipDrag = {
+        x: e.clientX, y: e.clientY, fx: st.labelPos.fx, fy: st.labelPos.fy,
+        freeW: wrap.clientWidth - chip.offsetWidth, freeH: wrap.clientHeight - chip.offsetHeight, moved: false
+      };
+      try { canvasEl.setPointerCapture(e.pointerId); } catch (err) { /* non-fatal */ }
+      e.preventDefault();
+    });
+    canvasEl.addEventListener('pointermove', function (e) {
+      if (!chipDrag) return;
+      var d = chipDrag;
+      var fx = d.freeW > 1 ? d.fx + (e.clientX - d.x) / d.freeW : d.fx;
+      var fy = d.freeH > 1 ? d.fy + (e.clientY - d.y) / d.freeH : d.fy;
+      d.moved = d.moved || Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) > 2;
+      st.labelPos = { fx: snap(Math.max(0, Math.min(1, fx))), fy: snap(Math.max(0, Math.min(1, fy))) };
+      applyChipPos();
+    });
+    function endChipDrag() { chipDrag = null; }
+    canvasEl.addEventListener('pointerup', endChipDrag);
+    canvasEl.addEventListener('pointercancel', endChipDrag);
+    canvasEl.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.sk-xc-chip')) return;
+      var cell = e.target.closest ? e.target.closest('.sk-xc-cell') : null;
+      if (!cell) return;
+      st.expanded = cell.getAttribute('data-inst');
+      renderList();
+      var row = listEl.querySelector('[data-inst="' + st.expanded + '"]');
+      if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+      hlRow(st.expanded);
+    });
+    canvasEl.addEventListener('mouseover', function (e) {
+      var cell = e.target.closest ? e.target.closest('.sk-xc-cell') : null;
+      hlCell(cell ? cell.getAttribute('data-inst') : null);
+    });
+    canvasEl.addEventListener('mouseleave', function () { hlCell(null); });
+
+    function hlCell(id) {
+      var cells = canvasEl.querySelectorAll('.sk-xc-cell');
+      for (var i = 0; i < cells.length; i++) cells[i].classList.toggle('hl', id != null && cells[i].getAttribute('data-inst') === id);
+    }
+    function hlRow(id) { hlCell(id); }
+
+    // ---------- clip list ----------
+    function rowName(p) {
+      var names = clipAnimatorNames(p);
+      if (names.length) return names.join(', ');
+      return safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).slice(0, 3).join(' ') || ('post ' + p.id);
+    }
+    function badgeText(inst) {
+      var parts = [];
+      var tr = st.trims[inst.instId];
+      if (tr) parts.push(formatTimeInput(tr.start) + '–' + formatTimeInput(tr.end));
+      if (st.overrides[inst.instId]) parts.push('own label');
+      return parts.join(' · ');
+    }
+    var durCache = {};
+    function clipDuration(p) {
+      if (durCache[p.id] != null) return Promise.resolve(durCache[p.id]);
+      return probeVideoDuration(p.file_url).then(function (d) { durCache[p.id] = d; return d; });
+    }
+
+    function renderList() {
+      listEl.innerHTML = '';
+      st.clips.forEach(function (inst, i) {
+        var p = inst.post, id = inst.instId;
+        var open = st.expanded === id;
+        var row = document.createElement('div');
+        row.className = 'sk-xc-row' + (open ? ' open' : '');
+        row.setAttribute('data-inst', id);
+        row.innerHTML =
+          '<div class="sk-xc-rowhead" data-toggle>' +
+            '<span class="sk-xc-grip" tabindex="0" title="drag to reorder, or focus and press Up / Down">&#8942;&#8942;</span>' +
+            '<span class="sk-xc-n">' + (i + 1) + '</span>' +
+            '<img src="' + esc(p.preview_url || '') + '" alt="" draggable="false">' +
+            '<span class="sk-xc-name">' + esc(rowName(p)) + '</span>' +
+            '<span class="sk-xc-badge" data-badge>' + esc(badgeText(inst)) + '</span>' +
+            '<span class="sk-xc-chev">' + (open ? '&#9662;' : '&#9656;') + '</span>' +
+          '</div>' +
+          (open
+            ? '<div class="sk-xc-edit">' +
+                '<div class="sk-xc-field"><span class="k">Trim</span>' +
+                  '<input class="sk-input" data-s placeholder="0:00" value="' + (st.trims[id] ? esc(formatTimeInput(st.trims[id].start)) : '') + '">' +
+                  '<span class="dash">&ndash;</span>' +
+                  '<input class="sk-input" data-e placeholder="end" value="' + (st.trims[id] ? esc(formatTimeInput(st.trims[id].end)) : '') + '">' +
+                  '<button class="sk-nav-btn" data-pick type="button" title="open the clip, mark a range, send it back here">Pick in video</button>' +
+                  (st.trims[id] ? '<span class="sk-close" data-cleartrim title="clear trim">&times;</span>' : '') +
+                '</div>' +
+                '<div class="sk-xc-field"><span class="k">Label</span>' +
+                  '<input class="sk-input" data-text placeholder="' + esc(clipAnimatorNames(p).join(', ') || 'no animator tag — type a label') + '" value="' + esc(st.overrides[id] || '') + '">' +
+                '</div>' +
+                '<div class="sk-xc-actions">' +
+                  '<button class="sk-nav-btn" data-dup type="button" title="add this clip again right after, e.g. to show a different segment">Duplicate</button>' +
+                  '<button class="sk-nav-btn" data-rm type="button"' + (st.clips.length <= 2 ? ' disabled title="an export needs at least 2 clips"' : '') + '>Remove</button>' +
+                '</div>' +
+              '</div>'
+            : '');
+        listEl.appendChild(row);
+
+        row.querySelector('[data-toggle]').onclick = function (e) {
+          if (e.target.closest && e.target.closest('.sk-xc-grip')) return;
+          st.expanded = open ? null : id;
+          renderList();
+          hlRow(st.expanded);
+        };
+        var grip = row.querySelector('.sk-xc-grip');
+        grip.onkeydown = function (e) {
+          var to = e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowDown' ? i + 1 : -1;
+          if (to < 0 || to >= st.clips.length) return;
+          e.preventDefault();
+          moveClip(i, to);
+          var g = listEl.querySelectorAll('.sk-xc-grip')[to];
+          if (g) g.focus();
+        };
+
+        if (!open) return;
+        var sEl = row.querySelector('[data-s]'), eEl = row.querySelector('[data-e]');
+        if (!st.trims[id]) clipDuration(p).then(function (d) { if (d > 0) eEl.placeholder = 'end (' + formatTimeInput(d) + ')'; });
+        function commitTrim() {
+          var a = parseTimeInput(sEl.value), b = parseTimeInput(eEl.value);
+          if (a == null && b == null) delete st.trims[id];
+          else {
+            a = a || 0;
+            if (b == null || b <= a) delete st.trims[id]; else st.trims[id] = { start: a, end: b };
+          }
+          row.querySelector('[data-badge]').textContent = badgeText(inst);
+        }
+        sEl.onchange = commitTrim;
+        eEl.onchange = commitTrim;
+        row.querySelector('[data-pick]').onclick = function () {
+          openVideoModal(p, function (start, end) {
+            st.trims[id] = { start: start, end: end };
+            renderList();
+          });
+        };
+        var clr = row.querySelector('[data-cleartrim]');
+        if (clr) clr.onclick = function () { delete st.trims[id]; renderList(); };
+        row.querySelector('[data-text]').oninput = function (e) {
+          var v = e.currentTarget.value.trim();
+          if (v) st.overrides[id] = v; else delete st.overrides[id];
+          // Typing a label is a clear sign you want labels shown.
+          if (v && !st.labelsOn) { st.labelsOn = true; renderSettings(); }
+          row.querySelector('[data-badge]').textContent = badgeText(inst);
+          renderPreview();
+        };
+        row.querySelector('[data-dup]').onclick = function () {
+          var copy = mk(p);
+          st.clips.splice(i + 1, 0, copy);
+          st.expanded = copy.instId;
+          renderAll();
+        };
+        row.querySelector('[data-rm]').onclick = function () {
+          if (st.clips.length <= 2) return;
+          st.clips.splice(i, 1);
+          delete st.trims[id]; delete st.overrides[id];
+          st.expanded = null;
+          renderAll();
+        };
+      });
+      renderAddSelect();
+      $('#xc-count').textContent = '(' + st.clips.length + ')';
+    }
+
+    function renderAddSelect() {
+      var sel = $('#xc-add');
+      var used = {};
+      st.clips.forEach(function (c) { used[c.post.id] = true; });
+      var rest = safeFilter(videoPosts, function (p) { return !used[p.id]; });
+      var html = '<option value="">' + (rest.length ? '+ Add clip' : 'All clips added') + '</option>';
+      rest.forEach(function (p) { html += '<option value="' + esc(String(p.id)) + '">' + esc(rowName(p)) + '</option>'; });
+      sel.innerHTML = html;
+      sel.disabled = !rest.length;
+    }
+    $('#xc-add').onchange = function (e) {
+      var v = e.currentTarget.value;
+      if (!v) return;
+      var hit = safeFilter(videoPosts, function (p) { return String(p.id) === v; })[0];
+      if (hit) { var inst = mk(hit); st.clips.push(inst); st.expanded = inst.instId; renderAll(); listEl.scrollTop = listEl.scrollHeight; }
+    };
+
+    function moveClip(from, to) {
+      var item = st.clips.splice(from, 1)[0];
+      st.clips.splice(to, 0, item);
+      renderAll();
+    }
+
+    // Pointer-driven drag on the grip: rows are moved in the DOM while
+    // dragging and the order is committed once on release.
+    var rowDrag = null;
+    listEl.addEventListener('pointerdown', function (e) {
+      var grip = e.target.closest ? e.target.closest('.sk-xc-grip') : null;
+      if (!grip) return;
+      var row = grip.parentNode.parentNode;
+      rowDrag = { row: row };
+      row.classList.add('dragging');
+      try { grip.setPointerCapture(e.pointerId); } catch (err) { /* non-fatal */ }
+      e.preventDefault();
+    });
+    listEl.addEventListener('pointermove', function (e) {
+      if (!rowDrag) return;
+      var rows = Array.prototype.slice.call(listEl.children);
+      var before = null;
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i] === rowDrag.row) continue;
+        var r = rows[i].getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) { before = rows[i]; break; }
+      }
+      listEl.insertBefore(rowDrag.row, before);
+    });
+    function endRowDrag() {
+      if (!rowDrag) return;
+      rowDrag = null;
+      var ids = safeMap(Array.prototype.slice.call(listEl.children), function (r) { return r.getAttribute('data-inst'); });
+      var byId = {};
+      st.clips.forEach(function (c) { byId[c.instId] = c; });
+      st.clips = safeMap(ids, function (x) { return byId[x]; });
+      renderAll();
+    }
+    listEl.addEventListener('pointerup', endRowDrag);
+    listEl.addEventListener('pointercancel', endRowDrag);
+
+    // ---------- settings ----------
+    function segValue(key) {
+      if (key === 'format') return st.format;
+      if (key === 'orientation') return st.orientation;
+      if (key === 'featured') return st.featured && st.clips.length >= 3 ? 'yes' : 'no';
+      if (key === 'loopMode') return st.loopMode;
+      if (key === 'labels') return st.labelsOn ? 'on' : 'off';
+      if (key === 'labelStyle') return st.labelStyle;
+      if (key === 'musicLoop') return st.musicLoop ? 'loop' : 'once';
+      return '';
+    }
+    function setSeg(key, v) {
+      if (key === 'format') st.format = v === 'serial' ? 'serial' : 'grid';
+      else if (key === 'orientation') st.orientation = v === 'portrait' ? 'portrait' : 'landscape';
+      else if (key === 'featured') st.featured = v === 'yes';
+      else if (key === 'loopMode') st.loopMode = v === 'stop' ? 'stop' : 'replay';
+      else if (key === 'labels') st.labelsOn = v === 'on';
+      else if (key === 'labelStyle') st.labelStyle = v === 'box' ? 'box' : 'outline';
+      else if (key === 'musicLoop') st.musicLoop = v === 'loop';
+    }
+    backdrop.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.sk-xc-seg button') : null;
+      if (!b) return;
+      setSeg(b.parentNode.getAttribute('data-seg'), b.getAttribute('data-v'));
+      renderSettings();
+      renderPreview();
+      renderSummary();
+    });
+
+    function renderSettings() {
+      var segs = backdrop.querySelectorAll('.sk-xc-seg');
+      for (var i = 0; i < segs.length; i++) {
+        var key = segs[i].getAttribute('data-seg');
+        var val = segValue(key);
+        var btns = segs[i].querySelectorAll('button');
+        for (var j = 0; j < btns.length; j++) btns[j].classList.toggle('on', btns[j].getAttribute('data-v') === val);
+        if (key === 'featured') segs[i].classList.toggle('dis', st.clips.length < 3);
+      }
+      var gridOnly = backdrop.querySelectorAll('[data-gridonly]');
+      for (var g = 0; g < gridOnly.length; g++) gridOnly[g].style.display = st.format === 'serial' ? 'none' : 'flex';
+      $('#xc-style-wrap').style.display = st.labelsOn ? '' : 'none';
+      $('#xc-musicloop-wrap').style.display = st.musicFiles.length ? '' : 'none';
+      $('#xc-addaudio').style.display = st.musicFiles.length >= COMPOSER_MAX_MUSIC ? 'none' : '';
+      $('#xc-music-cap').textContent = st.musicFiles.length
+        ? 'Played back to back from the start, cut to the length of the video' + (st.musicFiles.length >= COMPOSER_MAX_MUSIC ? ' (5 tracks max)' : '') + '.'
+        : '';
+      renderTracks();
+    }
+
+    function renderTracks() {
+      var box = $('#xc-tracks');
+      box.innerHTML = '';
+      st.musicFiles.forEach(function (f, i) {
+        var chip = document.createElement('span');
+        chip.className = 'sk-xc-track';
+        chip.innerHTML = '<span class="nm">' + (i + 1) + '. ' + esc(f.name) + '</span><span class="sk-close" title="remove this track">&times;</span>';
+        chip.querySelector('.sk-close').onclick = function () {
+          st.musicFiles.splice(i, 1);
+          if (!st.musicFiles.length) st.musicLoop = false;
+          renderSettings();
+        };
+        box.appendChild(chip);
+      });
+    }
+    function addAudio(fileList) {
+      var files = fileList || [];
+      for (var i = 0; i < files.length; i++) {
+        if (st.musicFiles.length >= COMPOSER_MAX_MUSIC) break;
+        var f = files[i];
+        if (f.type && f.type.indexOf('audio/') !== 0) continue;
+        st.musicFiles.push(f);
+      }
+      renderSettings();
+    }
+    var audioInput = $('#xc-audiofile');
+    $('#xc-addaudio').onclick = function () { audioInput.click(); };
+    audioInput.onchange = function (e) { addAudio(e.currentTarget.files); audioInput.value = ''; };
+    var musicLine = $('#xc-music-line');
+    musicLine.ondragover = function (e) { e.preventDefault(); musicLine.classList.add('is-dragover'); };
+    musicLine.ondragleave = function () { musicLine.classList.remove('is-dragover'); };
+    musicLine.ondrop = function (e) { e.preventDefault(); musicLine.classList.remove('is-dragover'); addAudio(e.dataTransfer.files); };
+
+    // ---------- summary + export ----------
+    function renderSummary() {
+      var n = st.clips.length;
+      var f = frameInfo();
+      var text;
+      if (st.format === 'serial') {
+        text = n + ' clips back to back';
+      } else if (effectiveMode() === 'stretch') {
+        var rl = computeGridLayout(n - 1, st.orientation);
+        text = n + ' clips: 1 featured + ' + rl.cols + '×' + rl.rows;
+      } else {
+        var l = computeGridLayout(Math.max(n, 1), st.orientation);
+        text = n + ' clips in a ' + l.cols + '×' + l.rows + ' grid';
+      }
+      text += ' · ' + f.W + '×' + f.H;
+      if (n > MAX_GRID_CLIPS) text += ' · more than ' + MAX_GRID_CLIPS + ' clips gets slow and memory-heavy';
+      $('#xc-sum').textContent = text;
+      $('#xc-go').disabled = n < 2;
+    }
+
+    function renderAll() {
+      renderSettings();
+      renderList();
+      renderPreview();
+      renderSummary();
+    }
+
+    function close() {
+      document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('resize', onResize);
+      if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+    }
+    function onKey(e) {
+      if (e.key !== 'Escape') return;
+      var all = document.querySelectorAll('.sk-media-backdrop');
+      if (all[all.length - 1] !== backdrop) return; // a clip viewer is open on top; let it handle Esc
+      close();
+    }
+    var resizeTimer = null;
+    function onResize() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(renderPreview, 80);
+    }
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('resize', onResize);
+
+    var closers = backdrop.querySelectorAll('[data-close]');
+    for (var ci = 0; ci < closers.length; ci++) closers[ci].onclick = close;
+
+    $('#xc-go').onclick = function () {
+      if (st.clips.length < 2) return;
+      var cfg = {
+        clips: st.clips.slice(),
+        orientation: st.orientation,
+        mode: effectiveMode(),
+        trims: JSON.parse(JSON.stringify(st.trims)),
+        loopMode: st.loopMode,
+        labelMode: st.labelsOn ? 'on' : 'off',
+        format: st.format,
+        labelStyle: st.labelStyle,
+        labelOverrides: JSON.parse(JSON.stringify(st.overrides)),
+        musicFiles: st.musicFiles.slice(),
+        musicLoop: st.musicLoop,
+        labelPos: { fx: st.labelPos.fx, fy: st.labelPos.fy }
+      };
+      close();
+      onStart(cfg);
+    };
+
+    document.body.appendChild(backdrop);
+    renderAll();
+    renderPreview(); // second pass: the first measured the stage before it was in the page
+    // Animator names come from the site's tag types; once they arrive the
+    // list names and label previews fill in.
+    ensureTagTypes().then(function () { tagsReady = true; if (backdrop.parentNode) renderAll(); });
+  }
+
   function renderLocalPoolDetail(view, poolId) {
     var pool = getLocalPool(poolId);
     if (!pool) { renderLocalPoolsList(view); return; }
@@ -4442,98 +5070,6 @@
       '<div class="sk-row" style="margin-bottom:8px">' +
         '<button class="sk-btn" id="sk-lp-export" style="flex:1">Export Clips</button>' +
       '</div>' +
-      '<div id="sk-lp-export-panel" style="display:none;border:1px solid ' + C.line + ';border-radius:6px;padding:10px;margin-bottom:8px">' +
-
-        // ---- main screen: a few essentials, then links to the detail screens ----
-        '<div id="sk-xp-main">' +
-          '<div class="sk-caption" id="sk-lp-export-info" style="margin:0 0 6px"></div>' +
-          '<div class="sk-xp-row"><span class="lbl">Layout</span>' +
-            '<select class="sk-select" id="sk-lp-format">' +
-              '<option value="grid">Grid</option><option value="serial">Serial (back to back)</option></select></div>' +
-          '<div class="sk-xp-row"><span class="lbl">Orientation</span>' +
-            '<select class="sk-select" id="sk-lp-orient">' +
-              '<option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div>' +
-          '<div class="sk-xp-link" data-screen="clips"><span class="lbl">Clips</span><span class="sum" id="sk-xp-sum-clips"></span><span class="chev">&#8250;</span></div>' +
-          '<div class="sk-xp-link" data-screen="labels"><span class="lbl">Labels</span><span class="sum" id="sk-xp-sum-labels"></span><span class="chev">&#8250;</span></div>' +
-          '<div class="sk-xp-link" data-screen="music" style="border-bottom:1px solid ' + C.line + '"><span class="lbl">Music</span><span class="sum" id="sk-xp-sum-music"></span><span class="chev">&#8250;</span></div>' +
-          '<div class="sk-caption" id="sk-lp-export-preview" style="margin:10px 0 8px"></div>' +
-          '<div class="sk-row">' +
-            '<button class="sk-btn" id="sk-lp-export-start" style="flex:1">Start Export</button>' +
-            '<button class="sk-nav-btn" id="sk-lp-export-cancel">Cancel</button>' +
-          '</div>' +
-        '</div>' +
-
-        // ---- Clips screen: order, per-clip trims, what shorter clips do ----
-        '<div id="sk-xp-clips" style="display:none">' +
-          '<div class="sk-xp-head"><span class="ttl">Clips</span><button class="sk-nav-btn" data-done type="button">Done</button></div>' +
-          '<div class="sk-toggle-row">' +
-            '<span class="sk-toggle-label" id="sk-lp-custom-label">Custom order</span>' +
-            '<span class="sk-toggle-switch" id="sk-lp-custom-toggle"><span class="sk-toggle-knob"></span></span>' +
-          '</div>' +
-          '<div id="sk-lp-custom-section" class="sk-subpanel" style="display:none">' +
-            '<div class="sk-xp-row" id="sk-lp-stretch-row"><span class="lbl">Leftover row</span>' +
-              '<select class="sk-select" id="sk-lp-mode">' +
-                '<option value="center">Centre the leftover clips</option><option value="stretch">Stretch the first clip across the top</option></select></div>' +
-          '</div>' +
-          '<div class="sk-toggle-row">' +
-            '<span class="sk-toggle-label">Trim individual clips</span>' +
-            '<span class="sk-toggle-switch" id="sk-lp-advanced-toggle"><span class="sk-toggle-knob"></span></span>' +
-          '</div>' +
-          '<div id="sk-lp-advanced-section" class="sk-subpanel" style="display:none">' +
-            '<div class="sk-caption" style="margin:0">' +
-              'each trimmed clip costs an extra encode pass before compositing — slower with more of them. ' +
-              'The exported video\'s own length can be trimmed afterward, once you can see it.' +
-            '</div>' +
-          '</div>' +
-          '<div class="sk-xp-row" id="sk-lp-loop-wrap"><span class="lbl">Shorter clips</span>' +
-            '<select class="sk-select" id="sk-lp-loop">' +
-              '<option value="replay">Replay until the end</option><option value="stop">Stop on the last frame</option></select></div>' +
-          '<div id="sk-lp-clip-list-wrap" style="display:none">' +
-            '<div class="sk-caption" style="margin:6px 0 4px" id="sk-lp-clip-list-label"></div>' +
-            '<div id="sk-lp-export-order" style="max-height:260px;overflow-y:auto"></div>' +
-          '</div>' +
-        '</div>' +
-
-        // ---- Labels screen ----
-        '<div id="sk-xp-labels" style="display:none">' +
-          '<div class="sk-xp-head"><span class="ttl">Labels</span><button class="sk-nav-btn" data-done type="button">Done</button></div>' +
-          '<div class="sk-toggle-row">' +
-            '<span class="sk-toggle-label">Show animator name(s) on each clip</span>' +
-            '<span class="sk-toggle-switch" id="sk-lp-labels-toggle"><span class="sk-toggle-knob"></span></span>' +
-          '</div>' +
-          '<div id="sk-lp-labels-side-row" style="display:none;margin:4px 0 6px">' +
-            '<div class="sk-caption" style="margin:0 0 4px">Position — click or drag; snaps to corners, edges and centre:</div>' +
-            '<div class="sk-place-box" id="sk-lp-labels-place"><span class="sk-place-chip" id="sk-lp-labels-chip"></span></div>' +
-          '</div>' +
-          '<div id="sk-lp-labels-style-row" style="display:none">' +
-            '<div class="sk-xp-row"><span class="lbl">Style</span>' +
-              '<select class="sk-select" id="sk-lp-labels-style">' +
-                '<option value="outline">White text, black outline</option><option value="box">White text on a translucent box</option></select></div>' +
-            '<div class="sk-caption" style="margin:4px 0 0">Want different text on a clip? Type it in the list under ' +
-              '<a href="#" id="sk-lp-labels-to-clips" style="color:' + C.amber + '">Clips</a> — it replaces the staff names for that clip.</div>' +
-          '</div>' +
-        '</div>' +
-
-        // ---- Music screen ----
-        '<div id="sk-xp-music" style="display:none">' +
-          '<div class="sk-xp-head"><span class="ttl">Music <span class="sk-mad-tag">Sakuga MAD</span></span><button class="sk-nav-btn" data-done type="button">Done</button></div>' +
-          '<div class="sk-toggle-row">' +
-            '<span class="sk-toggle-label">Add music</span>' +
-            '<span class="sk-toggle-switch" id="sk-lp-music-toggle"><span class="sk-toggle-knob"></span></span>' +
-          '</div>' +
-          '<div id="sk-lp-music-section" class="sk-subpanel" style="display:none">' +
-            '<div id="sk-lp-music-list" style="margin-bottom:6px"></div>' +
-            '<div class="sk-dropzone" id="sk-lp-music-dropzone">drop audio files here, or click to browse</div>' +
-            '<input type="file" id="sk-lp-music-file" accept="audio/*" multiple style="display:none">' +
-            '<div class="sk-caption" id="sk-lp-music-hint" style="margin:4px 0 0"></div>' +
-            '<div class="sk-caption" style="margin:6px 0 6px">Up to 5 tracks, played back-to-back from the start and trimmed to fit if longer.</div>' +
-            '<div class="sk-xp-row"><span class="lbl">If shorter than the video</span>' +
-              '<select class="sk-select" id="sk-lp-music-loop">' +
-                '<option value="once">Play once, then silence</option><option value="loop">Loop</option></select></div>' +
-          '</div>' +
-        '</div>' +
-
-      '</div>' +
       '<div id="sk-lp-export-status" class="sk-caption" style="display:none"></div>' +
       '<div class="sk-grid" id="sk-lp-grid"></div>';
 
@@ -4544,576 +5080,24 @@
       renderLocalPoolsList(view);
     };
 
-    var exportFormat = 'grid';
-    var exportOrientation = 'landscape';
-    var exportMode = 'center';
-    var exportLoopMode = 'replay';
-    var exportLabelMode = 'off';
-    // Where each label sits within its clip's frame, as a fraction (0..1) of
-    // the free room on each axis: 0,1 = bottom-left corner, 1,1 = bottom
-    // right, 0.5,0.5 = centre. The default is the bottom-left it always was.
-    var exportLabelPos = { fx: 0, fy: 1 };
-    var exportLabelStyle = 'outline';
-    var exportLabelOverrides = {}; // postId -> custom text, replaces the auto-detected staff names for that clip
-    var exportClipOrder = [];
-    var exportTrims = {}; // postId -> {start, end}, seconds
-    var exportPanel = view.querySelector('#sk-lp-export-panel');
-    var xpMain = view.querySelector('#sk-xp-main');
-    var xpScreens = { clips: view.querySelector('#sk-xp-clips'), labels: view.querySelector('#sk-xp-labels'), music: view.querySelector('#sk-xp-music') };
-    var formatSel = view.querySelector('#sk-lp-format');
-    var orientSel = view.querySelector('#sk-lp-orient');
-    var modeSel = view.querySelector('#sk-lp-mode');
-    var stretchRow = view.querySelector('#sk-lp-stretch-row');
-    var loopWrap = view.querySelector('#sk-lp-loop-wrap');
-    var loopSel = view.querySelector('#sk-lp-loop');
-    var labelsToggle = view.querySelector('#sk-lp-labels-toggle');
-    var labelsSideRow = view.querySelector('#sk-lp-labels-side-row');
-    var labelsPlaceBox = view.querySelector('#sk-lp-labels-place');
-    var labelsPlaceChip = view.querySelector('#sk-lp-labels-chip');
-    var labelsStyleRow = view.querySelector('#sk-lp-labels-style-row');
-    var labelsStyleSel = view.querySelector('#sk-lp-labels-style');
-    var customToggle = view.querySelector('#sk-lp-custom-toggle');
-    var customSection = view.querySelector('#sk-lp-custom-section');
-    var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');   // "Trim individual clips"
-    var advancedSection = view.querySelector('#sk-lp-advanced-section');
-    var musicToggle = view.querySelector('#sk-lp-music-toggle');
-    var musicSection = view.querySelector('#sk-lp-music-section');
-    var musicFileInput = view.querySelector('#sk-lp-music-file');
-    var musicDropzone = view.querySelector('#sk-lp-music-dropzone');
-    var musicHintEl = view.querySelector('#sk-lp-music-hint');
-    var musicLoopSel = view.querySelector('#sk-lp-music-loop');
-    var MAX_MUSIC_TRACKS = 5;
-    var exportMusicFiles = [];
-    var exportMusicLoop = false;
-    var clipListWrap = view.querySelector('#sk-lp-clip-list-wrap');
-
-    // Main screen <-> detail screens. The detail screens edit the very same
-    // state as before; this only decides which part of the panel is visible.
-    function showScreen(name) {
-      xpMain.style.display = name ? 'none' : 'block';
-      Object.keys(xpScreens).forEach(function (k) { xpScreens[k].style.display = k === name ? 'block' : 'none'; });
-      if (name === 'labels' && isOn(labelsToggle)) { layoutPlaceDots(); drawLabelPos(); } // only measurable once visible
-      if (name === 'clips') renderExportOrderList();
-      if (!name) refreshSummaries();
-    }
-    var doneBtns = view.querySelectorAll('#sk-lp-export-panel [data-done]');
-    for (var di = 0; di < doneBtns.length; di++) doneBtns[di].onclick = function () { showScreen(null); };
-    var linkRows = view.querySelectorAll('#sk-lp-export-panel .sk-xp-link');
-    for (var li = 0; li < linkRows.length; li++) {
-      linkRows[li].onclick = function (e) { showScreen(e.currentTarget.getAttribute('data-screen')); };
-    }
-    view.querySelector('#sk-lp-labels-to-clips').onclick = function (e) { e.preventDefault(); showScreen('clips'); };
-
-    function labelPosName() {
-      var fx = exportLabelPos.fx, fy = exportLabelPos.fy;
-      var xs = fx === 0 ? 'left' : fx === 1 ? 'right' : fx === 0.5 ? 'centre' : null;
-      var ys = fy === 0 ? 'top' : fy === 1 ? 'bottom' : fy === 0.5 ? 'middle' : null;
-      if (!xs || !ys) return 'custom position';
-      if (xs === 'centre' && ys === 'middle') return 'centre';
-      if (xs === 'centre') return ys + ' centre';
-      if (ys === 'middle') return 'middle ' + xs;
-      return ys + ' ' + xs;
-    }
-    // One-line state shown on each link row, so the main screen reads as a
-    // summary of the whole export without opening anything.
-    function refreshSummaries() {
-      var clipParts = [];
-      if (isOn(customToggle)) clipParts.push('custom order');
-      var trimCount = Object.keys(exportTrims).length;
-      if (trimCount) clipParts.push(trimCount + ' trimmed');
-      var textCount = Object.keys(exportLabelOverrides).length;
-      if (textCount) clipParts.push(textCount + ' custom text');
-      view.querySelector('#sk-xp-sum-clips').textContent = clipParts.length ? clipParts.join(' · ') : 'default';
-      view.querySelector('#sk-xp-sum-labels').textContent = exportLabelMode === 'off'
-        ? 'off'
-        : labelPosName() + ' · ' + (exportLabelStyle === 'box' ? 'box' : 'outline');
-      var n = exportMusicFiles.length;
-      view.querySelector('#sk-xp-sum-music').textContent = n
-        ? n + (n === 1 ? ' track' : ' tracks') + (exportMusicLoop ? ' · loop' : '')
-        : 'none';
-    }
-
-    // Each entry in exportClipOrder is an independent "occurrence" of a
-    // clip, not the clip itself — this is what makes duplicating a clip
-    // (see the 'duplicate' button below) actually useful rather than just
-    // showing the same segment twice: two occurrences of the SAME
-    // underlying post get their own trim range and label override, keyed
-    // by instId rather than the post's own id, so the second showing can
-    // be a different segment credited to a different animator.
-    var nextInstId = 0;
-    function makeClipInstance(post) {
-      return { post: post, instId: 'inst' + (nextInstId++) };
-    }
-    function defaultClipOrder() {
-      return safeMap(
-        safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).slice(0, MAX_GRID_CLIPS),
-        makeClipInstance
-      );
-    }
-    function isOn(toggleEl) { return toggleEl.classList.contains('active'); }
-    function setOn(toggleEl, on) { toggleEl.classList.toggle('active', on); }
-
-    function updateFormatVisibility() {
-      var isSerial = exportFormat === 'serial';
-      // The "leftover row" choice and "shorter clips" behaviour only exist
-      // when there's a grid; a serial export just plays each clip through.
-      stretchRow.style.display = isSerial ? 'none' : 'flex';
-      loopWrap.style.display = isSerial ? 'none' : 'flex';
-      if (isSerial) {
-        // Stretch/featured-clip only makes sense when there's a grid to
-        // feature above — reset the (now hidden) choice back to its own
-        // default so it isn't left in a stale state if the person switches
-        // back to Grid format later.
-        exportMode = 'center';
-        modeSel.value = 'center';
-      }
-    }
-
-    function updateClipListVisibility() {
-      var on = [];
-      if (isOn(customToggle)) on.push('order');
-      if (isOn(advancedToggle)) on.push('trim');
-      if (isOn(labelsToggle)) on.push('text');
-      clipListWrap.style.display = on.length ? 'block' : 'none';
-      var label;
-      if (isOn(customToggle)) {
-        label = exportFormat === 'serial'
-          ? 'Clips play in this order, one after another. Use + Duplicate to show a clip again later with a different segment:'
-          : 'The first clip is featured above the rest if that option is on. Use + Duplicate to show a clip again elsewhere in the grid:';
-      } else if (isOn(advancedToggle)) {
-        label = 'Per-clip trim range (leave blank for the whole clip):';
-      } else {
-        label = 'Custom label text per clip (leave blank to use the staff names):';
-      }
-      view.querySelector('#sk-lp-clip-list-label').textContent = label;
-    }
-
-    formatSel.onchange = function () {
-      exportFormat = formatSel.value === 'serial' ? 'serial' : 'grid';
-      updateFormatVisibility();
-      updateClipListVisibility();
-      updateExportPreview();
-    };
-
-    customToggle.onclick = function () {
-      setOn(customToggle, !isOn(customToggle));
-      if (isOn(customToggle)) {
-        customSection.style.display = 'block';
-      } else {
-        // Back to the plain default: centered leftover row, pool's own
-        // order — not whatever was left over from fiddling with custom
-        // settings a moment ago.
-        customSection.style.display = 'none';
-        exportMode = 'center';
-        modeSel.value = 'center';
-        exportClipOrder = defaultClipOrder();
-      }
-      updateClipListVisibility();
-      renderExportOrderList();
-      updateExportPreview();
-    };
-
-    advancedToggle.onclick = function () {
-      setOn(advancedToggle, !isOn(advancedToggle));
-      if (isOn(advancedToggle)) {
-        advancedSection.style.display = 'block';
-      } else {
-        advancedSection.style.display = 'none';
-        exportTrims = {};
-      }
-      updateClipListVisibility();
-      renderExportOrderList();
-      updateExportPreview();
-    };
-
-    // Shared by both the click-to-browse file input and the drag-and-drop
-    // target below — accepts a FileList from either source. Additive
-    // rather than a fresh replace each time: adding more (by either route)
-    // extends the existing list instead of losing what was already chosen.
-    // Non-audio files are silently skipped (a stray image or video dragged
-    // in alongside real tracks shouldn't produce a confusing ffmpeg
-    // failure later), and anything beyond the 5-track cap is dropped too,
-    // since the hint text already explains the limit and hides the picker
-    // once it's reached.
-    function addMusicFiles(fileList) {
-      var files = fileList || [];
-      for (var i = 0; i < files.length; i++) {
-        if (exportMusicFiles.length >= MAX_MUSIC_TRACKS) break;
-        var f = files[i];
-        if (f.type && f.type.indexOf('audio/') !== 0) continue;
-        exportMusicFiles.push(f);
-      }
-      renderMusicList();
-    }
-
-    function renderMusicList() {
-      var container = view.querySelector('#sk-lp-music-list');
-      container.innerHTML = '';
-      exportMusicFiles.forEach(function (file, i) {
-        var row = document.createElement('div');
-        row.className = 'sk-show-pick';
-        row.style.cursor = 'default';
-        row.innerHTML =
-          '<span class="name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(file.name) + '</span>' +
-          '<span class="sk-close" data-remove-music style="font-size:14px;flex-shrink:0" title="remove this track">&times;</span>';
-        row.querySelector('[data-remove-music]').onclick = function () {
-          exportMusicFiles.splice(i, 1);
-          renderMusicList();
-        };
-        container.appendChild(row);
-      });
-      if (exportMusicFiles.length >= MAX_MUSIC_TRACKS) {
-        musicHintEl.textContent = 'maximum of ' + MAX_MUSIC_TRACKS + ' tracks reached';
-        musicDropzone.style.display = 'none';
-      } else {
-        musicHintEl.textContent = '';
-        musicDropzone.style.display = '';
-      }
-      refreshSummaries();
-    }
-
-    musicToggle.onclick = function () {
-      setOn(musicToggle, !isOn(musicToggle));
-      var on = isOn(musicToggle);
-      musicSection.style.display = on ? 'block' : 'none';
-      if (!on) {
-        exportMusicFiles = [];
-        musicFileInput.value = '';
-        renderMusicList();
-        exportMusicLoop = false;
-        musicLoopSel.value = 'once';
-      }
-      refreshSummaries();
-    };
-    musicFileInput.onchange = function (e) {
-      addMusicFiles(e.currentTarget.files);
-      musicFileInput.value = ''; // lets picking the exact same file again still fire onchange
-    };
-    // A visibly-styled drop target that also acts as the click trigger for
-    // the (hidden) native input — chosen over trying to style the native
-    // "Choose File" button directly, since ::file-selector-button rendering
-    // turned out to be unreliable in practice rather than just unstyled.
-    musicDropzone.onclick = function () { musicFileInput.click(); };
-    musicDropzone.ondragover = function (e) {
-      e.preventDefault();
-      musicDropzone.classList.add('is-dragover');
-    };
-    musicDropzone.ondragleave = function () {
-      musicDropzone.classList.remove('is-dragover');
-    };
-    musicDropzone.ondrop = function (e) {
-      e.preventDefault();
-      musicDropzone.classList.remove('is-dragover');
-      addMusicFiles(e.dataTransfer.files);
-    };
-    musicLoopSel.onchange = function () {
-      exportMusicLoop = musicLoopSel.value === 'loop';
-      refreshSummaries();
-    };
-
-    function updateExportPreview() {
-      var n = exportClipOrder.length;
-      var text;
-      if (exportFormat === 'serial') {
-        text = n + ' clips → played back-to-back, one after another';
-      } else if (exportMode === 'stretch' && n >= 3) {
-        var restLayout = computeGridLayout(n - 1, exportOrientation);
-        text = n + ' clips → featured clip above a ' + restLayout.cols + ' × ' + restLayout.rows + ' grid';
-      } else {
-        var layout = computeGridLayout(n, exportOrientation);
-        text = n + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid';
-      }
-      view.querySelector('#sk-lp-export-preview').textContent = text;
-      refreshSummaries();
-    }
-
-    var clipDurationCache = {}; // postId -> seconds, probed lazily so opening the panel doesn't stall on every clip up front
-    function getClipDuration(p) {
-      if (clipDurationCache[p.id] != null) return Promise.resolve(clipDurationCache[p.id]);
-      return probeVideoDuration(p.file_url).then(function (d) {
-        clipDurationCache[p.id] = d;
-        return d;
-      });
-    }
-
-    function renderExportOrderList() {
-      var container = view.querySelector('#sk-lp-export-order');
-      container.innerHTML = '';
-      exportClipOrder.forEach(function (inst, i) {
-        var p = inst.post;
-        var instId = inst.instId;
-        var row = document.createElement('div');
-        row.className = 'sk-show-pick';
-        row.style.cursor = 'default';
-        // Deliberately NOT a single flex row for everything (the class's
-        // own default) — confirmed this fragile in practice: a flex:1
-        // sibling (min-width:0, so its own hypothetical basis is ~0) can
-        // get judged as "fitting" on the same line as a flex-basis:100%
-        // item, since 0% + 100% doesn't exceed the container width, so no
-        // wrap happens — the 100% item then claims all the space, leaving
-        // the flex:1 item nothing to grow into and rendering it invisible.
-        // Each logical line below is its own independent flex container
-        // instead, so nothing can interact across them this way.
-        row.style.display = 'block';
-        var label = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).slice(0, 3).join(' ');
-        var trim = exportTrims[instId];
-        var html = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
-          '<span style="display:flex;align-items:center;gap:6px;overflow:hidden;flex:1;min-width:0">' +
-            '<img src="' + esc(p.preview_url || '') + '" style="width:36px;height:20px;object-fit:cover;border-radius:2px;flex-shrink:0">' +
-            '<span class="name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(label) + '</span>' +
-          '</span>';
-        if (isOn(advancedToggle)) {
-          html +=
-            '<span class="sk-media-viewpost" data-preview style="cursor:pointer;font-size:11px;margin:0;flex-shrink:0" title="open this clip, mark a range, and send it back here">set range</span>' +
-            '<input class="sk-input" data-trim-start placeholder="0:00" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.start)) : '') + '">' +
-            '<span style="color:' + C.dim + ';flex-shrink:0">–</span>' +
-            '<input class="sk-input" data-trim-end placeholder="…" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.end)) : '') + '">' +
-            (trim ? '<span class="sk-close" data-clear-trim style="font-size:13px;flex-shrink:0" title="clear this clip\'s trim range">&times;</span>' : '');
-        }
-        html += '</div>';
-        if (isOn(customToggle)) {
-          html +=
-            '<div style="display:flex;gap:4px;justify-content:flex-end;margin-top:4px">' +
-              '<button class="sk-nav-btn" data-duplicate style="padding:2px 8px;color:' + C.amber + ';border-color:' + C.amber + '" title="add this clip again right after — useful for showing a different segment, or the same segment again, later in the sequence">+ Duplicate</button>' +
-              '<button class="sk-nav-btn" data-dir="up" style="padding:2px 6px"' + (i === 0 ? ' disabled' : '') + '>&#8593;</button>' +
-              '<button class="sk-nav-btn" data-dir="down" style="padding:2px 6px"' + (i === exportClipOrder.length - 1 ? ' disabled' : '') + '>&#8595;</button>' +
-            '</div>';
-        }
-        if (isOn(labelsToggle)) {
-          var override = exportLabelOverrides[instId] || '';
-          html +=
-            '<input class="sk-input" data-label-override placeholder="custom label text (replaces staff names)" ' +
-            'style="display:block;width:100%;box-sizing:border-box;font-size:11px;padding:3px 6px;margin-top:4px" value="' + esc(override) + '">';
-        }
-        row.innerHTML = html;
-
-        if (isOn(labelsToggle)) {
-          row.querySelector('[data-label-override]').onchange = function (e) {
-            var text = e.currentTarget.value.trim();
-            if (text) exportLabelOverrides[instId] = text;
-            else delete exportLabelOverrides[instId];
-            refreshSummaries();
-          };
-        }
-
-        if (isOn(advancedToggle)) {
-          var startEl = row.querySelector('[data-trim-start]');
-          var endEl = row.querySelector('[data-trim-end]');
-          // Leaving both blank already means "full clip, no trim" — nothing
-          // more to select. This just makes that visible: the end field's
-          // placeholder becomes the clip's real length once known, instead
-          // of a bare "…", so it's clear at a glance without ever writing an
-          // actual value into the field (which would risk quietly turning
-          // into a real trim, and the extra encode pass that comes with one,
-          // for a clip nobody meant to touch).
-          if (!trim) {
-            getClipDuration(p).then(function (duration) {
-              if (duration > 0) endEl.placeholder = 'end (' + formatTimeInput(duration) + ')';
-            });
-          }
-          function commitTrim() {
-            var start = parseTimeInput(startEl.value);
-            var end = parseTimeInput(endEl.value);
-            if (start == null && end == null) { delete exportTrims[instId]; return; }
-            start = start || 0;
-            if (end == null || end <= start) { delete exportTrims[instId]; return; }
-            exportTrims[instId] = { start: start, end: end };
-          }
-          startEl.onchange = function () { commitTrim(); refreshSummaries(); };
-          endEl.onchange = function () { commitTrim(); refreshSummaries(); };
-          // The manual fields above still work for a quick direct edit, but
-          // scrubbing to an exact point and typing what you saw is a lot of
-          // friction — this opens the same Mark In/Out controls the regular
-          // single-clip trim already uses, and feeds the result straight
-          // back into the two fields instead.
-          row.querySelector('[data-preview]').onclick = function () {
-            openVideoModal(p, function (start, end) {
-              startEl.value = formatTimeInput(start);
-              endEl.value = formatTimeInput(end);
-              exportTrims[instId] = { start: start, end: end };
-            });
-          };
-          var clearBtn = row.querySelector('[data-clear-trim]');
-          if (clearBtn) {
-            clearBtn.onclick = function () {
-              delete exportTrims[instId];
-              renderExportOrderList();
-            };
-          }
-        }
-        if (isOn(customToggle)) {
-          row.querySelector('[data-duplicate]').onclick = function () {
-            // A fresh instance id — deliberately starts with its own blank
-            // trim/label rather than copying the original's, since the
-            // whole point is usually to show a DIFFERENT segment (or credit
-            // a different animator) the second time around, not repeat the
-            // first occurrence verbatim.
-            exportClipOrder.splice(i + 1, 0, makeClipInstance(p));
-            renderExportOrderList();
-            updateExportPreview();
-          };
-          row.querySelector('[data-dir="up"]').onclick = function () {
-            if (i === 0) return;
-            var tmp = exportClipOrder[i - 1]; exportClipOrder[i - 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
-            renderExportOrderList();
-            updateExportPreview();
-          };
-          row.querySelector('[data-dir="down"]').onclick = function () {
-            if (i === exportClipOrder.length - 1) return;
-            var tmp = exportClipOrder[i + 1]; exportClipOrder[i + 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
-            renderExportOrderList();
-            updateExportPreview();
-          };
-        }
-        container.appendChild(row);
-      });
-    }
-
     view.querySelector('#sk-lp-export').onclick = function () {
       var videoPosts = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); });
       if (videoPosts.length < 2) { alert('need at least 2 video clips in this pool to export.'); return; }
-      exportClipOrder = safeMap(videoPosts.slice(0, MAX_GRID_CLIPS), makeClipInstance);
-      exportFormat = 'grid';
-      exportOrientation = 'landscape';
-      exportMode = 'center';
-      exportTrims = {};
-      exportLoopMode = 'replay';
-      exportLabelMode = 'off';
-      exportLabelStyle = 'outline';
-      exportLabelOverrides = {};
-      exportMusicFiles = [];
-      exportMusicLoop = false;
-      musicFileInput.value = '';
-      renderMusicList();
-      formatSel.value = 'grid';
-      orientSel.value = 'landscape';
-      modeSel.value = 'center';
-      loopSel.value = 'replay';
-      labelsStyleSel.value = 'outline';
-      musicLoopSel.value = 'once';
-      setOn(customToggle, false);
-      setOn(advancedToggle, false);
-      setOn(labelsToggle, false);
-      setOn(musicToggle, false);
-      musicSection.style.display = 'none';
-      customSection.style.display = 'none';
-      advancedSection.style.display = 'none';
-      labelsSideRow.style.display = 'none';
-      labelsStyleRow.style.display = 'none';
-      resetLabelPos();
-      updateFormatVisibility();
-      view.querySelector('#sk-lp-export-info').textContent = videoPosts.length > MAX_GRID_CLIPS
-        ? exportClipOrder.length + ' of ' + videoPosts.length + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
-        : exportClipOrder.length + ' video clips will be used';
-      updateClipListVisibility();
-      renderExportOrderList();
-      updateExportPreview();
-      showScreen(null);
-      exportPanel.style.display = 'block';
-    };
+      openExportComposer(pool, videoPosts, function (cfg) {
+        var statusEl = view.querySelector('#sk-lp-export-status');
+        statusEl.style.display = 'block';
+        setBusyStatus(statusEl, 'starting…');
+        var exportBtn = view.querySelector('#sk-lp-export');
+        exportBtn.disabled = true;
 
-    orientSel.onchange = function () {
-      exportOrientation = orientSel.value === 'portrait' ? 'portrait' : 'landscape';
-      updateExportPreview();
-    };
-    modeSel.onchange = function () {
-      exportMode = modeSel.value === 'stretch' ? 'stretch' : 'center';
-      updateExportPreview();
-    };
-    loopSel.onchange = function () {
-      exportLoopMode = loopSel.value === 'stop' ? 'stop' : 'replay';
-    };
-
-    // ---- label placement widget: a mini frame to click/drag the label in ----
-    function placeMetrics() {
-      var chipW = labelsPlaceChip.offsetWidth || 56, chipH = labelsPlaceChip.offsetHeight || 22;
-      return { W: labelsPlaceBox.clientWidth || 174, H: labelsPlaceBox.clientHeight || 97, cw: chipW, ch: chipH };
-    }
-    function drawLabelPos() {
-      var m = placeMetrics();
-      labelsPlaceChip.style.left = (exportLabelPos.fx * (m.W - m.cw)) + 'px';
-      labelsPlaceChip.style.top = (exportLabelPos.fy * (m.H - m.ch)) + 'px';
-    }
-    function resetLabelPos() {
-      exportLabelPos = { fx: 0, fy: 1 };
-      drawLabelPos();
-    }
-    // Faint dots at the nine snap points (where the chip's centre lands).
-    [0, 0.5, 1].forEach(function (fy) {
-      [0, 0.5, 1].forEach(function (fx) {
-        var d = document.createElement('span');
-        d.className = 'sk-place-dot';
-        d.setAttribute('data-fx', fx);
-        d.setAttribute('data-fy', fy);
-        labelsPlaceBox.appendChild(d);
+        performGridExport(cfg.clips, statusEl, cfg.orientation, cfg.mode, cfg.trims, cfg.loopMode, cfg.labelMode, cfg.format, cfg.labelStyle, cfg.labelOverrides, cfg.musicFiles, cfg.musicLoop, cfg.labelPos).then(function (result) {
+          statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
+          openGridResultModal(result.blob, pool.name, result.hasAudio);
+        }).catch(function (err) {
+          statusEl.textContent = err.message === 'cancelled' ? '' : 'export failed: ' + err.message;
+          if (err.message === 'cancelled') statusEl.style.display = 'none';
+        }).then(function () { exportBtn.disabled = false; });
       });
-    });
-    function layoutPlaceDots() {
-      var m = placeMetrics();
-      var dots = labelsPlaceBox.querySelectorAll('.sk-place-dot');
-      for (var i = 0; i < dots.length; i++) {
-        dots[i].style.left = (m.cw / 2 + parseFloat(dots[i].getAttribute('data-fx')) * (m.W - m.cw)) + 'px';
-        dots[i].style.top = (m.ch / 2 + parseFloat(dots[i].getAttribute('data-fy')) * (m.H - m.ch)) + 'px';
-      }
-    }
-    function snapAxis(f) {
-      var targets = [0, 0.5, 1];
-      for (var i = 0; i < targets.length; i++) { if (Math.abs(f - targets[i]) < 0.08) return targets[i]; }
-      return f;
-    }
-    var placeDragging = false;
-    function placeFromPointer(e) {
-      var m = placeMetrics();
-      var r = labelsPlaceBox.getBoundingClientRect();
-      var px = e.clientX - r.left - labelsPlaceBox.clientLeft, py = e.clientY - r.top - labelsPlaceBox.clientTop;
-      var fx = Math.max(0, Math.min(1, (px - m.cw / 2) / (m.W - m.cw)));
-      var fy = Math.max(0, Math.min(1, (py - m.ch / 2) / (m.H - m.ch)));
-      exportLabelPos = { fx: snapAxis(fx), fy: snapAxis(fy) };
-      drawLabelPos();
-      refreshSummaries();
-    }
-    labelsPlaceBox.addEventListener('pointerdown', function (e) {
-      placeDragging = true;
-      try { labelsPlaceBox.setPointerCapture(e.pointerId); } catch (err) { /* non-fatal */ }
-      placeFromPointer(e);
-      e.preventDefault();
-    });
-    labelsPlaceBox.addEventListener('pointermove', function (e) { if (placeDragging) placeFromPointer(e); });
-    labelsPlaceBox.addEventListener('pointerup', function () { placeDragging = false; });
-    labelsPlaceBox.addEventListener('pointercancel', function () { placeDragging = false; });
-
-    labelsToggle.onclick = function () {
-      setOn(labelsToggle, !isOn(labelsToggle));
-      var on = isOn(labelsToggle);
-      labelsSideRow.style.display = on ? 'block' : 'none';
-      labelsStyleRow.style.display = on ? 'flex' : 'none';
-      exportLabelMode = on ? 'on' : 'off';
-      if (on) { layoutPlaceDots(); drawLabelPos(); } // only measurable once visible
-      updateClipListVisibility();
-      renderExportOrderList();
-      refreshSummaries();
-    };
-    labelsStyleSel.onchange = function () {
-      exportLabelStyle = labelsStyleSel.value === 'box' ? 'box' : 'outline';
-      refreshSummaries();
-    };
-    view.querySelector('#sk-lp-export-cancel').onclick = function () { exportPanel.style.display = 'none'; };
-
-    view.querySelector('#sk-lp-export-start').onclick = function () {
-      exportPanel.style.display = 'none';
-      var statusEl = view.querySelector('#sk-lp-export-status');
-      statusEl.style.display = 'block';
-      setBusyStatus(statusEl, 'starting…');
-      var exportBtn = view.querySelector('#sk-lp-export');
-      exportBtn.disabled = true;
-
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat, exportLabelStyle, exportLabelOverrides, exportMusicFiles, exportMusicLoop, exportLabelPos).then(function (result) {
-        statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
-        openGridResultModal(result.blob, pool.name, result.hasAudio);
-      }).catch(function (err) {
-        statusEl.textContent = err.message === 'cancelled' ? '' : 'export failed: ' + err.message;
-        if (err.message === 'cancelled') statusEl.style.display = 'none';
-      }).then(function () { exportBtn.disabled = false; });
     };
 
     var grid = view.querySelector('#sk-lp-grid');
