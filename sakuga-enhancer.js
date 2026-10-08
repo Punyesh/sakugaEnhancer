@@ -282,6 +282,10 @@
     '.sk-empty{color:' + C.dim + ';font-size:12px;text-align:center;padding:20px 0;}',
     '.sk-loading{color:' + C.amber + ';font-size:12px;text-align:center;padding:20px 0;',
     'font-family:"Courier New",monospace;}',
+    '.sk-place-box{position:relative;width:176px;height:99px;box-sizing:border-box;border:1px solid ' + C.line + ';border-radius:5px;',
+    'background:rgba(255,255,255,.03);touch-action:none;cursor:crosshair;overflow:hidden;user-select:none;}',
+    '.sk-place-dot{position:absolute;width:3px;height:3px;border-radius:50%;background:' + C.dim + ';opacity:.6;transform:translate(-50%,-50%);pointer-events:none;}',
+    '.sk-place-chip{position:absolute;width:56px;height:22px;box-sizing:border-box;border:1px solid ' + C.amber + ';background:' + C.amberDim + ';border-radius:3px;pointer-events:none;}',
     '.sk-spinner{display:inline-block;width:12px;height:12px;border:2px solid ' + C.line + ';',
     'border-top-color:' + C.amber + ';border-radius:50%;vertical-align:middle;margin-right:6px;',
     'animation:sk-spin .7s linear infinite;}',
@@ -2163,7 +2167,7 @@
     ], statusEl, duration, base, span);
   }
 
-  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides, musicFiles, musicLoop) {
+  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides, musicFiles, musicLoop, labelPos) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
     // Each entry in clips is a {post, instId} occurrence, not a bare post —
     // this is what lets the same clip appear twice in a sequence (see the
@@ -2186,6 +2190,7 @@
     labelStyle = labelStyle || 'outline';
     labelOverrides = labelOverrides || {};
     musicFiles = musicFiles || [];
+    labelPos = labelPos || { fx: 0, fy: 1 };
 
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
@@ -2347,13 +2352,21 @@
                   built = animatorNames.length ? buildAnimatorLabel(animatorNames, pos.w, pos.h) : null;
                 }
                 if (built) {
-                  var xExpr = labelMode === 'right' ? 'w-tw-10' : '10';
+                  // Free room = frame size minus the text block; the label sits
+                  // at that fraction of it (0 = left/top, 1 = right/bottom),
+                  // then is clamped to keep a 10px margin from every edge.
+                  // The escaped commas are required inside a filtergraph.
+                  var fxNum = Math.max(0, Math.min(1, Number(labelPos.fx))) || 0;
+                  var fyNum = Math.max(0, Math.min(1, Number(labelPos.fy)));
+                  if (isNaN(fyNum)) fyNum = 1;
+                  var xExpr = 'max(10\\,min(w-tw-10\\,(w-tw)*' + fxNum.toFixed(4) + '))';
+                  var yExpr = 'max(10\\,min(h-th-10\\,(h-th)*' + fyNum.toFixed(4) + '))';
                   var styleExpr = labelStyle === 'box'
                     ? 'box=1:boxcolor=black@0.5:boxborderw=6'
                     : 'bordercolor=black:borderw=2';
                   chain += ',drawtext=fontfile=label_font.ttf:text=\'' + escapeDrawtext(built.text) + '\'' +
                     ':fontsize=' + built.fontSize + ':fontcolor=white:' + styleExpr + ':line_spacing=4' +
-                    ':x=' + xExpr + ':y=h-th-10';
+                    ':x=' + xExpr + ':y=' + yExpr;
                 }
               }
               filterParts.push(chain + '[v' + i + ']');
@@ -4466,9 +4479,9 @@
               '<span class="sk-toggle-label">Show animator name(s) on each clip</span>' +
               '<span class="sk-toggle-switch" id="sk-lp-labels-toggle"><span class="sk-toggle-knob"></span></span>' +
             '</div>' +
-            '<div class="sk-mode-row" id="sk-lp-labels-side-row" style="display:none;margin-bottom:6px">' +
-              '<button class="sk-mode-btn active" id="sk-lp-labels-left" type="button">Bottom Left</button>' +
-              '<button class="sk-mode-btn" id="sk-lp-labels-right" type="button">Bottom Right</button>' +
+            '<div id="sk-lp-labels-side-row" style="display:none;margin-bottom:6px">' +
+              '<div class="sk-caption" style="margin:0 0 4px">Position — click or drag; snaps to corners, edges and centre:</div>' +
+              '<div class="sk-place-box" id="sk-lp-labels-place"><span class="sk-place-chip" id="sk-lp-labels-chip"></span></div>' +
             '</div>' +
             '<div class="sk-mode-row" id="sk-lp-labels-style-row" style="display:none">' +
               '<button class="sk-mode-btn active" id="sk-lp-labels-style-outline" type="button">Outline</button>' +
@@ -4519,6 +4532,10 @@
     var exportMode = 'center';
     var exportLoopMode = 'replay';
     var exportLabelMode = 'off';
+    // Where each label sits within its clip's frame, as a fraction (0..1) of
+    // the free room on each axis: 0,1 = bottom-left corner, 1,1 = bottom
+    // right, 0.5,0.5 = centre. The default is the bottom-left it always was.
+    var exportLabelPos = { fx: 0, fy: 1 };
     var exportLabelStyle = 'outline';
     var exportLabelOverrides = {}; // postId -> custom text, replaces the auto-detected staff names for that clip
     var exportClipOrder = [];
@@ -4536,8 +4553,8 @@
     var loopStopBtn = view.querySelector('#sk-lp-loop-stop');
     var labelsToggle = view.querySelector('#sk-lp-labels-toggle');
     var labelsSideRow = view.querySelector('#sk-lp-labels-side-row');
-    var labelsLeftBtn = view.querySelector('#sk-lp-labels-left');
-    var labelsRightBtn = view.querySelector('#sk-lp-labels-right');
+    var labelsPlaceBox = view.querySelector('#sk-lp-labels-place');
+    var labelsPlaceChip = view.querySelector('#sk-lp-labels-chip');
     var labelsStyleRow = view.querySelector('#sk-lp-labels-style-row');
     var labelsStyleOutlineBtn = view.querySelector('#sk-lp-labels-style-outline');
     var labelsStyleBoxBtn = view.querySelector('#sk-lp-labels-style-box');
@@ -4658,8 +4675,7 @@
         setOn(labelsToggle, false);
         labelsSideRow.style.display = 'none';
         labelsStyleRow.style.display = 'none';
-        labelsLeftBtn.classList.add('active');
-        labelsRightBtn.classList.remove('active');
+        resetLabelPos();
         labelsStyleOutlineBtn.classList.add('active');
         labelsStyleBoxBtn.classList.remove('active');
         exportLabelMode = 'off';
@@ -4949,8 +4965,7 @@
       stretchBtn.classList.remove('active');
       loopReplayBtn.classList.add('active');
       loopStopBtn.classList.remove('active');
-      labelsLeftBtn.classList.add('active');
-      labelsRightBtn.classList.remove('active');
+      resetLabelPos();
       labelsStyleOutlineBtn.classList.add('active');
       labelsStyleBoxBtn.classList.remove('active');
       updateFormatVisibility();
@@ -4997,12 +5012,70 @@
       loopStopBtn.classList.add('active');
       loopReplayBtn.classList.remove('active');
     };
+    // ---- label placement widget: a mini frame to click/drag the label in ----
+    function placeMetrics() {
+      var chipW = labelsPlaceChip.offsetWidth || 56, chipH = labelsPlaceChip.offsetHeight || 22;
+      return { W: labelsPlaceBox.clientWidth || 174, H: labelsPlaceBox.clientHeight || 97, cw: chipW, ch: chipH };
+    }
+    function drawLabelPos() {
+      var m = placeMetrics();
+      labelsPlaceChip.style.left = (exportLabelPos.fx * (m.W - m.cw)) + 'px';
+      labelsPlaceChip.style.top = (exportLabelPos.fy * (m.H - m.ch)) + 'px';
+    }
+    function resetLabelPos() {
+      exportLabelPos = { fx: 0, fy: 1 };
+      drawLabelPos();
+    }
+    // Faint dots at the nine snap points (where the chip's centre lands).
+    [0, 0.5, 1].forEach(function (fy) {
+      [0, 0.5, 1].forEach(function (fx) {
+        var d = document.createElement('span');
+        d.className = 'sk-place-dot';
+        d.setAttribute('data-fx', fx);
+        d.setAttribute('data-fy', fy);
+        labelsPlaceBox.appendChild(d);
+      });
+    });
+    function layoutPlaceDots() {
+      var m = placeMetrics();
+      var dots = labelsPlaceBox.querySelectorAll('.sk-place-dot');
+      for (var i = 0; i < dots.length; i++) {
+        dots[i].style.left = (m.cw / 2 + parseFloat(dots[i].getAttribute('data-fx')) * (m.W - m.cw)) + 'px';
+        dots[i].style.top = (m.ch / 2 + parseFloat(dots[i].getAttribute('data-fy')) * (m.H - m.ch)) + 'px';
+      }
+    }
+    function snapAxis(f) {
+      var targets = [0, 0.5, 1];
+      for (var i = 0; i < targets.length; i++) { if (Math.abs(f - targets[i]) < 0.08) return targets[i]; }
+      return f;
+    }
+    var placeDragging = false;
+    function placeFromPointer(e) {
+      var m = placeMetrics();
+      var r = labelsPlaceBox.getBoundingClientRect();
+      var px = e.clientX - r.left - labelsPlaceBox.clientLeft, py = e.clientY - r.top - labelsPlaceBox.clientTop;
+      var fx = Math.max(0, Math.min(1, (px - m.cw / 2) / (m.W - m.cw)));
+      var fy = Math.max(0, Math.min(1, (py - m.ch / 2) / (m.H - m.ch)));
+      exportLabelPos = { fx: snapAxis(fx), fy: snapAxis(fy) };
+      drawLabelPos();
+    }
+    labelsPlaceBox.addEventListener('pointerdown', function (e) {
+      placeDragging = true;
+      try { labelsPlaceBox.setPointerCapture(e.pointerId); } catch (err) { /* non-fatal */ }
+      placeFromPointer(e);
+      e.preventDefault();
+    });
+    labelsPlaceBox.addEventListener('pointermove', function (e) { if (placeDragging) placeFromPointer(e); });
+    labelsPlaceBox.addEventListener('pointerup', function () { placeDragging = false; });
+    labelsPlaceBox.addEventListener('pointercancel', function () { placeDragging = false; });
+
     labelsToggle.onclick = function () {
       setOn(labelsToggle, !isOn(labelsToggle));
       var on = isOn(labelsToggle);
-      labelsSideRow.style.display = on ? 'flex' : 'none';
+      labelsSideRow.style.display = on ? 'block' : 'none';
       labelsStyleRow.style.display = on ? 'flex' : 'none';
-      exportLabelMode = on ? 'left' : 'off';
+      exportLabelMode = on ? 'on' : 'off';
+      if (on) { layoutPlaceDots(); drawLabelPos(); } // only measurable once visible
       renderExportOrderList();
     };
     labelsStyleOutlineBtn.onclick = function () {
@@ -5015,16 +5088,6 @@
       labelsStyleBoxBtn.classList.add('active');
       labelsStyleOutlineBtn.classList.remove('active');
     };
-    labelsLeftBtn.onclick = function () {
-      exportLabelMode = 'left';
-      labelsLeftBtn.classList.add('active');
-      labelsRightBtn.classList.remove('active');
-    };
-    labelsRightBtn.onclick = function () {
-      exportLabelMode = 'right';
-      labelsRightBtn.classList.add('active');
-      labelsLeftBtn.classList.remove('active');
-    };
     view.querySelector('#sk-lp-export-cancel').onclick = function () { exportPanel.style.display = 'none'; };
 
     view.querySelector('#sk-lp-export-start').onclick = function () {
@@ -5035,7 +5098,7 @@
       var exportBtn = view.querySelector('#sk-lp-export');
       exportBtn.disabled = true;
 
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat, exportLabelStyle, exportLabelOverrides, exportMusicFiles, exportMusicLoop).then(function (result) {
+      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat, exportLabelStyle, exportLabelOverrides, exportMusicFiles, exportMusicLoop, exportLabelPos).then(function (result) {
         statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
         openGridResultModal(result.blob, pool.name, result.hasAudio);
       }).catch(function (err) {
