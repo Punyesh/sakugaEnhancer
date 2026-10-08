@@ -352,7 +352,11 @@
     '.sk-xc-grip:hover,.sk-xc-grip:focus{color:' + C.amber + ';outline:none;}',
     '.sk-xc-n{width:14px;text-align:right;font:11px "Courier New",monospace;color:' + C.dim + ';flex-shrink:0;}',
     '.sk-xc-box .sk-xc-rowhead img{width:44px;height:25px;max-height:none;object-fit:cover;border-radius:2px;background:#000;flex-shrink:0;}',
-    '.sk-xc-name{flex:1;min-width:0;font-size:12px;color:' + C.text + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-xc-who{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}',
+    '.sk-xc-name{font-size:12px;color:' + C.text + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-xc-sub{font-size:10px;color:' + C.dim + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-xc-sub .id{font-family:"Courier New",monospace;}',
+    '.sk-xc-row.hl:not(.open){background:' + C.panel2 + ';}',
     '.sk-xc-badge{font-size:10px;color:' + C.amber + ';white-space:nowrap;}',
     '.sk-xc-badge:empty{display:none;}',
     '.sk-xc-chev{color:' + C.dim + ';font-size:10px;width:10px;text-align:center;}',
@@ -361,7 +365,7 @@
     '.sk-xc-field .k{width:40px;flex-shrink:0;font-size:11px;color:' + C.dim + ';}',
     '.sk-xc-field .dash{color:' + C.dim + ';}',
     '.sk-xc-field .sk-input{min-width:0;font-size:12px;padding:4px 6px;}',
-    '.sk-xc-field input[data-s],.sk-xc-field input[data-e]{flex:0 1 84px;}',
+    '.sk-xc-field input[data-s],.sk-xc-field input[data-e]{flex:0 1 96px;}',
     '.sk-xc-actions{display:flex;gap:6px;justify-content:flex-end;padding-top:4px;}',
     '.sk-xc-foot{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid ' + C.line + ';background:' + C.panel2 + ';}',
     '.sk-xc-sum{flex:1;min-width:0;font-size:12px;color:' + C.dim + ';}',
@@ -4782,13 +4786,19 @@
     canvasEl.addEventListener('pointercancel', endChipDrag);
     canvasEl.addEventListener('mouseover', function (e) {
       var cell = e.target.closest ? e.target.closest('.sk-xc-cell') : null;
-      hlCell(cell ? cell.getAttribute('data-inst') : null);
+      var cid = cell ? cell.getAttribute('data-inst') : null;
+      hlCell(cid);
+      if (!drag) hlListRow(cid);
     });
-    canvasEl.addEventListener('mouseleave', function () { hlCell(null); });
+    canvasEl.addEventListener('mouseleave', function () { hlCell(st.expanded); hlListRow(null); });
 
     function hlCell(id) {
       var cells = canvasEl.querySelectorAll('.sk-xc-cell');
       for (var i = 0; i < cells.length; i++) cells[i].classList.toggle('hl', id != null && cells[i].getAttribute('data-inst') === id);
+    }
+    function hlListRow(id) {
+      var rows = listEl.children;
+      for (var i = 0; i < rows.length; i++) rows[i].classList.toggle('hl', id != null && rows[i].getAttribute('data-inst') === id);
     }
     function hlRow(id) { hlCell(id); }
 
@@ -4797,6 +4807,25 @@
       var names = clipAnimatorNames(p);
       if (names.length) return names.join(', ');
       return safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).slice(0, 3).join(' ') || ('post ' + p.id);
+    }
+    // Second line under a clip's name, so clips by the same animator can be
+    // told apart: the show, the episode/OP/ED when the source says so, a
+    // "repeat" marker for a second showing of the same post, and always the
+    // post number (the one thing that is unique).
+    function rowSub(inst) {
+      var p = inst.post, parts = [];
+      var shows = safeMap(
+        safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 3; }),
+        function (t) { return titleCase(t.replace(/_/g, ' ')); }
+      ).slice(0, 2);
+      if (shows.length) parts.push(esc(shows.join(', ')));
+      var ep = parseEpisodeKey(p.source);
+      if (ep.key !== 'unsorted' && ep.key !== 'other') parts.push(esc(ep.key.indexOf('ep:') === 0 ? 'Ep ' + ep.sortNum : ep.label));
+      var seen = 0;
+      for (var i = 0; i < st.clips.length && st.clips[i] !== inst; i++) if (st.clips[i].post.id === p.id) seen++;
+      if (seen) parts.push('repeat');
+      parts.push('<span class="id">#' + esc(String(p.id)) + '</span>');
+      return parts.join(' &middot; ');
     }
     function badgeText(inst) {
       var parts = [];
@@ -4824,7 +4853,8 @@
             '<span class="sk-xc-grip" tabindex="0" title="drag to reorder, or focus and press Up / Down. Enter opens the clip">&#8942;&#8942;</span>' +
             '<span class="sk-xc-n">' + (i + 1) + '</span>' +
             '<img src="' + esc(p.preview_url || '') + '" alt="" draggable="false">' +
-            '<span class="sk-xc-name">' + esc(rowName(p)) + '</span>' +
+            '<span class="sk-xc-who"><span class="sk-xc-name">' + esc(rowName(p)) + '</span>' +
+              '<span class="sk-xc-sub">' + rowSub(inst) + '</span></span>' +
             '<span class="sk-xc-badge" data-badge>' + esc(badgeText(inst)) + '</span>' +
             '<span class="sk-xc-chev">' + (open ? '&#9662;' : '&#9656;') + '</span>' +
           '</div>' +
@@ -4848,6 +4878,8 @@
             : '');
         listEl.appendChild(row);
 
+        row.onmouseenter = function () { if (!drag) hlCell(id); };
+        row.onmouseleave = function () { if (!drag) hlCell(st.expanded); };
         var grip = row.querySelector('.sk-xc-grip');
         grip.onkeydown = function (e) {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectClip(id, true); return; }
@@ -4907,15 +4939,20 @@
       $('#xc-count').textContent = '(' + st.clips.length + ')';
     }
 
+    // Only offered when there is something to add: clips beyond the first 9
+    // or ones that were removed.
     function renderAddSelect() {
       var sel = $('#xc-add');
       var used = {};
       st.clips.forEach(function (c) { used[c.post.id] = true; });
       var rest = safeFilter(videoPosts, function (p) { return !used[p.id]; });
-      var html = '<option value="">' + (rest.length ? '+ Add clip' : 'All clips added') + '</option>';
-      rest.forEach(function (p) { html += '<option value="' + esc(String(p.id)) + '">' + esc(rowName(p)) + '</option>'; });
+      var html = '<option value="">+ Add clip (' + rest.length + ' left)</option>';
+      rest.forEach(function (p) {
+        var showNames = safeMap(safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 3; }), function (t) { return titleCase(t.replace(/_/g, ' ')); })[0];
+        html += '<option value="' + esc(String(p.id)) + '">' + esc(rowName(p) + (showNames ? ' \u2013 ' + showNames : '') + ' #' + p.id) + '</option>';
+      });
       sel.innerHTML = html;
-      sel.disabled = !rest.length;
+      sel.style.display = rest.length ? '' : 'none';
     }
     $('#xc-add').onchange = function (e) {
       var v = e.currentTarget.value;
