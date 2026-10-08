@@ -315,6 +315,12 @@
     '.sk-xc-box .sk-xc-fr img{width:100%;height:100%;max-height:none;object-fit:cover;display:block;pointer-events:none;}',
     '.sk-xc-frn{position:absolute;left:2px;top:1px;font:9px "Courier New",monospace;color:' + C.text + ';background:rgba(0,0,0,.6);padding:0 3px;border-radius:2px;}',
     '.sk-xc-hint{min-height:16px;margin:6px 2px 0;font-size:11px;color:' + C.dim + ';}',
+    '.sk-xc-pos{display:inline-grid;grid-template-columns:repeat(3,20px);gap:3px;padding:4px;border:1px solid ' + C.line + ';border-radius:5px;background:' + C.bg + ';}',
+    '.sk-xc-pos button{width:20px;height:12px;padding:0;border:1px solid ' + C.line + ';border-radius:2px;background:transparent;cursor:pointer;}',
+    '.sk-xc-pos button:hover{border-color:' + C.amber + ';}',
+    '.sk-xc-pos button.on{background:' + C.amber + ';border-color:' + C.amber + ';}',
+    '.sk-xc-poshint{font-size:11px;color:' + C.dim + ';}',
+    '.sk-xc-chip::after{content:"";position:absolute;inset:-6px;}',
     '.sk-xc-hint a{color:' + C.amber + ';}',
     '.sk-xc-set{margin-top:12px;border-top:1px solid ' + C.line + ';padding-top:8px;}',
     '.sk-xc-line{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;padding:5px 0;}',
@@ -4565,6 +4571,9 @@
               '<div class="sk-xc-line"><span class="k">Labels</span>' +
                 seg('labels', [['off', 'Off'], ['on', 'Animator names']]) +
                 '<span id="xc-style-wrap"> ' + seg('labelStyle', [['outline', 'Outline'], ['box', 'Box']]) + '</span></div>' +
+              '<div class="sk-xc-line" id="xc-posline"><span class="k">Label position</span>' +
+                '<span class="sk-xc-pos" id="xc-pos"></span>' +
+                '<span class="sk-xc-poshint" id="xc-poshint">or drag the label in the preview</span></div>' +
               '<div class="sk-xc-line" id="xc-music-line"><span class="k">Music <span class="sk-mad-tag">Sakuga MAD</span></span>' +
                 '<span class="sk-xc-tracks" id="xc-tracks"></span>' +
                 '<button class="sk-nav-btn" id="xc-addaudio" type="button">+ Add audio</button>' +
@@ -4685,6 +4694,30 @@
       applyChipPos();
       hlRow(st.expanded);
     }
+    // 3x3 position picker: the nine snap points as buttons. Highlights the
+    // one in use; a dragged-to custom position leaves all nine unlit.
+    (function buildPosPicker() {
+      var box = $('#xc-pos'), h = '';
+      [0, 0.5, 1].forEach(function (fy) {
+        [0, 0.5, 1].forEach(function (fx) {
+          h += '<button type="button" data-fx="' + fx + '" data-fy="' + fy + '" title="' +
+            (fy === 0 ? 'top' : fy === 1 ? 'bottom' : 'middle') + ' ' + (fx === 0 ? 'left' : fx === 1 ? 'right' : 'centre') + '"></button>';
+        });
+      });
+      box.innerHTML = h;
+      box.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('button') : null;
+        if (!b) return;
+        st.labelPos = { fx: parseFloat(b.getAttribute('data-fx')), fy: parseFloat(b.getAttribute('data-fy')) };
+        applyChipPos();
+      });
+    })();
+    function syncPosPicker() {
+      var btns = $('#xc-pos').querySelectorAll('button');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle('on', parseFloat(btns[i].getAttribute('data-fx')) === st.labelPos.fx && parseFloat(btns[i].getAttribute('data-fy')) === st.labelPos.fy);
+      }
+    }
     function applyChipPos() {
       var chips = canvasEl.querySelectorAll('.sk-xc-chip');
       var fx = st.labelPos.fx, fy = st.labelPos.fy;
@@ -4693,6 +4726,7 @@
         chips[i].style.top = pct(fy);
         chips[i].style.transform = 'translate(' + pct(-fx) + ',' + pct(-fy) + ')';
       }
+      syncPosPicker();
       renderHint();
     }
     function renderHint() {
@@ -4707,7 +4741,7 @@
         var any = canvasEl.querySelector('.sk-xc-chip');
         var moved = st.labelPos.fx !== 0 || st.labelPos.fy !== 1;
         parts.push(any
-          ? 'label: ' + esc(posName()) + ' (drag it to move, same spot on every clip)' + (moved ? ' <a href="#" id="xc-resetpos">reset</a>' : '')
+          ? 'label: ' + esc(posName()) + ' on every clip' + (moved ? ' <a href="#" id="xc-resetpos">reset</a>' : '')
           : 'no animator tag on this clip: open it and type a label');
       }
       h.innerHTML = parts.join(' &middot; ');
@@ -5150,6 +5184,7 @@
       var gridOnly = backdrop.querySelectorAll('[data-gridonly]');
       for (var g = 0; g < gridOnly.length; g++) gridOnly[g].style.display = st.format === 'serial' ? 'none' : 'flex';
       $('#xc-style-wrap').style.display = st.labelsOn ? '' : 'none';
+      $('#xc-posline').style.display = st.labelsOn ? 'flex' : 'none';
       $('#xc-musicloop-wrap').style.display = st.musicFiles.length ? '' : 'none';
       $('#xc-addaudio').style.display = st.musicFiles.length >= COMPOSER_MAX_MUSIC ? 'none' : '';
       $('#xc-music-cap').textContent = st.musicFiles.length
