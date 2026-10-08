@@ -282,6 +282,14 @@
     '.sk-empty{color:' + C.dim + ';font-size:12px;text-align:center;padding:20px 0;}',
     '.sk-loading{color:' + C.amber + ';font-size:12px;text-align:center;padding:20px 0;',
     'font-family:"Courier New",monospace;}',
+    '.sk-xp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 1px;}',
+    '.sk-xp-row .lbl,.sk-xp-link .lbl{font-size:12px;color:' + C.text + ';flex-shrink:0;}',
+    '.sk-xp-link{display:flex;align-items:center;gap:8px;padding:8px 1px;cursor:pointer;border-top:1px solid ' + C.line + ';}',
+    '.sk-xp-link .sum{flex:1;min-width:0;text-align:right;font-size:11px;color:' + C.dim + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-xp-link .chev{color:' + C.dim + ';font-size:14px;line-height:1;}',
+    '.sk-xp-link:hover .lbl,.sk-xp-link:hover .chev{color:' + C.amber + ';}',
+    '.sk-xp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}',
+    '.sk-xp-head .ttl{font-size:12px;color:' + C.amber + ';letter-spacing:.04em;}',
     '.sk-place-box{position:relative;width:176px;height:99px;box-sizing:border-box;border:1px solid ' + C.line + ';border-radius:5px;',
     'background:rgba(255,255,255,.03);touch-action:none;cursor:crosshair;overflow:hidden;user-select:none;}',
     '.sk-place-dot{position:absolute;width:3px;height:3px;border-radius:50%;background:' + C.dim + ';opacity:.6;transform:translate(-50%,-50%);pointer-events:none;}',
@@ -4435,87 +4443,96 @@
         '<button class="sk-btn" id="sk-lp-export" style="flex:1">Export Clips</button>' +
       '</div>' +
       '<div id="sk-lp-export-panel" style="display:none;border:1px solid ' + C.line + ';border-radius:6px;padding:10px;margin-bottom:8px">' +
-        '<div class="sk-caption" id="sk-lp-export-info" style="margin:0 0 8px"></div>' +
 
-        '<div class="sk-section-label">Layout</div>' +
-        '<div class="sk-mode-row" style="margin-bottom:8px">' +
-          '<button class="sk-mode-btn active" id="sk-lp-format-grid" type="button">Grid</button>' +
-          '<button class="sk-mode-btn" id="sk-lp-format-serial" type="button">Serial</button>' +
-        '</div>' +
-        '<div class="sk-mode-row">' +
-          '<button class="sk-mode-btn active" id="sk-lp-orient-landscape" type="button">Landscape</button>' +
-          '<button class="sk-mode-btn" id="sk-lp-orient-portrait" type="button">Portrait</button>' +
-        '</div>' +
-
-        '<div class="sk-section-label">Clips</div>' +
-        '<div class="sk-toggle-row">' +
-          '<span class="sk-toggle-label" id="sk-lp-custom-label">Custom order</span>' +
-          '<span class="sk-toggle-switch" id="sk-lp-custom-toggle"><span class="sk-toggle-knob"></span></span>' +
-        '</div>' +
-        '<div id="sk-lp-custom-section" class="sk-subpanel" style="display:none">' +
-          '<div class="sk-mode-row" id="sk-lp-stretch-row" style="margin-bottom:6px">' +
-            '<button class="sk-mode-btn active" id="sk-lp-mode-center" type="button">Center leftover</button>' +
-            '<button class="sk-mode-btn" id="sk-lp-mode-stretch" type="button">Stretch first clip</button>' +
-          '</div>' +
-        '</div>' +
-        '<div class="sk-toggle-row">' +
-          '<span class="sk-toggle-label">Advanced options</span>' +
-          '<span class="sk-toggle-switch" id="sk-lp-advanced-toggle"><span class="sk-toggle-knob"></span></span>' +
-        '</div>' +
-        '<div id="sk-lp-advanced-section" class="sk-subpanel" style="display:none">' +
-          '<div class="sk-caption" style="margin:0 0 6px">' +
-            'each trimmed clip costs an extra encode pass before compositing — slower with more of them. ' +
-            'The exported grid\'s own length can be trimmed afterward, once you can see it.' +
-          '</div>' +
-          '<div id="sk-lp-loop-wrap">' +
-            '<div class="sk-caption" style="margin:0 0 4px">Shorter clips than the target length:</div>' +
-            '<div class="sk-mode-row">' +
-              '<button class="sk-mode-btn active" id="sk-lp-loop-replay" type="button">Replay</button>' +
-              '<button class="sk-mode-btn" id="sk-lp-loop-stop" type="button">Stop</button>' +
-            '</div>' +
-          '</div>' +
-          '<div id="sk-lp-labels-block" class="sk-subdivider">' +
-            '<div class="sk-toggle-row">' +
-              '<span class="sk-toggle-label">Show animator name(s) on each clip</span>' +
-              '<span class="sk-toggle-switch" id="sk-lp-labels-toggle"><span class="sk-toggle-knob"></span></span>' +
-            '</div>' +
-            '<div id="sk-lp-labels-side-row" style="display:none;margin-bottom:6px">' +
-              '<div class="sk-caption" style="margin:0 0 4px">Position — click or drag; snaps to corners, edges and centre:</div>' +
-              '<div class="sk-place-box" id="sk-lp-labels-place"><span class="sk-place-chip" id="sk-lp-labels-chip"></span></div>' +
-            '</div>' +
-            '<div class="sk-mode-row" id="sk-lp-labels-style-row" style="display:none">' +
-              '<button class="sk-mode-btn active" id="sk-lp-labels-style-outline" type="button">Outline</button>' +
-              '<button class="sk-mode-btn" id="sk-lp-labels-style-box" type="button">Box</button>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div id="sk-lp-clip-list-wrap" style="display:none">' +
-          '<div class="sk-caption" style="margin:0 0 4px" id="sk-lp-clip-list-label"></div>' +
-          '<div id="sk-lp-export-order" style="max-height:220px;overflow-y:auto;margin-bottom:8px"></div>' +
-        '</div>' +
-
-        '<div class="sk-section-label">Audio</div>' +
-        '<div class="sk-toggle-row">' +
-          '<span class="sk-toggle-label">Add music <span class="sk-mad-tag">Sakuga MAD</span></span>' +
-          '<span class="sk-toggle-switch" id="sk-lp-music-toggle"><span class="sk-toggle-knob"></span></span>' +
-        '</div>' +
-        '<div id="sk-lp-music-section" class="sk-subpanel" style="display:none">' +
-          '<div id="sk-lp-music-list" style="margin-bottom:6px"></div>' +
-          '<div class="sk-dropzone" id="sk-lp-music-dropzone">drop audio files here, or click to browse</div>' +
-          '<input type="file" id="sk-lp-music-file" accept="audio/*" multiple style="display:none">' +
-          '<div class="sk-caption" id="sk-lp-music-hint" style="margin:4px 0 0"></div>' +
-          '<div class="sk-caption" style="margin:6px 0 4px">Multiple tracks play back-to-back, combined into one. Plays from the start, trimmed to fit if longer. If shorter than the export:</div>' +
-          '<div class="sk-mode-row">' +
-            '<button class="sk-mode-btn active" id="sk-lp-music-once" type="button">Once (silence after)</button>' +
-            '<button class="sk-mode-btn" id="sk-lp-music-loop" type="button">Loop</button>' +
+        // ---- main screen: a few essentials, then links to the detail screens ----
+        '<div id="sk-xp-main">' +
+          '<div class="sk-caption" id="sk-lp-export-info" style="margin:0 0 6px"></div>' +
+          '<div class="sk-xp-row"><span class="lbl">Layout</span>' +
+            '<select class="sk-select" id="sk-lp-format">' +
+              '<option value="grid">Grid</option><option value="serial">Serial (back to back)</option></select></div>' +
+          '<div class="sk-xp-row"><span class="lbl">Orientation</span>' +
+            '<select class="sk-select" id="sk-lp-orient">' +
+              '<option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div>' +
+          '<div class="sk-xp-link" data-screen="clips"><span class="lbl">Clips</span><span class="sum" id="sk-xp-sum-clips"></span><span class="chev">&#8250;</span></div>' +
+          '<div class="sk-xp-link" data-screen="labels"><span class="lbl">Labels</span><span class="sum" id="sk-xp-sum-labels"></span><span class="chev">&#8250;</span></div>' +
+          '<div class="sk-xp-link" data-screen="music" style="border-bottom:1px solid ' + C.line + '"><span class="lbl">Music</span><span class="sum" id="sk-xp-sum-music"></span><span class="chev">&#8250;</span></div>' +
+          '<div class="sk-caption" id="sk-lp-export-preview" style="margin:10px 0 8px"></div>' +
+          '<div class="sk-row">' +
+            '<button class="sk-btn" id="sk-lp-export-start" style="flex:1">Start Export</button>' +
+            '<button class="sk-nav-btn" id="sk-lp-export-cancel">Cancel</button>' +
           '</div>' +
         '</div>' +
 
-        '<div class="sk-caption" id="sk-lp-export-preview" style="margin:12px 0 8px"></div>' +
-        '<div class="sk-row">' +
-          '<button class="sk-btn" id="sk-lp-export-start" style="flex:1">Start Export</button>' +
-          '<button class="sk-nav-btn" id="sk-lp-export-cancel">Cancel</button>' +
+        // ---- Clips screen: order, per-clip trims, what shorter clips do ----
+        '<div id="sk-xp-clips" style="display:none">' +
+          '<div class="sk-xp-head"><span class="ttl">Clips</span><button class="sk-nav-btn" data-done type="button">Done</button></div>' +
+          '<div class="sk-toggle-row">' +
+            '<span class="sk-toggle-label" id="sk-lp-custom-label">Custom order</span>' +
+            '<span class="sk-toggle-switch" id="sk-lp-custom-toggle"><span class="sk-toggle-knob"></span></span>' +
+          '</div>' +
+          '<div id="sk-lp-custom-section" class="sk-subpanel" style="display:none">' +
+            '<div class="sk-xp-row" id="sk-lp-stretch-row"><span class="lbl">Leftover row</span>' +
+              '<select class="sk-select" id="sk-lp-mode">' +
+                '<option value="center">Centre the leftover clips</option><option value="stretch">Stretch the first clip across the top</option></select></div>' +
+          '</div>' +
+          '<div class="sk-toggle-row">' +
+            '<span class="sk-toggle-label">Trim individual clips</span>' +
+            '<span class="sk-toggle-switch" id="sk-lp-advanced-toggle"><span class="sk-toggle-knob"></span></span>' +
+          '</div>' +
+          '<div id="sk-lp-advanced-section" class="sk-subpanel" style="display:none">' +
+            '<div class="sk-caption" style="margin:0">' +
+              'each trimmed clip costs an extra encode pass before compositing — slower with more of them. ' +
+              'The exported video\'s own length can be trimmed afterward, once you can see it.' +
+            '</div>' +
+          '</div>' +
+          '<div class="sk-xp-row" id="sk-lp-loop-wrap"><span class="lbl">Shorter clips</span>' +
+            '<select class="sk-select" id="sk-lp-loop">' +
+              '<option value="replay">Replay until the end</option><option value="stop">Stop on the last frame</option></select></div>' +
+          '<div id="sk-lp-clip-list-wrap" style="display:none">' +
+            '<div class="sk-caption" style="margin:6px 0 4px" id="sk-lp-clip-list-label"></div>' +
+            '<div id="sk-lp-export-order" style="max-height:260px;overflow-y:auto"></div>' +
+          '</div>' +
         '</div>' +
+
+        // ---- Labels screen ----
+        '<div id="sk-xp-labels" style="display:none">' +
+          '<div class="sk-xp-head"><span class="ttl">Labels</span><button class="sk-nav-btn" data-done type="button">Done</button></div>' +
+          '<div class="sk-toggle-row">' +
+            '<span class="sk-toggle-label">Show animator name(s) on each clip</span>' +
+            '<span class="sk-toggle-switch" id="sk-lp-labels-toggle"><span class="sk-toggle-knob"></span></span>' +
+          '</div>' +
+          '<div id="sk-lp-labels-side-row" style="display:none;margin:4px 0 6px">' +
+            '<div class="sk-caption" style="margin:0 0 4px">Position — click or drag; snaps to corners, edges and centre:</div>' +
+            '<div class="sk-place-box" id="sk-lp-labels-place"><span class="sk-place-chip" id="sk-lp-labels-chip"></span></div>' +
+          '</div>' +
+          '<div id="sk-lp-labels-style-row" style="display:none">' +
+            '<div class="sk-xp-row"><span class="lbl">Style</span>' +
+              '<select class="sk-select" id="sk-lp-labels-style">' +
+                '<option value="outline">White text, black outline</option><option value="box">White text on a translucent box</option></select></div>' +
+            '<div class="sk-caption" style="margin:4px 0 0">Want different text on a clip? Type it in the list under ' +
+              '<a href="#" id="sk-lp-labels-to-clips" style="color:' + C.amber + '">Clips</a> — it replaces the staff names for that clip.</div>' +
+          '</div>' +
+        '</div>' +
+
+        // ---- Music screen ----
+        '<div id="sk-xp-music" style="display:none">' +
+          '<div class="sk-xp-head"><span class="ttl">Music <span class="sk-mad-tag">Sakuga MAD</span></span><button class="sk-nav-btn" data-done type="button">Done</button></div>' +
+          '<div class="sk-toggle-row">' +
+            '<span class="sk-toggle-label">Add music</span>' +
+            '<span class="sk-toggle-switch" id="sk-lp-music-toggle"><span class="sk-toggle-knob"></span></span>' +
+          '</div>' +
+          '<div id="sk-lp-music-section" class="sk-subpanel" style="display:none">' +
+            '<div id="sk-lp-music-list" style="margin-bottom:6px"></div>' +
+            '<div class="sk-dropzone" id="sk-lp-music-dropzone">drop audio files here, or click to browse</div>' +
+            '<input type="file" id="sk-lp-music-file" accept="audio/*" multiple style="display:none">' +
+            '<div class="sk-caption" id="sk-lp-music-hint" style="margin:4px 0 0"></div>' +
+            '<div class="sk-caption" style="margin:6px 0 6px">Up to 5 tracks, played back-to-back from the start and trimmed to fit if longer.</div>' +
+            '<div class="sk-xp-row"><span class="lbl">If shorter than the video</span>' +
+              '<select class="sk-select" id="sk-lp-music-loop">' +
+                '<option value="once">Play once, then silence</option><option value="loop">Loop</option></select></div>' +
+          '</div>' +
+        '</div>' +
+
       '</div>' +
       '<div id="sk-lp-export-status" class="sk-caption" style="display:none"></div>' +
       '<div class="sk-grid" id="sk-lp-grid"></div>';
@@ -4541,38 +4558,80 @@
     var exportClipOrder = [];
     var exportTrims = {}; // postId -> {start, end}, seconds
     var exportPanel = view.querySelector('#sk-lp-export-panel');
-    var formatGridBtn = view.querySelector('#sk-lp-format-grid');
-    var formatSerialBtn = view.querySelector('#sk-lp-format-serial');
-    var landscapeBtn = view.querySelector('#sk-lp-orient-landscape');
-    var portraitBtn = view.querySelector('#sk-lp-orient-portrait');
-    var centerBtn = view.querySelector('#sk-lp-mode-center');
-    var stretchBtn = view.querySelector('#sk-lp-mode-stretch');
+    var xpMain = view.querySelector('#sk-xp-main');
+    var xpScreens = { clips: view.querySelector('#sk-xp-clips'), labels: view.querySelector('#sk-xp-labels'), music: view.querySelector('#sk-xp-music') };
+    var formatSel = view.querySelector('#sk-lp-format');
+    var orientSel = view.querySelector('#sk-lp-orient');
+    var modeSel = view.querySelector('#sk-lp-mode');
     var stretchRow = view.querySelector('#sk-lp-stretch-row');
     var loopWrap = view.querySelector('#sk-lp-loop-wrap');
-    var loopReplayBtn = view.querySelector('#sk-lp-loop-replay');
-    var loopStopBtn = view.querySelector('#sk-lp-loop-stop');
+    var loopSel = view.querySelector('#sk-lp-loop');
     var labelsToggle = view.querySelector('#sk-lp-labels-toggle');
     var labelsSideRow = view.querySelector('#sk-lp-labels-side-row');
     var labelsPlaceBox = view.querySelector('#sk-lp-labels-place');
     var labelsPlaceChip = view.querySelector('#sk-lp-labels-chip');
     var labelsStyleRow = view.querySelector('#sk-lp-labels-style-row');
-    var labelsStyleOutlineBtn = view.querySelector('#sk-lp-labels-style-outline');
-    var labelsStyleBoxBtn = view.querySelector('#sk-lp-labels-style-box');
+    var labelsStyleSel = view.querySelector('#sk-lp-labels-style');
     var customToggle = view.querySelector('#sk-lp-custom-toggle');
     var customSection = view.querySelector('#sk-lp-custom-section');
-    var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');
+    var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');   // "Trim individual clips"
     var advancedSection = view.querySelector('#sk-lp-advanced-section');
     var musicToggle = view.querySelector('#sk-lp-music-toggle');
     var musicSection = view.querySelector('#sk-lp-music-section');
     var musicFileInput = view.querySelector('#sk-lp-music-file');
     var musicDropzone = view.querySelector('#sk-lp-music-dropzone');
     var musicHintEl = view.querySelector('#sk-lp-music-hint');
-    var musicOnceBtn = view.querySelector('#sk-lp-music-once');
-    var musicLoopBtn = view.querySelector('#sk-lp-music-loop');
+    var musicLoopSel = view.querySelector('#sk-lp-music-loop');
     var MAX_MUSIC_TRACKS = 5;
     var exportMusicFiles = [];
     var exportMusicLoop = false;
     var clipListWrap = view.querySelector('#sk-lp-clip-list-wrap');
+
+    // Main screen <-> detail screens. The detail screens edit the very same
+    // state as before; this only decides which part of the panel is visible.
+    function showScreen(name) {
+      xpMain.style.display = name ? 'none' : 'block';
+      Object.keys(xpScreens).forEach(function (k) { xpScreens[k].style.display = k === name ? 'block' : 'none'; });
+      if (name === 'labels' && isOn(labelsToggle)) { layoutPlaceDots(); drawLabelPos(); } // only measurable once visible
+      if (name === 'clips') renderExportOrderList();
+      if (!name) refreshSummaries();
+    }
+    var doneBtns = view.querySelectorAll('#sk-lp-export-panel [data-done]');
+    for (var di = 0; di < doneBtns.length; di++) doneBtns[di].onclick = function () { showScreen(null); };
+    var linkRows = view.querySelectorAll('#sk-lp-export-panel .sk-xp-link');
+    for (var li = 0; li < linkRows.length; li++) {
+      linkRows[li].onclick = function (e) { showScreen(e.currentTarget.getAttribute('data-screen')); };
+    }
+    view.querySelector('#sk-lp-labels-to-clips').onclick = function (e) { e.preventDefault(); showScreen('clips'); };
+
+    function labelPosName() {
+      var fx = exportLabelPos.fx, fy = exportLabelPos.fy;
+      var xs = fx === 0 ? 'left' : fx === 1 ? 'right' : fx === 0.5 ? 'centre' : null;
+      var ys = fy === 0 ? 'top' : fy === 1 ? 'bottom' : fy === 0.5 ? 'middle' : null;
+      if (!xs || !ys) return 'custom position';
+      if (xs === 'centre' && ys === 'middle') return 'centre';
+      if (xs === 'centre') return ys + ' centre';
+      if (ys === 'middle') return 'middle ' + xs;
+      return ys + ' ' + xs;
+    }
+    // One-line state shown on each link row, so the main screen reads as a
+    // summary of the whole export without opening anything.
+    function refreshSummaries() {
+      var clipParts = [];
+      if (isOn(customToggle)) clipParts.push('custom order');
+      var trimCount = Object.keys(exportTrims).length;
+      if (trimCount) clipParts.push(trimCount + ' trimmed');
+      var textCount = Object.keys(exportLabelOverrides).length;
+      if (textCount) clipParts.push(textCount + ' custom text');
+      view.querySelector('#sk-xp-sum-clips').textContent = clipParts.length ? clipParts.join(' · ') : 'default';
+      view.querySelector('#sk-xp-sum-labels').textContent = exportLabelMode === 'off'
+        ? 'off'
+        : labelPosName() + ' · ' + (exportLabelStyle === 'box' ? 'box' : 'outline');
+      var n = exportMusicFiles.length;
+      view.querySelector('#sk-xp-sum-music').textContent = n
+        ? n + (n === 1 ? ' track' : ' tracks') + (exportMusicLoop ? ' · loop' : '')
+        : 'none';
+    }
 
     // Each entry in exportClipOrder is an independent "occurrence" of a
     // clip, not the clip itself — this is what makes duplicating a clip
@@ -4596,45 +4655,41 @@
 
     function updateFormatVisibility() {
       var isSerial = exportFormat === 'serial';
+      // The "leftover row" choice and "shorter clips" behaviour only exist
+      // when there's a grid; a serial export just plays each clip through.
       stretchRow.style.display = isSerial ? 'none' : 'flex';
-      loopWrap.style.display = isSerial ? 'none' : 'block';
+      loopWrap.style.display = isSerial ? 'none' : 'flex';
       if (isSerial) {
         // Stretch/featured-clip only makes sense when there's a grid to
-        // feature above — reset the (now hidden) button back to its own
+        // feature above — reset the (now hidden) choice back to its own
         // default so it isn't left in a stale state if the person switches
         // back to Grid format later.
         exportMode = 'center';
-        centerBtn.classList.add('active');
-        stretchBtn.classList.remove('active');
+        modeSel.value = 'center';
       }
     }
 
     function updateClipListVisibility() {
-      var show = isOn(customToggle) || isOn(advancedToggle);
-      clipListWrap.style.display = show ? 'block' : 'none';
+      var on = [];
+      if (isOn(customToggle)) on.push('order');
+      if (isOn(advancedToggle)) on.push('trim');
+      if (isOn(labelsToggle)) on.push('text');
+      clipListWrap.style.display = on.length ? 'block' : 'none';
       var label;
       if (isOn(customToggle)) {
         label = exportFormat === 'serial'
-          ? 'Order — clips play in this order, one after another. Use +Duplicate to show a clip again later with a different segment:'
-          : 'Order — first clip is featured above the rest if that mode is on. Use +Duplicate to show a clip again elsewhere in the grid:';
+          ? 'Clips play in this order, one after another. Use + Duplicate to show a clip again later with a different segment:'
+          : 'The first clip is featured above the rest if that option is on. Use + Duplicate to show a clip again elsewhere in the grid:';
+      } else if (isOn(advancedToggle)) {
+        label = 'Per-clip trim range (leave blank for the whole clip):';
       } else {
-        label = 'Per-clip trim range:';
+        label = 'Custom label text per clip (leave blank to use the staff names):';
       }
       view.querySelector('#sk-lp-clip-list-label').textContent = label;
     }
 
-    formatGridBtn.onclick = function () {
-      exportFormat = 'grid';
-      formatGridBtn.classList.add('active');
-      formatSerialBtn.classList.remove('active');
-      updateFormatVisibility();
-      updateClipListVisibility();
-      updateExportPreview();
-    };
-    formatSerialBtn.onclick = function () {
-      exportFormat = 'serial';
-      formatSerialBtn.classList.add('active');
-      formatGridBtn.classList.remove('active');
+    formatSel.onchange = function () {
+      exportFormat = formatSel.value === 'serial' ? 'serial' : 'grid';
       updateFormatVisibility();
       updateClipListVisibility();
       updateExportPreview();
@@ -4650,8 +4705,7 @@
         // settings a moment ago.
         customSection.style.display = 'none';
         exportMode = 'center';
-        centerBtn.classList.add('active');
-        stretchBtn.classList.remove('active');
+        modeSel.value = 'center';
         exportClipOrder = defaultClipOrder();
       }
       updateClipListVisibility();
@@ -4666,21 +4720,6 @@
       } else {
         advancedSection.style.display = 'none';
         exportTrims = {};
-        exportLoopMode = 'replay';
-        loopReplayBtn.classList.add('active');
-        loopStopBtn.classList.remove('active');
-        // Reset the label toggle and its (now-hidden) side-choice back to
-        // their own defaults — order matters here: exportLabelMode must end
-        // up 'off' overall, not 'left' (the side-row's own default value).
-        setOn(labelsToggle, false);
-        labelsSideRow.style.display = 'none';
-        labelsStyleRow.style.display = 'none';
-        resetLabelPos();
-        labelsStyleOutlineBtn.classList.add('active');
-        labelsStyleBoxBtn.classList.remove('active');
-        exportLabelMode = 'off';
-        exportLabelStyle = 'outline';
-        exportLabelOverrides = {};
       }
       updateClipListVisibility();
       renderExportOrderList();
@@ -4730,6 +4769,7 @@
         musicHintEl.textContent = '';
         musicDropzone.style.display = '';
       }
+      refreshSummaries();
     }
 
     musicToggle.onclick = function () {
@@ -4741,9 +4781,9 @@
         musicFileInput.value = '';
         renderMusicList();
         exportMusicLoop = false;
-        musicOnceBtn.classList.add('active');
-        musicLoopBtn.classList.remove('active');
+        musicLoopSel.value = 'once';
       }
+      refreshSummaries();
     };
     musicFileInput.onchange = function (e) {
       addMusicFiles(e.currentTarget.files);
@@ -4766,15 +4806,9 @@
       musicDropzone.classList.remove('is-dragover');
       addMusicFiles(e.dataTransfer.files);
     };
-    musicOnceBtn.onclick = function () {
-      exportMusicLoop = false;
-      musicOnceBtn.classList.add('active');
-      musicLoopBtn.classList.remove('active');
-    };
-    musicLoopBtn.onclick = function () {
-      exportMusicLoop = true;
-      musicLoopBtn.classList.add('active');
-      musicOnceBtn.classList.remove('active');
+    musicLoopSel.onchange = function () {
+      exportMusicLoop = musicLoopSel.value === 'loop';
+      refreshSummaries();
     };
 
     function updateExportPreview() {
@@ -4790,6 +4824,7 @@
         text = n + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid';
       }
       view.querySelector('#sk-lp-export-preview').textContent = text;
+      refreshSummaries();
     }
 
     var clipDurationCache = {}; // postId -> seconds, probed lazily so opening the panel doesn't stall on every clip up front
@@ -4857,6 +4892,7 @@
             var text = e.currentTarget.value.trim();
             if (text) exportLabelOverrides[instId] = text;
             else delete exportLabelOverrides[instId];
+            refreshSummaries();
           };
         }
 
@@ -4883,8 +4919,8 @@
             if (end == null || end <= start) { delete exportTrims[instId]; return; }
             exportTrims[instId] = { start: start, end: end };
           }
-          startEl.onchange = commitTrim;
-          endEl.onchange = commitTrim;
+          startEl.onchange = function () { commitTrim(); refreshSummaries(); };
+          endEl.onchange = function () { commitTrim(); refreshSummaries(); };
           // The manual fields above still work for a quick direct edit, but
           // scrubbing to an exact point and typing what you saw is a lot of
           // friction — this opens the same Mark In/Out controls the regular
@@ -4938,6 +4974,7 @@
       if (videoPosts.length < 2) { alert('need at least 2 video clips in this pool to export.'); return; }
       exportClipOrder = safeMap(videoPosts.slice(0, MAX_GRID_CLIPS), makeClipInstance);
       exportFormat = 'grid';
+      exportOrientation = 'landscape';
       exportMode = 'center';
       exportTrims = {};
       exportLoopMode = 'replay';
@@ -4945,11 +4982,15 @@
       exportLabelStyle = 'outline';
       exportLabelOverrides = {};
       exportMusicFiles = [];
+      exportMusicLoop = false;
       musicFileInput.value = '';
       renderMusicList();
-      exportMusicLoop = false;
-      musicOnceBtn.classList.add('active');
-      musicLoopBtn.classList.remove('active');
+      formatSel.value = 'grid';
+      orientSel.value = 'landscape';
+      modeSel.value = 'center';
+      loopSel.value = 'replay';
+      labelsStyleSel.value = 'outline';
+      musicLoopSel.value = 'once';
       setOn(customToggle, false);
       setOn(advancedToggle, false);
       setOn(labelsToggle, false);
@@ -4959,15 +5000,7 @@
       advancedSection.style.display = 'none';
       labelsSideRow.style.display = 'none';
       labelsStyleRow.style.display = 'none';
-      formatGridBtn.classList.add('active');
-      formatSerialBtn.classList.remove('active');
-      centerBtn.classList.add('active');
-      stretchBtn.classList.remove('active');
-      loopReplayBtn.classList.add('active');
-      loopStopBtn.classList.remove('active');
       resetLabelPos();
-      labelsStyleOutlineBtn.classList.add('active');
-      labelsStyleBoxBtn.classList.remove('active');
       updateFormatVisibility();
       view.querySelector('#sk-lp-export-info').textContent = videoPosts.length > MAX_GRID_CLIPS
         ? exportClipOrder.length + ' of ' + videoPosts.length + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
@@ -4975,43 +5008,22 @@
       updateClipListVisibility();
       renderExportOrderList();
       updateExportPreview();
+      showScreen(null);
       exportPanel.style.display = 'block';
     };
 
-    landscapeBtn.onclick = function () {
-      exportOrientation = 'landscape';
-      landscapeBtn.classList.add('active');
-      portraitBtn.classList.remove('active');
+    orientSel.onchange = function () {
+      exportOrientation = orientSel.value === 'portrait' ? 'portrait' : 'landscape';
       updateExportPreview();
     };
-    portraitBtn.onclick = function () {
-      exportOrientation = 'portrait';
-      portraitBtn.classList.add('active');
-      landscapeBtn.classList.remove('active');
+    modeSel.onchange = function () {
+      exportMode = modeSel.value === 'stretch' ? 'stretch' : 'center';
       updateExportPreview();
     };
-    centerBtn.onclick = function () {
-      exportMode = 'center';
-      centerBtn.classList.add('active');
-      stretchBtn.classList.remove('active');
-      updateExportPreview();
+    loopSel.onchange = function () {
+      exportLoopMode = loopSel.value === 'stop' ? 'stop' : 'replay';
     };
-    stretchBtn.onclick = function () {
-      exportMode = 'stretch';
-      stretchBtn.classList.add('active');
-      centerBtn.classList.remove('active');
-      updateExportPreview();
-    };
-    loopReplayBtn.onclick = function () {
-      exportLoopMode = 'replay';
-      loopReplayBtn.classList.add('active');
-      loopStopBtn.classList.remove('active');
-    };
-    loopStopBtn.onclick = function () {
-      exportLoopMode = 'stop';
-      loopStopBtn.classList.add('active');
-      loopReplayBtn.classList.remove('active');
-    };
+
     // ---- label placement widget: a mini frame to click/drag the label in ----
     function placeMetrics() {
       var chipW = labelsPlaceChip.offsetWidth || 56, chipH = labelsPlaceChip.offsetHeight || 22;
@@ -5058,6 +5070,7 @@
       var fy = Math.max(0, Math.min(1, (py - m.ch / 2) / (m.H - m.ch)));
       exportLabelPos = { fx: snapAxis(fx), fy: snapAxis(fy) };
       drawLabelPos();
+      refreshSummaries();
     }
     labelsPlaceBox.addEventListener('pointerdown', function (e) {
       placeDragging = true;
@@ -5076,17 +5089,13 @@
       labelsStyleRow.style.display = on ? 'flex' : 'none';
       exportLabelMode = on ? 'on' : 'off';
       if (on) { layoutPlaceDots(); drawLabelPos(); } // only measurable once visible
+      updateClipListVisibility();
       renderExportOrderList();
+      refreshSummaries();
     };
-    labelsStyleOutlineBtn.onclick = function () {
-      exportLabelStyle = 'outline';
-      labelsStyleOutlineBtn.classList.add('active');
-      labelsStyleBoxBtn.classList.remove('active');
-    };
-    labelsStyleBoxBtn.onclick = function () {
-      exportLabelStyle = 'box';
-      labelsStyleBoxBtn.classList.add('active');
-      labelsStyleOutlineBtn.classList.remove('active');
+    labelsStyleSel.onchange = function () {
+      exportLabelStyle = labelsStyleSel.value === 'box' ? 'box' : 'outline';
+      refreshSummaries();
     };
     view.querySelector('#sk-lp-export-cancel').onclick = function () { exportPanel.style.display = 'none'; };
 
