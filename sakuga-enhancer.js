@@ -292,13 +292,28 @@
     '.sk-xc-right{display:flex;flex-direction:column;min-height:0;}',
     '.sk-xc-stage{display:flex;align-items:center;justify-content:center;background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:6px;padding:10px;box-sizing:border-box;}',
     '.sk-xc-canvas{position:relative;background:#000;flex-shrink:0;overflow:hidden;}',
-    '.sk-xc-cell{position:absolute;box-sizing:border-box;border:1px solid #000;overflow:hidden;cursor:pointer;background:#1a1a1a;}',
+    '.sk-xc-cell{position:absolute;box-sizing:border-box;border:1px solid #000;overflow:hidden;cursor:grab;touch-action:none;background:#1a1a1a;',
+    'transition:left .18s ease,top .18s ease,width .18s ease,height .18s ease;}',
+    '.sk-xc-cell.ph{outline:2px dashed ' + C.amber + ';outline-offset:-2px;}',
+    '.sk-xc-cell.ph img,.sk-xc-cell.ph .sk-xc-lblwrap{opacity:.3;}',
     '.sk-xc-box .sk-xc-cell img{max-height:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:transparent;}',
     '.sk-xc-cell.hl{outline:2px solid ' + C.amber + ';outline-offset:-2px;z-index:1;}',
     '.sk-xc-num{position:absolute;top:3px;right:4px;font:10px "Courier New",monospace;color:' + C.text + ';background:rgba(0,0,0,.6);padding:0 4px;border-radius:2px;}',
     '.sk-xc-lblwrap{position:absolute;pointer-events:none;}',
     '.sk-xc-chip{position:absolute;white-space:pre;color:#fff;font-family:Arial,Helvetica,sans-serif;pointer-events:auto;cursor:grab;touch-action:none;user-select:none;}',
     '.sk-xc-chip:hover{outline:1px dashed ' + C.amber + ';}',
+    '.sk-xc-ghost{position:fixed !important;margin:0;z-index:2147483647;pointer-events:none;box-sizing:border-box;box-shadow:0 14px 32px rgba(0,0,0,.7);transform:scale(1.05);transition:none;}',
+    '.sk-xc-ghost.settling{transition:left .18s ease,top .18s ease,width .18s ease,height .18s ease,transform .18s ease,box-shadow .18s ease;transform:none;box-shadow:none;}',
+    '.sk-xc-ghost.sk-xc-rowhead{background:' + C.panel2 + ';border:1px solid ' + C.amber + ';border-radius:6px;}',
+    '.xc-dragging,.xc-dragging *{cursor:grabbing !important;}',
+    '.sk-xc-film{flex-wrap:wrap;gap:6px;margin-top:8px;}',
+    '.sk-xc-fr{position:relative;width:72px;height:41px;box-sizing:border-box;border:1px solid ' + C.line + ';border-radius:3px;overflow:hidden;cursor:grab;touch-action:none;background:#000;}',
+    '.sk-xc-film.port .sk-xc-fr{width:36px;height:64px;}',
+    '.sk-xc-fr:hover{border-color:' + C.dim + ';}',
+    '.sk-xc-fr.on{border-color:' + C.amber + ';box-shadow:0 0 0 1px ' + C.amber + ';}',
+    '.sk-xc-fr.ph{opacity:.3;}',
+    '.sk-xc-box .sk-xc-fr img{width:100%;height:100%;max-height:none;object-fit:cover;display:block;pointer-events:none;}',
+    '.sk-xc-frn{position:absolute;left:2px;top:1px;font:9px "Courier New",monospace;color:' + C.text + ';background:rgba(0,0,0,.6);padding:0 3px;border-radius:2px;}',
     '.sk-xc-hint{min-height:16px;margin:6px 2px 0;font-size:11px;color:' + C.dim + ';}',
     '.sk-xc-hint a{color:' + C.amber + ';}',
     '.sk-xc-set{margin-top:12px;border-top:1px solid ' + C.line + ';padding-top:8px;}',
@@ -319,11 +334,13 @@
     '.sk-xc-cap:empty{display:none;}',
     '.sk-xc-listhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid ' + C.line + ';font-size:12px;color:' + C.text + ';}',
     '.sk-xc-listhead b{font-weight:normal;color:' + C.dim + ';}',
-    '.sk-xc-list{flex:1;min-height:0;overflow-y:auto;}',
+    '.sk-xc-list{flex:1;min-height:0;overflow-y:auto;position:relative;}',
+    '.sk-xc-row.ph{background:' + C.panel2 + ';outline:1px dashed ' + C.amber + ';outline-offset:-3px;}',
+    '.sk-xc-row.ph>*{opacity:.3;}',
     '.sk-xc-row{border-bottom:1px solid ' + C.line + ';}',
     '.sk-xc-row.open{background:' + C.panel2 + ';}',
     '.sk-xc-row.dragging{opacity:.55;background:' + C.panel2 + ';}',
-    '.sk-xc-rowhead{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;}',
+    '.sk-xc-rowhead{display:flex;align-items:center;gap:8px;padding:7px 12px;min-height:46px;box-sizing:border-box;cursor:grab;user-select:nonetouch-action:pan-y;}',
     '.sk-xc-rowhead:hover .sk-xc-name{color:' + C.amber + ';}',
     '.sk-xc-grip{cursor:grab;color:' + C.dim + ';font-size:12px;letter-spacing:-2px;line-height:1;touch-action:none;user-select:none;padding:2px 2px;border-radius:3px;}',
     '.sk-xc-grip:hover,.sk-xc-grip:focus{color:' + C.amber + ';outline:none;}',
@@ -4513,7 +4530,8 @@
       clips: [],                 // [{post, instId}]
       trims: {},                 // instId -> {start, end}
       overrides: {},             // instId -> custom label text
-      expanded: null             // instId of the open row
+      expanded: null,            // instId of the open row
+      focus: null                // instId shown in the frame in Back to back mode
     };
     var nextInst = 0;
     function mk(post) { return { post: post, instId: 'inst' + (nextInst++) }; }
@@ -4534,6 +4552,7 @@
         '<div class="sk-xc-body">' +
           '<div class="sk-xc-left">' +
             '<div class="sk-xc-stage" id="xc-stage"><div class="sk-xc-canvas" id="xc-canvas"></div></div>' +
+            '<div class="sk-xc-film" id="xc-film" style="display:none"></div>' +
             '<div class="sk-xc-hint" id="xc-hint"></div>' +
             '<div class="sk-xc-set">' +
               '<div class="sk-xc-line"><span class="k">Layout</span>' +
@@ -4568,7 +4587,7 @@
       '</div>';
 
     function $(sel) { return backdrop.querySelector(sel); }
-    var stageEl = $('#xc-stage'), canvasEl = $('#xc-canvas'), listEl = $('#xc-list');
+    var stageEl = $('#xc-stage'), canvasEl = $('#xc-canvas'), listEl = $('#xc-list'), filmEl = $('#xc-film'), boxEl = $('.sk-xc-box');
     var tagsReady = false;
 
     // ---------- derived layout ----------
@@ -4601,6 +4620,26 @@
     function pct(f) { return (Math.round(f * 10000) / 100) + '%'; }
 
     // ---------- preview ----------
+    // The order on screen right now: the in-flight drag order while one is
+    // happening, otherwise the committed one.
+    function liveIds() {
+      return drag && drag.live ? drag.live : safeMap(st.clips, function (c) { return c.instId; });
+    }
+    function focusInst() {
+      for (var i = 0; i < st.clips.length; i++) if (st.clips[i].instId === st.focus) return st.clips[i];
+      return st.clips[0];
+    }
+    function renderFilm() {
+      var show = st.format === 'serial' && st.clips.length > 0;
+      filmEl.style.display = show ? 'flex' : 'none';
+      filmEl.className = 'sk-xc-film' + (st.orientation === 'portrait' ? ' port' : '');
+      if (!show) { filmEl.innerHTML = ''; return; }
+      var fi = focusInst();
+      filmEl.innerHTML = safeMap(st.clips, function (c, i) {
+        return '<div class="sk-xc-fr' + (c === fi ? ' on' : '') + '" data-inst="' + c.instId + '" title="' + esc(rowName(c.post)) + '">' +
+          '<img src="' + esc(c.post.preview_url || '') + '" alt="" draggable="false"><span class="sk-xc-frn">' + (i + 1) + '</span></div>';
+      }).join('');
+    }
     var previewScale = 0.4;
     function renderPreview() {
       var n = st.clips.length;
@@ -4619,13 +4658,13 @@
       var html = '';
       var cells = st.format === 'serial' ? 1 : n;
       for (var i = 0; i < cells; i++) {
-        var inst = st.clips[i];
+        var inst = st.format === 'serial' ? focusInst() : st.clips[i];
         var pz = f.positions[i];
         var p = inst.post;
         html += '<div class="sk-xc-cell" data-inst="' + inst.instId + '" style="left:' + pct(pz.x / f.W) + ';top:' + pct(pz.y / f.H) +
           ';width:' + pct(pz.w / f.W) + ';height:' + pct(pz.h / f.H) + '">' +
           '<img src="' + esc(p.preview_url || '') + '" alt="" draggable="false">' +
-          '<span class="sk-xc-num">' + (st.format === 'serial' ? '1&ndash;' + n : (i + 1)) + '</span>';
+          '<span class="sk-xc-num">' + (st.format === 'serial' ? (st.clips.indexOf(inst) + 1) + ' of ' + n : (i + 1)) + '</span>';
         if (st.labelsOn) {
           var built = buildLabelFor(p, st.overrides[inst.instId], pz.w, pz.h);
           if (built) {
@@ -4642,6 +4681,7 @@
         html += '</div>';
       }
       canvasEl.innerHTML = html;
+      renderFilm();
       applyChipPos();
       hlRow(st.expanded);
     }
@@ -4657,13 +4697,20 @@
     }
     function renderHint() {
       var h = $('#xc-hint');
-      if (!st.labelsOn) { h.innerHTML = st.format === 'serial' ? 'Each clip plays in this frame, one after another.' : ''; return; }
-      var any = canvasEl.querySelector('.sk-xc-chip');
-      var moved = st.labelPos.fx !== 0 || st.labelPos.fy !== 1;
-      h.innerHTML = any
-        ? 'Label: ' + esc(posName()) + ' &middot; drag it to move (same spot on every clip)' +
-          (moved ? ' &middot; <a href="#" id="xc-resetpos">reset</a>' : '')
-        : 'None of these clips has an animator tag. Open a clip and type its label text.';
+      var parts = [];
+      if (st.format === 'serial') {
+        parts.push('Clip ' + (liveIds().indexOf(focusInst().instId) + 1) + ' of ' + st.clips.length + ' &middot; drag the strip to reorder');
+      } else if (st.clips.length > 1) {
+        parts.push('Drag a clip to rearrange');
+      }
+      if (st.labelsOn) {
+        var any = canvasEl.querySelector('.sk-xc-chip');
+        var moved = st.labelPos.fx !== 0 || st.labelPos.fy !== 1;
+        parts.push(any
+          ? 'label: ' + esc(posName()) + ' (drag it to move, same spot on every clip)' + (moved ? ' <a href="#" id="xc-resetpos">reset</a>' : '')
+          : 'no animator tag on this clip: open it and type a label');
+      }
+      h.innerHTML = parts.join(' &middot; ');
       var r = $('#xc-resetpos');
       if (r) r.onclick = function (e) { e.preventDefault(); st.labelPos = { fx: 0, fy: 1 }; applyChipPos(); };
     }
@@ -4699,16 +4746,6 @@
     function endChipDrag() { chipDrag = null; }
     canvasEl.addEventListener('pointerup', endChipDrag);
     canvasEl.addEventListener('pointercancel', endChipDrag);
-    canvasEl.addEventListener('click', function (e) {
-      if (e.target.closest && e.target.closest('.sk-xc-chip')) return;
-      var cell = e.target.closest ? e.target.closest('.sk-xc-cell') : null;
-      if (!cell) return;
-      st.expanded = cell.getAttribute('data-inst');
-      renderList();
-      var row = listEl.querySelector('[data-inst="' + st.expanded + '"]');
-      if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
-      hlRow(st.expanded);
-    });
     canvasEl.addEventListener('mouseover', function (e) {
       var cell = e.target.closest ? e.target.closest('.sk-xc-cell') : null;
       hlCell(cell ? cell.getAttribute('data-inst') : null);
@@ -4750,7 +4787,7 @@
         row.setAttribute('data-inst', id);
         row.innerHTML =
           '<div class="sk-xc-rowhead" data-toggle>' +
-            '<span class="sk-xc-grip" tabindex="0" title="drag to reorder, or focus and press Up / Down">&#8942;&#8942;</span>' +
+            '<span class="sk-xc-grip" tabindex="0" title="drag to reorder, or focus and press Up / Down. Enter opens the clip">&#8942;&#8942;</span>' +
             '<span class="sk-xc-n">' + (i + 1) + '</span>' +
             '<img src="' + esc(p.preview_url || '') + '" alt="" draggable="false">' +
             '<span class="sk-xc-name">' + esc(rowName(p)) + '</span>' +
@@ -4777,14 +4814,9 @@
             : '');
         listEl.appendChild(row);
 
-        row.querySelector('[data-toggle]').onclick = function (e) {
-          if (e.target.closest && e.target.closest('.sk-xc-grip')) return;
-          st.expanded = open ? null : id;
-          renderList();
-          hlRow(st.expanded);
-        };
         var grip = row.querySelector('.sk-xc-grip');
         grip.onkeydown = function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectClip(id, true); return; }
           var to = e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowDown' ? i + 1 : -1;
           if (to < 0 || to >= st.clips.length) return;
           e.preventDefault();
@@ -4864,40 +4896,218 @@
       renderAll();
     }
 
-    // Pointer-driven drag on the grip: rows are moved in the DOM while
-    // dragging and the order is committed once on release.
-    var rowDrag = null;
-    listEl.addEventListener('pointerdown', function (e) {
-      var grip = e.target.closest ? e.target.closest('.sk-xc-grip') : null;
-      if (!grip) return;
-      var row = grip.parentNode.parentNode;
-      rowDrag = { row: row };
-      row.classList.add('dragging');
-      try { grip.setPointerCapture(e.pointerId); } catch (err) { /* non-fatal */ }
-      e.preventDefault();
-    });
-    listEl.addEventListener('pointermove', function (e) {
-      if (!rowDrag) return;
-      var rows = Array.prototype.slice.call(listEl.children);
-      var before = null;
-      for (var i = 0; i < rows.length; i++) {
-        if (rows[i] === rowDrag.row) continue;
-        var r = rows[i].getBoundingClientRect();
-        if (e.clientY < r.top + r.height / 2) { before = rows[i]; break; }
+    // ---------- drag to reorder ----------
+    // One drag session serves all three views of the order: the preview
+    // (grid cells), the clip list, and the filmstrip shown in Back to back
+    // mode. While you drag, a lifted copy follows the pointer and the
+    // others slide aside live in every view; the order is committed on
+    // release. A press that never moves is a click (select / open the clip).
+    var drag = null;
+    function startPending(e, id, src, el) {
+      if (e.button) return;
+      var r = el.getBoundingClientRect();
+      drag = {
+        id: id, src: src, x: e.clientX, y: e.clientY, started: false, ghost: null, live: null,
+        offX: e.clientX - r.left, offY: e.clientY - r.top, w: r.width, h: r.height,
+        noDrag: e.pointerType === 'touch' && src === 'list' && !(e.target.closest && e.target.closest('.sk-xc-grip'))
+      };
+      document.addEventListener('pointermove', onDragMove, true);
+      document.addEventListener('pointerup', onDragEnd, true);
+      document.addEventListener('pointercancel', onDragEnd, true);
+    }
+    function viewEl(src) { return src === 'stage' ? canvasEl : src === 'list' ? listEl : filmEl; }
+    function elFor(view, id) { return view.querySelector('[data-inst="' + id + '"]'); }
+    function inRect(r, x, y) { return r.width > 0 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }
+
+    function beginDrag() {
+      var d = drag;
+      d.started = true;
+      if (st.expanded) { st.expanded = null; renderList(); } // every row the same height while dragging
+      d.live = safeMap(st.clips, function (c) { return c.instId; });
+      var srcEl = elFor(viewEl(d.src), d.id);
+      var g = document.createElement('div');
+      var inner = srcEl ? (d.src === 'list' ? srcEl.querySelector('.sk-xc-rowhead').innerHTML : srcEl.innerHTML) : '';
+      g.className = 'sk-xc-ghost ' + (d.src === 'stage' ? 'sk-xc-cell' : d.src === 'list' ? 'sk-xc-rowhead' : 'sk-xc-fr');
+      g.innerHTML = inner;
+      g.style.width = d.w + 'px';
+      g.style.height = d.h + 'px';
+      boxEl.appendChild(g);
+      d.ghost = g;
+      [canvasEl, listEl, filmEl].forEach(function (v) {
+        if (v === canvasEl && st.format === 'serial') return; // the frame there is a viewer, not a slot
+        var el = elFor(v, d.id);
+        if (el) el.classList.add('ph');
+      });
+      backdrop.classList.add('xc-dragging');
+    }
+
+    // Index (in the order without the dragged clip's old slot) the pointer
+    // is asking for, or -1 when it is over none of the views.
+    function hitIndex(x, y) {
+      var d = drag, n = d.live.length;
+      if (st.format === 'grid') {
+        var cr = canvasEl.getBoundingClientRect();
+        if (inRect(cr, x, y)) {
+          var f = frameInfo();
+          var fx = (x - cr.left) / cr.width * f.W, fy = (y - cr.top) / cr.height * f.H;
+          var best = -1, bd = Infinity;
+          for (var i = 0; i < n && i < f.positions.length; i++) {
+            var p = f.positions[i];
+            if (fx >= p.x && fx <= p.x + p.w && fy >= p.y && fy <= p.y + p.h) return i;
+            var dd = Math.pow(fx - (p.x + p.w / 2), 2) + Math.pow(fy - (p.y + p.h / 2), 2);
+            if (dd < bd) { bd = dd; best = i; }
+          }
+          return best;
+        }
       }
-      listEl.insertBefore(rowDrag.row, before);
-    });
-    function endRowDrag() {
-      if (!rowDrag) return;
-      rowDrag = null;
-      var ids = safeMap(Array.prototype.slice.call(listEl.children), function (r) { return r.getAttribute('data-inst'); });
+      var lr = listEl.getBoundingClientRect();
+      if (inRect(lr, x, y)) {
+        var rows = Array.prototype.slice.call(listEl.children), idx = 0;
+        for (var j = 0; j < rows.length; j++) {
+          if (rows[j].getAttribute('data-inst') === d.id) continue;
+          var mid = lr.top - listEl.scrollTop + rows[j].offsetTop + rows[j].offsetHeight / 2;
+          if (y > mid) idx++;
+        }
+        return idx;
+      }
+      if (st.format === 'serial') {
+        var fr = filmEl.getBoundingClientRect();
+        if (inRect(fr, x, y)) {
+          var items = safeFilter(Array.prototype.slice.call(filmEl.children), function (c) { return c.getAttribute('data-inst') !== d.id; });
+          var bestI = 0, bestD = Infinity;
+          for (var k = 0; k < items.length; k++) {
+            var r = items[k].getBoundingClientRect();
+            var dist = Math.pow(x - (r.left + r.width / 2), 2) + Math.pow(y - (r.top + r.height / 2), 2);
+            if (dist < bestD) { bestD = dist; bestI = k + (x > r.left + r.width / 2 ? 1 : 0); }
+          }
+          return bestI;
+        }
+      }
+      return -1;
+    }
+
+    // Re-flow every view to a new order without rebuilding anything:
+    // grid cells slide via CSS transitions, rows and filmstrip frames via FLIP.
+    function flipReorder(container, order, numSel) {
+      var nodes = {}, before = {};
+      Array.prototype.forEach.call(container.children, function (c) { nodes[c.getAttribute('data-inst')] = c; });
+      order.forEach(function (id) { if (nodes[id]) before[id] = nodes[id].getBoundingClientRect(); });
+      order.forEach(function (id) { if (nodes[id]) container.appendChild(nodes[id]); });
+      order.forEach(function (id, j) {
+        var nd = nodes[id];
+        if (!nd) return;
+        var num = nd.querySelector(numSel);
+        if (num) num.textContent = j + 1;
+        if (id === drag.id || !nd.animate) return;
+        var b = nd.getBoundingClientRect();
+        var dx = before[id].left - b.left, dy = before[id].top - b.top;
+        if (dx || dy) nd.animate([{ transform: 'translate(' + dx + 'px,' + dy + 'px)' }, { transform: 'none' }], { duration: 170, easing: 'ease-out' });
+      });
+    }
+    function applyLive(order) {
+      if (st.format === 'grid') {
+        var f = frameInfo();
+        order.forEach(function (id, j) {
+          var c = elFor(canvasEl, id), pz = f.positions[j];
+          if (!c || !pz) return;
+          c.style.left = pct(pz.x / f.W); c.style.top = pct(pz.y / f.H);
+          c.style.width = pct(pz.w / f.W); c.style.height = pct(pz.h / f.H);
+          var num = c.querySelector('.sk-xc-num');
+          if (num) num.textContent = j + 1;
+        });
+      }
+      flipReorder(listEl, order, '.sk-xc-n');
+      if (st.format === 'serial') {
+        flipReorder(filmEl, order, '.sk-xc-frn');
+        var fnum = canvasEl.querySelector('.sk-xc-num');
+        if (fnum) fnum.textContent = (order.indexOf(focusInst().instId) + 1) + ' of ' + order.length;
+        renderHint();
+      }
+      // the lifted copy shows its own new number too
+      if (drag && drag.ghost) {
+        var gn = drag.ghost.querySelector('.sk-xc-num, .sk-xc-n, .sk-xc-frn');
+        if (gn) gn.textContent = order.indexOf(drag.id) + 1;
+      }
+    }
+
+    function onDragMove(e) {
+      var d = drag;
+      if (!d || d.noDrag) return;
+      if (!d.started) {
+        if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) < 6) return;
+        beginDrag();
+      }
+      d.ghost.style.left = (e.clientX - d.offX) + 'px';
+      d.ghost.style.top = (e.clientY - d.offY) + 'px';
+      var to = hitIndex(e.clientX, e.clientY);
+      var from = d.live.indexOf(d.id);
+      if (to < 0 || to === from) return;
+      d.live.splice(from, 1);
+      d.live.splice(to, 0, d.id);
+      applyLive(d.live);
+    }
+
+    function selectClip(id, toggle) {
+      st.expanded = toggle && st.expanded === id ? null : id;
+      st.focus = id;
+      renderList();
+      if (st.format === 'serial') renderPreview();
+      hlRow(st.expanded);
+      var row = elFor(listEl, id);
+      if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    }
+
+    function onDragEnd(e) {
+      var d = drag;
+      drag = null;
+      document.removeEventListener('pointermove', onDragMove, true);
+      document.removeEventListener('pointerup', onDragEnd, true);
+      document.removeEventListener('pointercancel', onDragEnd, true);
+      if (!d) return;
+      if (!d.started) {
+        if (e.type !== 'pointercancel') selectClip(d.id, d.src === 'list');
+        return;
+      }
       var byId = {};
       st.clips.forEach(function (c) { byId[c.instId] = c; });
-      st.clips = safeMap(ids, function (x) { return byId[x]; });
+      st.clips = safeMap(d.live, function (id) { return byId[id]; });
+      backdrop.classList.remove('xc-dragging');
       renderAll();
+      // The lifted copy settles into its new slot, then goes.
+      var g = d.ghost;
+      var home = st.format === 'grid' ? elFor(canvasEl, d.id) : d.src === 'film' ? elFor(filmEl, d.id) : elFor(listEl, d.id);
+      if (home && d.src === 'list' && st.format !== 'grid') home = home.querySelector('.sk-xc-rowhead');
+      var r = home ? home.getBoundingClientRect() : null;
+      if (g && r && r.width > 0) {
+        g.classList.add('settling');
+        g.style.left = r.left + 'px'; g.style.top = r.top + 'px';
+        g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+        setTimeout(function () { if (g.parentNode) g.parentNode.removeChild(g); }, 200);
+      } else if (g && g.parentNode) {
+        g.parentNode.removeChild(g);
+      }
     }
-    listEl.addEventListener('pointerup', endRowDrag);
-    listEl.addEventListener('pointercancel', endRowDrag);
+
+    canvasEl.addEventListener('pointerdown', function (e) {
+      if (st.format !== 'grid') return;
+      if (e.target.closest && e.target.closest('.sk-xc-chip')) return;
+      var cell = e.target.closest ? e.target.closest('.sk-xc-cell') : null;
+      if (!cell) return;
+      startPending(e, cell.getAttribute('data-inst'), 'stage', cell);
+      e.preventDefault();
+    });
+    listEl.addEventListener('pointerdown', function (e) {
+      var head = e.target.closest ? e.target.closest('.sk-xc-rowhead') : null;
+      if (!head || e.target.closest('input,button,select,textarea')) return;
+      startPending(e, head.parentNode.getAttribute('data-inst'), 'list', head);
+      if (e.pointerType !== 'touch') e.preventDefault();
+    });
+    filmEl.addEventListener('pointerdown', function (e) {
+      var fr = e.target.closest ? e.target.closest('.sk-xc-fr') : null;
+      if (!fr) return;
+      startPending(e, fr.getAttribute('data-inst'), 'film', fr);
+      e.preventDefault();
+    });
 
     // ---------- settings ----------
     function segValue(key) {
@@ -5011,6 +5221,9 @@
     function close() {
       document.removeEventListener('keydown', onKey, true);
       window.removeEventListener('resize', onResize);
+      document.removeEventListener('pointermove', onDragMove, true);
+      document.removeEventListener('pointerup', onDragEnd, true);
+      document.removeEventListener('pointercancel', onDragEnd, true);
       if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
     }
     function onKey(e) {
