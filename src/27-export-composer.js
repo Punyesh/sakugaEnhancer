@@ -13,38 +13,36 @@
   // ===========================================================================
   var COMPOSER_MAX_MUSIC = 5;
 
-  function openExportComposer(pool, videoPosts, onStart) {
-    var st = {
-      format: 'grid',            // 'grid' | 'serial'
-      orientation: 'landscape',
-      featured: false,           // first clip larger above the rest (grid only)
-      loopMode: 'replay',        // 'replay' | 'stop'
-      labelsOn: false,
-      labelStyle: 'outline',     // 'outline' | 'box'
-      labelPos: { fx: 0, fy: 1 },// fractions of the free room inside a clip; 0,1 = bottom-left
-      musicFiles: [],
-      musicLoop: false,
-      clips: [],                 // [{post, instId}]
-      trims: {},                 // instId -> {start, end}
-      overrides: {},             // instId -> custom label text
-      expanded: null,            // instId of the open row
-      focus: null                // instId shown in the frame in Back to back mode
-    };
-    var nextInst = 0;
-    function mk(post) { return { post: post, instId: 'inst' + (nextInst++) }; }
-    st.clips = safeMap(videoPosts.slice(0, MAX_GRID_CLIPS), mk);
+  // ---------- Export Composer: static pieces ----------
+  // Pure helpers and the window markup, kept out of openExportComposer so that
+  // function is only the interactive part.
 
-    function seg(key, opts) {
-      var h = '<span class="sk-xc-seg" data-seg="' + key + '">';
-      for (var i = 0; i < opts.length; i++) h += '<button type="button" data-v="' + opts[i][0] + '">' + opts[i][1] + '</button>';
-      return h + '</span>';
-    }
+  // A segmented control (one row of mutually exclusive buttons).
+  function composerSeg(key, opts) {
+    var h = '<span class="sk-xc-seg" data-seg="' + key + '">';
+    for (var i = 0; i < opts.length; i++) h += '<button type="button" data-v="' + opts[i][0] + '">' + opts[i][1] + '</button>';
+    return h + '</span>';
+  }
 
-    var backdrop = document.createElement('div');
-    backdrop.className = 'sk-media-backdrop';
-    backdrop.innerHTML =
-      '<div class="sk-media-box sk-xc-box" role="dialog" aria-label="Export clips">' +
-        '<div class="sk-media-top"><span class="sk-xc-title">Export <span>' + esc(pool.name) + '</span></span>' +
+  // Human name for a label position given as fractions of the free room
+  // (0,1 = bottom-left). Anything off the 3x3 snap points is "custom position".
+  function labelPosName(labelPos) {
+    var fx = labelPos.fx, fy = labelPos.fy;
+    var xs = fx === 0 ? 'left' : fx === 1 ? 'right' : fx === 0.5 ? 'centre' : null;
+    var ys = fy === 0 ? 'top' : fy === 1 ? 'bottom' : fy === 0.5 ? 'middle' : null;
+    if (!xs || !ys) return 'custom position';
+    if (xs === 'centre' && ys === 'middle') return 'centre';
+    if (xs === 'centre') return ys + ' centre';
+    if (ys === 'middle') return 'middle ' + xs;
+    return ys + ' ' + xs;
+  }
+
+  function pct(f) { return (Math.round(f * 10000) / 100) + '%'; }
+
+  function composerMarkup(poolName) {
+    var seg = composerSeg;
+    return '<div class="sk-media-box sk-xc-box" role="dialog" aria-label="Export clips">' +
+        '<div class="sk-media-top"><span class="sk-xc-title">Export <span>' + esc(poolName) + '</span></span>' +
           '<span class="sk-media-close" data-close style="margin-left:auto" title="close (Esc)">&times;</span></div>' +
         '<div class="sk-xc-body">' +
           '<div class="sk-xc-left">' +
@@ -85,6 +83,32 @@
           '<button class="sk-btn" id="xc-go" type="button">Export</button>' +
         '</div>' +
       '</div>';
+  }
+
+  function openExportComposer(pool, videoPosts, onStart) {
+    var st = {
+      format: 'grid',            // 'grid' | 'serial'
+      orientation: 'landscape',
+      featured: false,           // first clip larger above the rest (grid only)
+      loopMode: 'replay',        // 'replay' | 'stop'
+      labelsOn: false,
+      labelStyle: 'outline',     // 'outline' | 'box'
+      labelPos: { fx: 0, fy: 1 },// fractions of the free room inside a clip; 0,1 = bottom-left
+      musicFiles: [],
+      musicLoop: false,
+      clips: [],                 // [{post, instId}]
+      trims: {},                 // instId -> {start, end}
+      overrides: {},             // instId -> custom label text
+      expanded: null,            // instId of the open row
+      focus: null                // instId shown in the frame in Back to back mode
+    };
+    var nextInst = 0;
+    function mk(post) { return { post: post, instId: 'inst' + (nextInst++) }; }
+    st.clips = safeMap(videoPosts.slice(0, MAX_GRID_CLIPS), mk);
+
+    var backdrop = document.createElement('div');
+    backdrop.className = 'sk-media-backdrop';
+    backdrop.innerHTML = composerMarkup(pool.name);
 
     function $(sel) { return backdrop.querySelector(sel); }
     var stageEl = $('#xc-stage'), canvasEl = $('#xc-canvas'), listEl = $('#xc-list'), filmEl = $('#xc-film'), boxEl = $('.sk-xc-box');
@@ -92,32 +116,8 @@
 
     // ---------- derived layout ----------
     function effectiveMode() { return st.format === 'grid' && st.featured && st.clips.length >= 3 ? 'stretch' : 'center'; }
-    function frameInfo() {
-      var n = st.clips.length;
-      if (st.format === 'serial') {
-        var w = st.orientation === 'portrait' ? SERIAL_SHORT : SERIAL_LONG;
-        var h = st.orientation === 'portrait' ? SERIAL_LONG : SERIAL_SHORT;
-        return { W: w, H: h, positions: [{ x: 0, y: 0, w: w, h: h }] };
-      }
-      var pos = computeCellPositions(Math.max(n, 1), st.orientation, effectiveMode());
-      var W = 0, H = 0;
-      for (var i = 0; i < pos.length; i++) {
-        if (pos[i].x + pos[i].w > W) W = pos[i].x + pos[i].w;
-        if (pos[i].y + pos[i].h > H) H = pos[i].y + pos[i].h;
-      }
-      return { W: W, H: H, positions: pos };
-    }
-    function posName() {
-      var fx = st.labelPos.fx, fy = st.labelPos.fy;
-      var xs = fx === 0 ? 'left' : fx === 1 ? 'right' : fx === 0.5 ? 'centre' : null;
-      var ys = fy === 0 ? 'top' : fy === 1 ? 'bottom' : fy === 0.5 ? 'middle' : null;
-      if (!xs || !ys) return 'custom position';
-      if (xs === 'centre' && ys === 'middle') return 'centre';
-      if (xs === 'centre') return ys + ' centre';
-      if (ys === 'middle') return 'middle ' + xs;
-      return ys + ' ' + xs;
-    }
-    function pct(f) { return (Math.round(f * 10000) / 100) + '%'; }
+    function frameInfo() { return computeFrame(st.format, st.orientation, effectiveMode(), st.clips.length); }
+    function posName() { return labelPosName(st.labelPos); }
 
     // ---------- preview ----------
     // The order on screen right now: the in-flight drag order while one is
