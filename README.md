@@ -45,7 +45,7 @@ Open `install.html` directly from this repository. Note: viewing it on github.co
   - Add to Pool, Copy Link.
   - Tag chips are clickable throughout, jumping to a fresh search.
 - **Info popup** — a per-card badge shows tags, score, rating, and links without leaving the results view.
-- **Panel** — draggable and resizable from any edge or corner, with position/size persisted. The ⋯ menu holds **Lock clip size** (fixed card size vs. fixed column count) and **Reset size and position**.
+- **Panel** — draggable and resizable from any edge or corner, with position/size persisted. Two header buttons: **Lock clip size** (▦: resizing the panel adds or removes clips per row instead of resizing them) and **Reset size and position** (↺).
 
 ### Pool export
 
@@ -90,7 +90,7 @@ node build.js && node build-install.js
 
 ## Changelog
 
-- **Main screen redesign**: one search field with inline chips and sort, live results, Clips | Stats switch, animator names on cards, Stats that follow the search (animator or show), the solo / hide-uncredited icons, Most frequently tagged and the Shows layout kept as they were, pools with thumbnail previews, and a ⋯ menu replacing the two unlabelled header icons. Matches the Export Composer's design language.
+- **Main screen redesign**: one search field with inline chips and sort, live results, Clips | Stats switch, animator names on cards, Stats that follow the search (animator or show), the solo / hide-uncredited icons, Most frequently tagged and the Shows layout kept as they were, pools with thumbnail previews. Matches the Export Composer's design language.
 - **Export Composer**: the pool export panel is replaced by a single window with a live preview, drag-to-rearrange in the preview, list and filmstrip, per-clip trim / label / duplicate / remove, and Labels / Music rows.
 - **Label placement**: 3×3 position picker plus free drag in the preview.
 - **Per-clip custom label text** (replaces animator names for that clip).
