@@ -25,13 +25,14 @@ Open `install.html` directly from this repository. Note: viewing it on github.co
 ## Features
 
 - **Search** — one field does the work: tags are chips inside it, sort sits at its right edge, and results follow the chips as you add or remove them (no Search button). Suggestions appear as you type (arrow keys + Enter). Backspace removes the last chip.
-  - **Clips | Stats** switch under the field, with a clip count and a **Filter** pill. Infinite scroll.
-  - **Filter** panel: **Solo cuts only** (exactly one animator credited), **Hide uncredited** (drops cuts tagged only `artist_unknown`, or with no animator tag; a cut with `artist_unknown` plus a real animator is kept), and a checklist of co-occurring tags to hide.
+  - **Clips | Stats** switch under the field, with a clip count. Infinite scroll.
+  - **Solo cuts only** (①, exactly one animator credited) and **Hide uncredited** (drops cuts tagged only `artist_unknown`, or with no animator tag; a cut with `artist_unknown` plus a real animator is kept) are icon buttons in that row. **Filter** opens the checklist of co-occurring tags to hide.
+  - Searching a single show also offers **Most frequently tagged**: its most credited animators, one click to see their cuts in that show.
   - Cards show the credited animators (other than the ones already in your search) and the score.
-  - With nothing typed, the screen suggests the most-tagged animators and shows, or lets you browse the newest clips.
+  - With nothing typed, you can browse the newest clips.
 - **Back button** — a ‹ beside the search field returns to the previous search, wherever you came from (a tag, a stats row, a show's animator list), or to the episode list after an episode search.
 - **Stats** — follows your search. With an animator in it: clip count, average and highest score, most frequent shows, clips by upload year, and often-tagged-with (click a show or tag to add it to the search). With only a show: its most credited animators (click one to see their cuts in that show).
-- **Shows** — opens on the most-tagged shows; search a title, open a show to see related shows, its most credited animators and its episodes (parsed from post source text), with back/forward navigation. **All clips** searches the whole show.
+- **Shows** — search a title and browse its episodes (parsed from post source text), with back/forward navigation. A show page has related shows, *Most frequently tagged* animators, a jump-to-episode box, and **all clips** to search the whole show.
 - **Pools**:
   - *My pools* — local only (`localStorage`), no login required. Server-side pool creation requires an account tier most accounts lack.
   - *Public pools* — read-only browsing of pools other users have made public.
@@ -89,7 +90,7 @@ node build.js && node build-install.js
 
 ## Changelog
 
-- **Main screen redesign**: one search field with inline chips and sort, live results, Clips | Stats switch, Filter panel with labelled switches, animator names on cards, Stats that follow the search (animator or show), a Shows home, pools with thumbnail previews, and a ⋯ menu replacing the two unlabelled header icons. Matches the Export Composer's design language.
+- **Main screen redesign**: one search field with inline chips and sort, live results, Clips | Stats switch, animator names on cards, Stats that follow the search (animator or show), a Shows home, pools with thumbnail previews, and a ⋯ menu replacing the two unlabelled header icons. Matches the Export Composer's design language.
 - **Export Composer**: the pool export panel is replaced by a single window with a live preview, drag-to-rearrange in the preview, list and filmstrip, per-clip trim / label / duplicate / remove, and Labels / Music rows.
 - **Label placement**: 3×3 position picker plus free drag in the preview.
 - **Per-clip custom label text** (replaces animator names for that clip).
