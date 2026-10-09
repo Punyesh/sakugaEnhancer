@@ -59,20 +59,9 @@
   }
 
   function openAddToPoolModal(post) {
-    var backdrop = document.createElement('div');
-    backdrop.className = 'sk-media-backdrop';
     var box = document.createElement('div');
     box.className = 'sk-login-box';
-    backdrop.appendChild(box);
-    document.body.appendChild(backdrop);
-
-    function close() {
-      backdrop.remove();
-      document.removeEventListener('keydown', onKey);
-    }
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    document.addEventListener('keydown', onKey);
-    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+    var close = mountModal(box).close;
 
     function render() {
       var pools = getLocalPools();
@@ -120,8 +109,6 @@
   }
 
   function buildMediaShell(p) {
-    var backdrop = document.createElement('div');
-    backdrop.className = 'sk-media-backdrop';
     var box = document.createElement('div');
     box.className = 'sk-media-box';
     box.innerHTML =
@@ -139,15 +126,14 @@
         '<span class="sk-media-viewpost" id="sk-add-pool" style="cursor:pointer;margin-left:8px" title="add this clip to a pool">Add to Pool</span>' +
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
+    var modal = mountModal(box);
     // Credits (animator + tags) get their own panel to the left of the viewer,
     // so they're visible without scrolling and not tucked under the controls.
     var side = document.createElement('div');
     side.className = 'sk-clip-side';
-    backdrop.className += ' sk-clip-split';
-    backdrop.appendChild(side);
+    modal.backdrop.className += ' sk-clip-split';
+    modal.backdrop.insertBefore(side, box);
     box._side = side;
-    backdrop.appendChild(box);
-    document.body.appendChild(backdrop); // attach to the real page body so it overlays everything, not just our small panel
 
     var scoreEl = box.querySelector('#sk-vote-score');
     var starsWrap = box.querySelector('#sk-stars');
@@ -268,20 +254,7 @@
       openAddToPoolModal(p);
     };
 
-    var extraCleanup = [];
-    function close() {
-      var vid = box.querySelector('video');
-      if (vid) vid.pause();
-      backdrop.remove();
-      document.removeEventListener('keydown', onKey);
-      extraCleanup.forEach(function (fn) { fn(); });
-    }
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    document.addEventListener('keydown', onKey);
-    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
-    box.querySelector('#sk-media-close').onclick = close;
-    box._onClose = function (fn) { extraCleanup.push(fn); };
-    box._close = close; // lets content appended to the box (e.g. a clicked tag) trigger a real close
+    box.querySelector('#sk-media-close').onclick = modal.close;
     return box; // caller appends the actual <video> or <img>; can register box._onClose(fn) for cleanup
   }
 
@@ -304,135 +277,28 @@
 
     // ---- trim range + download/share ----
     // There's no server here, so trimming runs entirely client-side via
-    // ffmpeg.wasm (loaded on first use, see below) — a real re-encode, not a
-    // stream copy, since stream-copy can only cut on keyframe boundaries and
-    // frame-accurate trimming needs an actual decode/re-encode of the range.
-    var inTime = null, outTime = null;
-
-    var trimCaption = document.createElement('div');
-    trimCaption.className = 'sk-caption';
-    trimCaption.style.padding = '8px 10px 0';
-    trimCaption.textContent = onGridPick
-      ? 'use the frame controls above to find a start/end point, mark them below, then Use This Range to send it back to the grid clip.'
-      : 'optional: use the frame controls above to find a start/end point, mark them below, ' +
-        'then Download/Share Trim will cut exactly that range.';
-    box.appendChild(trimCaption);
-
-    var trimRow = document.createElement('div');
-    trimRow.className = 'sk-trim-row';
-    trimRow.innerHTML =
-      '<button class="sk-frame-btn" id="sk-mark-in" title="set the trim start to the current playhead position">Mark In</button>' +
-      '<span class="sk-trim-label" id="sk-trim-in">in: —</span>' +
-      '<button class="sk-frame-btn" id="sk-mark-out" title="set the trim end to the current playhead position">Mark Out</button>' +
-      '<span class="sk-trim-label" id="sk-trim-out">out: —</span>' +
-      '<button class="sk-frame-btn" id="sk-trim-clear" title="clear the marked range — buttons below go back to acting on the full clip">✕</button>';
-    box.appendChild(trimRow);
-
-    var accuracyRow = document.createElement('div');
-    accuracyRow.className = 'sk-trim-row';
-    accuracyRow.innerHTML =
-      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:' + C.dim + ';cursor:pointer">' +
-        '<input type="checkbox" id="sk-accurate-trim" style="accent-color:' + C.amber + '">' +
-        'frame-accurate (re-encodes — slower, but exact; unchecked is a fast copy that may drift a few frames)' +
-      '</label>';
-    box.appendChild(accuracyRow);
-
-    var getExportOpts = buildExportOptions(box, vid, false); // booru clips never have audio, so no mute option
-
-    var actionRow = document.createElement('div');
-    actionRow.className = 'sk-action-row';
-    actionRow.innerHTML =
-      '<button class="sk-frame-btn" id="sk-dl-full" title="downloads the original file, unmodified">⬇ Download Full</button>' +
-      '<button class="sk-frame-btn" id="sk-dl-trim" disabled title="mark a range above first — trims to it and downloads the result (takes a moment)">⬇ Download Trim</button>' +
-      (onGridPick ? '<button class="sk-frame-btn" id="sk-use-range" disabled title="mark a range above first">Use This Range</button>' : '');
-    box.appendChild(actionRow);
-
-    var statusEl = document.createElement('div');
-    statusEl.className = 'sk-action-status';
-    box.appendChild(statusEl);
-
-    var inLabel = trimRow.querySelector('#sk-trim-in');
-    var outLabel = trimRow.querySelector('#sk-trim-out');
-    var dlTrimBtn = actionRow.querySelector('#sk-dl-trim');
-    var useRangeBtn = actionRow.querySelector('#sk-use-range');
-    var accurateCheckbox = accuracyRow.querySelector('#sk-accurate-trim');
-
-    function updateTrimBtn() {
-      var hasTrim = inTime !== null && outTime !== null && outTime > inTime;
-      dlTrimBtn.disabled = !hasTrim;
-      dlTrimBtn.title = hasTrim
-        ? 'trims to your marked range and downloads the result (takes a moment)'
-        : 'mark a range above first — trims to it and downloads the result (takes a moment)';
-      if (useRangeBtn) {
-        useRangeBtn.disabled = !hasTrim;
-        useRangeBtn.title = hasTrim ? 'use this marked range for the grid clip' : 'mark a range above first';
-      }
-    }
-    updateTrimBtn(); // set initial button state (no trim range yet)
-
-    if (useRangeBtn) {
-      useRangeBtn.onclick = function () {
-        if (inTime === null || outTime === null || outTime <= inTime) return;
-        onGridPick(inTime, outTime);
-        box._close();
-      };
-    }
-
-    trimRow.querySelector('#sk-mark-in').onclick = function () {
-      inTime = vid.currentTime;
-      inLabel.textContent = 'in: ' + formatVideoTime(inTime);
-      updateTrimBtn();
-    };
-    trimRow.querySelector('#sk-mark-out').onclick = function () {
-      outTime = vid.currentTime;
-      outLabel.textContent = 'out: ' + formatVideoTime(outTime);
-      updateTrimBtn();
-    };
-    trimRow.querySelector('#sk-trim-clear').onclick = function () {
-      inTime = null; outTime = null;
-      inLabel.textContent = 'in: —';
-      outLabel.textContent = 'out: —';
-      updateTrimBtn();
-    };
-
-    box._onClose(function () {
-      // ffmpeg.wasm 0.11.x has no clean mid-job cancel; if a trim is running when the
-      // modal closes it'll just finish silently in the background rather than error out.
+    // ffmpeg.wasm (loaded on first use) — a real re-encode, not a stream copy,
+    // since stream-copy can only cut on keyframe boundaries and frame-accurate
+    // trimming needs an actual decode/re-encode of the range. (ffmpeg.wasm has
+    // no clean mid-job cancel: closing the window mid-trim lets it finish silently.)
+    buildTrimDownloadPanel(box, vid, {
+      caption: onGridPick
+        ? 'use the frame controls above to find a start/end point, mark them below, then Use This Range to send it back to the grid clip.'
+        : 'optional: use the frame controls above to find a start/end point, mark them below, ' +
+          'then Download/Share Trim will cut exactly that range.',
+      clearTitle: 'clear the marked range — buttons below go back to acting on the full clip',
+      hasAudio: false, // booru clips never have audio, so no mute option
+      noun: 'clip',
+      fullTitle: 'downloads the original file, unmodified',
+      trimTitleOff: 'mark a range above first — trims to it and downloads the result (takes a moment)',
+      trimTitleOn: 'trims to your marked range and downloads the result (takes a moment)',
+      sourceExt: p.file_ext,
+      readBuffer: function () { return fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }); },
+      downloadOriginal: function () { triggerDownload(p.file_url, 'sakuga_' + p.id + '.' + (p.file_ext || 'webm')); },
+      fullName: function (ext) { return 'sakuga_' + p.id + '.' + ext; },
+      trimName: function (ext) { return 'sakuga_' + p.id + '_trim.' + ext; },
+      onGridPick: onGridPick
     });
-
-    var dlFullBtn = actionRow.querySelector('#sk-dl-full');
-    dlFullBtn.onclick = function () {
-      var xo = getExportOpts();
-      if (!xo) { triggerDownload(p.file_url, 'sakuga_' + p.id + '.' + (p.file_ext || 'webm')); return; }
-      dlFullBtn.disabled = true;
-      setBusyStatus(statusEl, 'reading clip…');
-      fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
-        return performExport(buf, p.file_ext, null, null, xo, statusEl);
-      }).then(function (res) {
-        triggerBlobDownload(res.blob, 'sakuga_' + p.id + '.' + res.ext);
-        dlFullBtn.disabled = false;
-      }).catch(function (err) {
-        if (err.message !== 'cancelled') statusEl.textContent = 'export failed: ' + err.message;
-        dlFullBtn.disabled = false;
-      });
-    };
-
-    dlTrimBtn.onclick = function () {
-      if (dlTrimBtn.disabled) return;
-      dlTrimBtn.disabled = true;
-      setBusyStatus(statusEl, 'reading clip…');
-      var xo = getExportOpts();
-      fetch(p.file_url).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
-        return xo ? performExport(buf, p.file_ext, inTime, outTime, xo, statusEl)
-                  : performTrim(buf, p.file_ext, inTime, outTime, statusEl, accurateCheckbox.checked);
-      }).then(function (res) {
-        triggerBlobDownload(res.blob, 'sakuga_' + p.id + '_trim.' + res.ext);
-        updateTrimBtn();
-      }).catch(function (err) {
-        if (err.message !== 'cancelled') statusEl.textContent = 'trim failed: ' + err.message;
-        updateTrimBtn();
-      });
-    };
 
     addTagsSection(box, p);
     addCommentsSection(box, p);

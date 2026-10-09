@@ -127,8 +127,6 @@
 
 
   function openLoginModal(onSuccess) {
-    var backdrop = document.createElement('div');
-    backdrop.className = 'sk-media-backdrop';
     var box = document.createElement('div');
     box.className = 'sk-login-box';
     box.innerHTML =
@@ -138,16 +136,7 @@
       '<button class="sk-btn" id="sk-login-submit" style="width:100%">Log In</button>' +
       '<div class="sk-action-status" id="sk-login-status"></div>' +
       '<span class="sk-login-cancel" id="sk-login-cancel">cancel</span>';
-    backdrop.appendChild(box);
-    document.body.appendChild(backdrop);
-
-    function close() {
-      backdrop.remove();
-      document.removeEventListener('keydown', onKey);
-    }
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    document.addEventListener('keydown', onKey);
-    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+    var close = mountModal(box).close;
     box.querySelector('#sk-login-cancel').onclick = close;
 
     var userInput = box.querySelector('#sk-login-user');
