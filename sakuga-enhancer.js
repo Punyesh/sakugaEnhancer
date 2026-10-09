@@ -504,7 +504,17 @@
     '.sk-show-pick{padding:8px 10px;margin-bottom:6px;}',
     '.sk-load-more-wrap{margin-top:12px;}',
     '.sk-tab{padding:8px 0;}',
-    '.sk-body{padding:12px;}'
+    '.sk-body{padding:12px;}',
+    // clip viewer: credits (animator + tags) sit directly under the top bar
+    '.sk-credits{padding:12px;background:' + C.panel + ';border-bottom:1px solid ' + C.line + ';',
+    'display:flex;flex-direction:column;gap:8px;min-height:44px;}',
+    '.sk-credits-row{display:flex;align-items:flex-start;gap:12px;}',
+    '.sk-credits-label{flex:0 0 56px;padding-top:5px;color:' + C.dim + ';font-size:12px;line-height:16px;}',
+    '.sk-credits-chips{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:8px;}',
+    '.sk-credits-chips.tags{gap:6px;max-height:76px;overflow-y:auto;}',
+    '.sk-credits .sk-mini-chip{font-family:inherit;font-size:12px;line-height:16px;padding:4px 10px;}',
+    '.sk-credits .sk-mini-chip.artist{font-size:15px;line-height:20px;padding:4px 12px;}',
+    '.sk-credits .sk-mini-chip.other:not(.clickable){border-style:dashed;}'
   ].join('');
 
   var styleTag = document.createElement('style');
@@ -3055,16 +3065,45 @@
   // only via the separate hover-preview dock shown before opening. This
   // puts the same color-coded, clickable chip display directly in the
   // modal itself, reusing the exact same rendering/click logic.
+  // Credits block for the opened clip: animator names large and amber, tags
+  // below at a readable size. Sits right under the top bar (not at the bottom
+  // of the scrolling modal) so it is visible without scrolling.
+  function buildCreditsHtml(tags, map) {
+    var artistTags = safeFilter(tags, function (t) { return map[t] === 1; });
+    var showTags = safeFilter(tags, function (t) { return map[t] === 3; });
+    var otherTags = safeFilter(tags, function (t) { return map[t] !== 1 && map[t] !== 3; });
+    var orderedTags = showTags.concat(otherTags);
+    function chip(t, extraClass) {
+      return '<span class="sk-mini-chip clickable ' + extraClass + '" data-tag="' + esc(t) + '">' + esc(t) + '</span>';
+    }
+    return '<div class="sk-credits-row">' +
+        '<span class="sk-credits-label">Animator</span>' +
+        '<div class="sk-credits-chips">' +
+          (artistTags.length
+            ? safeMap(artistTags, function (t) { return chip(t, 'artist'); }).join('')
+            : '<span class="sk-mini-chip other">not credited</span>') +
+        '</div>' +
+      '</div>' +
+      (orderedTags.length
+        ? '<div class="sk-credits-row">' +
+            '<span class="sk-credits-label">Tags</span>' +
+            '<div class="sk-credits-chips tags">' +
+              safeMap(orderedTags, function (t) { return chip(t, map[t] === 3 ? 'show' : 'other'); }).join('') +
+            '</div>' +
+          '</div>'
+        : '');
+  }
+
   function addTagsSection(box, p) {
     var container = document.createElement('div');
-    container.className = 'sk-dock-body';
-    container.style.borderTop = '1px solid ' + C.line;
-    container.innerHTML = '<div class="sk-loading" style="padding:8px 0">loading tag info…</div>';
-    box.appendChild(container);
+    container.className = 'sk-credits';
+    container.innerHTML = '<div class="sk-loading">loading credits…</div>';
+    var top = box.querySelector('.sk-media-top');
+    box.insertBefore(container, top ? top.nextSibling : box.firstChild);
 
     var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
     ensureTagTypes().then(function (map) {
-      container.innerHTML = buildTagChipsHtml(tags, map);
+      container.innerHTML = buildCreditsHtml(tags, map);
       // Unlike the hover dock (where nothing is covering the results, so
       // updating search state in the background is fine), this is inside an
       // open modal — leaving it open after the tag click meant the person
