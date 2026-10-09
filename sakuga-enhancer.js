@@ -35,6 +35,13 @@
     link: '#6db3f2'
   };
 
+  // Shape and size scale used by the "Shape and spacing system" rules at the end of the style list.
+  var R_CTL = '6px';   // controls: buttons, inputs, selects, icon buttons, chips
+  var R_BOX = '8px';   // containers: panels, cards, popups, modals, lists
+  var R_INNER = '4px'; // thumbnails and overlay labels
+  var H_CTL = '28px';  // regular control height
+  var H_SM = '24px';   // small control height
+
   var css = [
     '#sk-enh-root *{box-sizing:border-box;}',
     '#sk-enh-root{position:fixed;z-index:2147483000;bottom:20px;right:20px;',
@@ -455,12 +462,49 @@
     '.sk-body::-webkit-scrollbar-thumb:hover,.sk-comments-panel::-webkit-scrollbar-thumb:hover,',
     '.sk-facet-grid::-webkit-scrollbar-thumb:hover,.sk-chipwrap::-webkit-scrollbar-thumb:hover,',
     '.sk-media-box::-webkit-scrollbar-thumb:hover{background:' + C.amber + ';}',
-    // Compact controls on the main screen: the Search button and the
-    // Results / Animator Stats switch were full-width bars.
-    '#sk-go{flex:0 0 auto !important;margin-left:auto;padding:5px 16px;}',
-    '.sk-mode-row{gap:4px;margin-bottom:8px;}',
-    '.sk-mode-btn{flex:0 0 auto;padding:5px 12px;}',
-    '.sk-tab{padding:7px 0;}'
+    // ===== Shape and spacing system =====
+    // One set of rules for every screen, so nothing is its own special case:
+    //   shapes   controls (buttons, inputs, selects, icon buttons, chips, tags) share one
+    //            corner radius; containers (panels, cards, popups, modals, lists) share a
+    //            slightly larger one; overlay labels and thumbnails use a small one.
+    //            Circles are only for things that are actually round (switch knob, round badges).
+    //   sizes    regular controls are 28px tall, small ones (header icons, toggles, chips) 24px.
+    //   spacing  a 4px grid: 4 inside tight groups, 8 between neighbours and rows, 12 between sections.
+    // Change the numbers in the three variables above the style list to retune everything at once.
+    '.sk-input,.sk-select,.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn,.sk-ep-btn,.sk-comment-textarea,.sk-seg,.sk-xc-seg,.sk-icon-btn,',
+    '.sk-filter-toggle,.sk-mini-toggle,.sk-chip,.sk-mini-chip,.sk-xc-track,.sk-dock-head a,.sk-xc-pos button{border-radius:' + R_CTL + ';}',
+    '#sk-enh-panel,.sk-media-box,.sk-login-box,.sk-info-popup,.sk-suggest-list,.sk-card,.sk-facet-grid,.sk-freq-list,.sk-dropzone,',
+    '.sk-show-pick,.sk-xc-stage,.sk-xc-pos,.sk-comment-composer,#xc-music-line,.sk-xc-ghost.sk-xc-rowhead{border-radius:' + R_BOX + ';}',
+    '.sk-badge,.sk-filter-badge,.sk-card .score,.sk-card .vidmark,.sk-xc-num,.sk-xc-frn,.sk-xc-fr,.sk-facet-item,.sk-freq-row,.sk-xc-grip,',
+    '.sk-xc-box .sk-xc-rowhead img,.sk-media-box::-webkit-scrollbar-thumb{border-radius:' + R_INNER + ';}',
+    '.sk-input,.sk-select,.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn{box-sizing:border-box;min-height:' + H_CTL + ';}',
+    '.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn{display:inline-flex;align-items:center;justify-content:center;}',
+    '.sk-input{padding:4px 10px;}',
+    '.sk-select{padding:4px 8px;}',
+    '.sk-btn{padding:4px 14px;}',
+    '.sk-nav-btn{padding:4px 12px;font-size:12px;}',
+    '.sk-frame-btn{padding:4px 10px;}',
+    '.sk-mode-btn{flex:0 0 auto;padding:4px 12px;font-size:12px;}',
+    '.sk-icon-btn,.sk-filter-toggle,.sk-mini-toggle{box-sizing:border-box;height:' + H_SM + ';}',
+    '.sk-filter-toggle,.sk-mini-toggle{display:inline-flex;align-items:center;padding:0 10px;font-size:11px;}',
+    '.sk-chip{padding:3px 8px;font-size:11px;}',
+    '.sk-mini-chip{padding:3px 8px;}',
+    // spacing: 8 between rows and neighbours, 12 between sections
+    '.sk-row{gap:8px;margin-bottom:8px;}',
+    '.sk-chips{gap:6px;margin-bottom:8px;}',
+    '.sk-chips:empty,#sk-show-animators-wrap:empty{display:none;}',
+    '.sk-mode-row{gap:8px;margin-bottom:8px;}',
+    '.sk-meta{margin:0 0 8px;}',
+    '.sk-facet-grid{margin:0 0 8px;}',
+    '.sk-grid,.sk-ep-grid{gap:8px;}',
+    '.sk-caption{margin-bottom:8px;}',
+    '.sk-show-nav{gap:8px;margin-bottom:8px;}',
+    '.sk-show-head{gap:8px;margin-bottom:8px;}',
+    '.sk-related-row{gap:6px;margin-bottom:8px;}',
+    '.sk-show-pick{padding:8px 10px;margin-bottom:6px;}',
+    '.sk-load-more-wrap{margin-top:12px;}',
+    '.sk-tab{padding:8px 0;}',
+    '.sk-body{padding:12px;}'
   ].join('');
 
   var styleTag = document.createElement('style');
@@ -1056,12 +1100,10 @@
             '<option value="id">oldest</option>' +
             '<option value="random">random</option>' +
           '</select>' +
+          '<button class="sk-btn" id="sk-go">Search</button>' +
         '</div>' +
         '<div class="sk-chips" id="sk-chips"></div>' +
         '<div class="sk-suggest-list" id="sk-tag-suggestions" style="display:none"></div>' +
-        '<div class="sk-row">' +
-          '<button class="sk-btn" id="sk-go" style="flex:1">Search</button>' +
-        '</div>' +
       '</div>' +
       '<div class="sk-mode-row">' +
         '<button class="sk-mode-btn active" id="sk-mode-results" type="button">▤ Results</button>' +
@@ -1198,7 +1240,7 @@
     view.innerHTML =
       '<div id="sk-back-to-shows" style="display:none"></div>' +
       '<div id="sk-show-animators-wrap" style="margin-bottom:8px"></div>' +
-      '<div id="sk-solo-row" style="display:none;gap:6px;margin-bottom:8px">' +
+      '<div id="sk-solo-row" style="display:none;gap:8px;margin-bottom:8px">' +
         '<button type="button" class="sk-icon-btn" id="sk-solo-toggle">&#9312;</button>' +
         '<button type="button" class="sk-icon-btn" id="sk-unknown-toggle">' +
           '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block">' +

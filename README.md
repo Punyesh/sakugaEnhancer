@@ -88,7 +88,7 @@ node build.js && node build-install.js
 
 ## Changelog
 
-- Main screen: Search button and the Results / Animator Stats switch are now compact instead of full-width bars.
+- **Consistent shapes and spacing** across every screen and window: one corner radius for all controls (buttons, inputs, selects, icon buttons, chips), one for containers (panels, cards, popups, modals), regular controls 28px and small ones 24px tall, and a 4px spacing grid. The Search button now sits in the same row as the tag field and sort, and empty rows no longer leave gaps. The radii and heights are variables at the top of the style list in `sakuga-enhancer.js`.
 
 - **Export Composer**: the pool export panel is replaced by a single window with a live preview, drag-to-rearrange in the preview, list and filmstrip, per-clip trim / label / duplicate / remove, and Labels / Music rows.
 - **Label placement**: 3×3 position picker plus free drag in the preview.
