@@ -505,16 +505,32 @@
     '.sk-load-more-wrap{margin-top:12px;}',
     '.sk-tab{padding:8px 0;}',
     '.sk-body{padding:12px;}',
-    // clip viewer: credits (animator + tags) sit directly under the top bar
-    '.sk-credits{padding:12px;background:' + C.panel + ';border-bottom:1px solid ' + C.line + ';',
-    'display:flex;flex-direction:column;gap:8px;min-height:44px;}',
-    '.sk-credits-row{display:flex;align-items:flex-start;gap:12px;}',
-    '.sk-credits-label{flex:0 0 56px;padding-top:5px;color:' + C.dim + ';font-size:12px;line-height:16px;}',
-    '.sk-credits-chips{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:8px;}',
-    '.sk-credits-chips.tags{gap:6px;max-height:76px;overflow-y:auto;}',
-    '.sk-credits .sk-mini-chip{font-family:inherit;font-size:12px;line-height:16px;padding:4px 10px;}',
-    '.sk-credits .sk-mini-chip.artist{font-size:15px;line-height:20px;padding:4px 12px;}',
-    '.sk-credits .sk-mini-chip.other:not(.clickable){border-style:dashed;}'
+    // clip viewer: a credit-style title block (animator as the heading, show and tags beneath) and a slim tools bar under the media
+    '.sk-clip-head{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;gap:12px;padding:12px 12px 12px 16px;',
+    'background:' + C.panel + ';border-bottom:1px solid ' + C.line + ';}',
+    '.sk-clip-head .sk-media-close{margin-top:2px;}',
+    '.sk-clip-credit{flex:1;min-width:0;min-height:44px;display:flex;flex-direction:column;justify-content:center;gap:4px;}',
+    '.sk-clip-names{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px;}',
+    '.sk-clip-name{font-size:20px;line-height:28px;font-weight:600;color:' + C.amber + ';cursor:pointer;}',
+    '.sk-clip-name:hover{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px;}',
+    '.sk-clip-names.many .sk-clip-name{font-size:15px;line-height:24px;}',
+    '.sk-clip-name.none{color:' + C.dim + ';font-weight:400;font-size:16px;}',
+    '.sk-clip-name.none:not([data-tag]){cursor:default;text-decoration:none;}',
+    '.sk-clip-amp{color:' + C.dim + ';font-size:14px;}',
+    '.sk-clip-sub{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 12px;font-size:12px;line-height:20px;}',
+    '.sk-ctag{color:' + C.dim + ';cursor:pointer;}',
+    '.sk-ctag:hover{color:' + C.amber + ';}',
+    '.sk-ctag.show{color:' + C.link + ';font-weight:600;font-size:13px;}',
+    '.sk-ctag.char{color:' + C.text + ';}',
+    '.sk-ctag.other:before{content:"#";opacity:.55;}',
+    '.sk-clip-sub.collapsed .sk-ctag.extra{display:none;}',
+    '.sk-clip-more{color:' + C.dim + ';cursor:pointer;border-bottom:1px dotted ' + C.dim + ';}',
+    '.sk-clip-more:hover{color:' + C.amber + ';border-color:' + C.amber + ';}',
+    '.sk-clip-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;background:' + C.panel2 + ';border-top:1px solid ' + C.line + ';}',
+    '.sk-clip-links{margin-left:auto;display:flex;align-items:center;gap:8px;}',
+    '.sk-tool{box-sizing:border-box;display:inline-flex;align-items:center;height:' + H_SM + ';padding:0 10px;font-size:12px;',
+    'color:' + C.text + ';background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:' + R_CTL + ';cursor:pointer;text-decoration:none;white-space:nowrap;}',
+    '.sk-tool:hover{border-color:' + C.amber + ';color:' + C.amber + ';}'
   ].join('');
 
   var styleTag = document.createElement('style');
@@ -1421,7 +1437,7 @@
 
   function wireTagChipClicks(container, onNavigate) {
     container.onclick = function (e) {
-      var chipEl = e.target.closest && e.target.closest('.sk-mini-chip[data-tag]');
+      var chipEl = e.target.closest && e.target.closest('.sk-mini-chip[data-tag], .sk-clip-name[data-tag], .sk-ctag[data-tag]');
       if (!chipEl) return;
       var tag = chipEl.getAttribute('data-tag');
       searchState.tags = [tag];
@@ -3065,51 +3081,58 @@
   // only via the separate hover-preview dock shown before opening. This
   // puts the same color-coded, clickable chip display directly in the
   // modal itself, reusing the exact same rendering/click logic.
-  // Credits block for the opened clip: animator names large and amber, tags
-  // below at a readable size. Sits right under the top bar (not at the bottom
-  // of the scrolling modal) so it is visible without scrolling.
-  function buildCreditsHtml(tags, map) {
-    var artistTags = safeFilter(tags, function (t) { return map[t] === 1; });
-    var showTags = safeFilter(tags, function (t) { return map[t] === 3; });
-    var otherTags = safeFilter(tags, function (t) { return map[t] !== 1 && map[t] !== 3; });
-    var orderedTags = showTags.concat(otherTags);
-    function chip(t, extraClass) {
-      return '<span class="sk-mini-chip clickable ' + extraClass + '" data-tag="' + esc(t) + '">' + esc(t) + '</span>';
-    }
-    return '<div class="sk-credits-row">' +
-        '<span class="sk-credits-label">Animator</span>' +
-        '<div class="sk-credits-chips">' +
-          (artistTags.length
-            ? safeMap(artistTags, function (t) { return chip(t, 'artist'); }).join('')
-            : '<span class="sk-mini-chip other">not credited</span>') +
-        '</div>' +
-      '</div>' +
-      (orderedTags.length
-        ? '<div class="sk-credits-row">' +
-            '<span class="sk-credits-label">Tags</span>' +
-            '<div class="sk-credits-chips tags">' +
-              safeMap(orderedTags, function (t) { return chip(t, map[t] === 3 ? 'show' : 'other'); }).join('') +
-            '</div>' +
+  // Credit-style title block for the opened clip: the animator is the
+  // heading, the show sits under it, and minor tags trail as quiet #text.
+  // Names are humanized for display (hiroyuki_imaishi -> Hiroyuki Imaishi);
+  // data-tag keeps the raw tag so clicking still runs the exact search.
+  function prettyTag(t) {
+    return safeMap(String(t).split('_'), function (w) { return w ? w.charAt(0).toUpperCase() + w.slice(1) : w; }).join(' ');
+  }
+  var CREDIT_TAG_LIMIT = 8;
+  function buildClipCreditHtml(tags, map) {
+    var hasUnknown = safeFilter(tags, function (t) { return t === UNKNOWN_ARTIST_TAG; }).length > 0;
+    var artists = safeFilter(tags, function (t) { return map[t] === 1 && t !== UNKNOWN_ARTIST_TAG; });
+    var rest = safeFilter(tags, function (t) { return map[t] !== 1; });
+    var shows = safeFilter(rest, function (t) { return map[t] === 3; });
+    var chars = safeFilter(rest, function (t) { return map[t] === 4; });
+    var others = safeFilter(rest, function (t) { return map[t] !== 3 && map[t] !== 4; });
+    var ordered = shows.concat(chars, others);
+
+    var names = artists.length
+      ? safeMap(artists, function (t) {
+          return '<span class="sk-clip-name" data-tag="' + esc(t) + '" title="' + esc(t) + ' — search this animator">' + esc(prettyTag(t)) + '</span>';
+        }).join('<span class="sk-clip-amp">&amp;</span>')
+      : '<span class="sk-clip-name none"' + (hasUnknown ? ' data-tag="' + esc(UNKNOWN_ARTIST_TAG) + '" title="search other uncredited posts"' : '') + '>Uncredited</span>';
+
+    var items = safeMap(ordered, function (t, i) {
+      var cls = map[t] === 3 ? 'show' : (map[t] === 4 ? 'char' : 'other');
+      var label = cls === 'other' ? t.replace(/_/g, ' ') : prettyTag(t);
+      return '<span class="sk-ctag ' + cls + (i >= CREDIT_TAG_LIMIT ? ' extra' : '') + '" data-tag="' + esc(t) + '" title="' + esc(t) + '">' + esc(label) + '</span>';
+    }).join('');
+    var extra = ordered.length - CREDIT_TAG_LIMIT;
+    return '<div class="sk-clip-names' + (artists.length > 2 ? ' many' : '') + '">' + names + '</div>' +
+      (ordered.length
+        ? '<div class="sk-clip-sub' + (extra > 0 ? ' collapsed' : '') + '">' + items +
+            (extra > 0 ? '<span class="sk-clip-more" data-more="' + extra + '">+' + extra + ' more</span>' : '') +
           '</div>'
         : '');
   }
 
   function addTagsSection(box, p) {
-    var container = document.createElement('div');
-    container.className = 'sk-credits';
-    container.innerHTML = '<div class="sk-loading">loading credits…</div>';
-    var top = box.querySelector('.sk-media-top');
-    box.insertBefore(container, top ? top.nextSibling : box.firstChild);
+    var container = box.querySelector('#sk-clip-credit');
+    if (!container) return;
 
     var tags = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; });
     ensureTagTypes().then(function (map) {
-      container.innerHTML = buildCreditsHtml(tags, map);
-      // Unlike the hover dock (where nothing is covering the results, so
-      // updating search state in the background is fine), this is inside an
-      // open modal — leaving it open after the tag click meant the person
-      // never actually saw the new results, and the modal's own now-stale
-      // tag chips just sat there unchanged. Close it so the search that just
-      // ran is immediately visible.
+      container.innerHTML = buildClipCreditHtml(tags, map);
+      var moreBtn = container.querySelector('.sk-clip-more');
+      if (moreBtn) {
+        moreBtn.onclick = function () {
+          var sub = container.querySelector('.sk-clip-sub');
+          var nowCollapsed = sub.classList.toggle('collapsed');
+          moreBtn.textContent = nowCollapsed ? '+' + moreBtn.getAttribute('data-more') + ' more' : 'show less';
+        };
+      }
       wireTagChipClicks(container, function () { box._close(); });
     });
   }
@@ -3219,7 +3242,11 @@
     var box = document.createElement('div');
     box.className = 'sk-media-box';
     box.innerHTML =
-      '<div class="sk-media-top">' +
+      '<div class="sk-clip-head">' +
+        '<div class="sk-clip-credit" id="sk-clip-credit"><div class="sk-loading">loading credits…</div></div>' +
+        '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
+      '</div>' +
+      '<div class="sk-clip-tools" id="sk-clip-tools">' +
         '<span class="sk-badge score" id="sk-vote-score">' + (p.score || 0) + '</span>' +
         '<span class="sk-stars" id="sk-stars" title="rate 1-3 stars — click again anytime to change your rating">' +
           '<span class="sk-star" data-n="1">&#9733;</span>' +
@@ -3228,13 +3255,15 @@
           '<span class="sk-star-clear" id="sk-star-clear" title="clear your rating">&times;</span>' +
         '</span>' +
         '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
-        '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
-        '<span class="sk-media-viewpost" id="sk-copy-link" style="cursor:pointer;margin-left:8px" title="copy a link to this post">Copy Link</span>' +
-        '<span class="sk-media-viewpost" id="sk-add-pool" style="cursor:pointer;margin-left:8px" title="add this clip to a pool">Add to Pool</span>' +
-        '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
+        '<span class="sk-clip-links">' +
+          '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-tool">View post ↗</a>' +
+          '<span class="sk-tool" id="sk-copy-link" title="copy a link to this post">Copy Link</span>' +
+          '<span class="sk-tool" id="sk-add-pool" title="add this clip to a pool">Add to Pool</span>' +
+        '</span>' +
       '</div>';
     backdrop.appendChild(box);
     document.body.appendChild(backdrop); // attach to the real page body so it overlays everything, not just our small panel
+    box._tools = box.querySelector('#sk-clip-tools'); // media is inserted before this bar
 
     var scoreEl = box.querySelector('#sk-vote-score');
     var starsWrap = box.querySelector('#sk-stars');
@@ -3379,7 +3408,7 @@
     vid.autoplay = true;
     vid.playsInline = true;
     vid.src = p.file_url;
-    box.appendChild(vid);
+    box.insertBefore(vid, box._tools);
 
     // Frame-accurate review is the whole point of sakuga — add frame stepping.
     // fps comes from the post data if this fork exposes it, else a common
@@ -3530,7 +3559,7 @@
     var img = document.createElement('img');
     var src = p.sample_url || p.jpeg_url || p.file_url || p.preview_url;
     img.src = src;
-    box.appendChild(img);
+    box.insertBefore(img, box._tools);
 
     var actionRow = document.createElement('div');
     actionRow.className = 'sk-action-row';
