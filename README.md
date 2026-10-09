@@ -90,7 +90,7 @@ node build.js && node build-install.js
 
 ## Changelog
 
-- **Main screen redesign**: one search field with inline chips and sort, live results, Clips | Stats switch, animator names on cards, Stats that follow the search (animator or show), a Shows home, pools with thumbnail previews, and a ⋯ menu replacing the two unlabelled header icons. Matches the Export Composer's design language.
+- **Main screen redesign**: one search field with inline chips and sort, live results, Clips | Stats switch, animator names on cards, Stats that follow the search (animator or show), the solo / hide-uncredited icons, Most frequently tagged and the Shows layout kept as they were, pools with thumbnail previews, and a ⋯ menu replacing the two unlabelled header icons. Matches the Export Composer's design language.
 - **Export Composer**: the pool export panel is replaced by a single window with a live preview, drag-to-rearrange in the preview, list and filmstrip, per-clip trim / label / duplicate / remove, and Labels / Music rows.
 - **Label placement**: 3×3 position picker plus free drag in the preview.
 - **Per-clip custom label text** (replaces animator names for that clip).
