@@ -61,9 +61,9 @@ Open `install.html` directly from this repository. Note: viewing it on github.co
 
 ## Files
 
-- `src/` — the source, as ordered modules (see below). **Edit these.**
-- `sakuga-enhancer.js` — generated: `src/` stitched into the single script the install bookmarklet loads. Committed so the hosted install keeps working; don't edit it by hand.
-- `build.js` — builds `sakuga-enhancer.js` from `src/`, then the bookmarklet URI (`bookmarklet.txt`).
+- `web-src/` — the source, as ordered modules (see below). **Edit these.**
+- `sakuga-enhancer.js` — generated: `web-src/` stitched into the single script the install bookmarklet loads. Committed so the hosted install keeps working; don't edit it by hand.
+- `build.js` — builds `sakuga-enhancer.js` from `web-src/`, then the bookmarklet URI (`bookmarklet.txt`).
 - `build-install.js` — generates `install.html`.
 - `install.html` — the installable page.
 
@@ -109,7 +109,7 @@ All modules are parts of **one closure** (they share scope, no imports), joined 
 
 ## Changelog
 
-- **Source split into modules.** The 5,600-line single file is now `src/` (42 small files, stitched into the same `sakuga-enhancer.js`). Duplicated code was merged: one shared window helper, one trim/download panel, one frame-layout function used by both the composer preview and the export. `performGridExport` and the search-results painter were broken into named steps, and 84 CSS declarations that a later rule overrode were deleted. No behaviour change: the old and new builds produce identical page markup, identical computed styles on 22 screens, and identical ffmpeg arguments across 16 export configurations.
+- **Source split into modules.** The 5,600-line single file is now `web-src/` (42 small files, stitched into the same `sakuga-enhancer.js`). Duplicated code was merged: one shared window helper, one trim/download panel, one frame-layout function used by both the composer preview and the export. `performGridExport` and the search-results painter were broken into named steps, and 84 CSS declarations that a later rule overrode were deleted. No behaviour change: the old and new builds produce identical page markup, identical computed styles on 22 screens, and identical ffmpeg arguments across 16 export configurations.
 - **Clip viewer credits moved to a left-hand panel.** The animator and tags used to be tiny chips at the very bottom of the clip window; they now have their own panel beside it, with larger chips. The viewer's own layout is unchanged.
 - **Consistent shapes and spacing** across every screen and window: one corner radius for all controls (buttons, inputs, selects, icon buttons, chips), one for containers (panels, cards, popups, modals), regular controls 28px and small ones 24px tall, and a 4px spacing grid. The Search button now sits in the same row as the tag field and sort, and empty rows no longer leave gaps. The radii and heights are variables at the top of the style list in `sakuga-enhancer.js`.
 

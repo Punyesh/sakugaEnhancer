@@ -1,14 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 
-// The script is developed as ordered modules in src/ (all parts of ONE closure —
+// The script is developed as ordered modules in web-src/ (all parts of ONE closure —
 // they share scope, so order matters and is given by the numeric filename prefix).
 // This stitches them into the single sakuga-enhancer.js that the install
 // bookmarklet loads, then derives the self-contained bookmarklet from it.
-const srcDir = path.join(__dirname, 'src');
-// A directory (src/02-css/) stands for its own .js files, in order.
+const srcDir = path.join(__dirname, 'web-src');
+// A directory (web-src/02-css/) stands for its own .js files, in order.
 const parts = [];
-fs.readdirSync(srcDir).sort().forEach(entry => {
+fs.readdirSync(srcDir).filter(e => /^\d/.test(e)).sort().forEach(entry => {
   const full = path.join(srcDir, entry);
   if (fs.statSync(full).isDirectory()) {
     fs.readdirSync(full).filter(f => /\.js$/.test(f)).sort().forEach(f => parts.push(path.join(entry, f)));
