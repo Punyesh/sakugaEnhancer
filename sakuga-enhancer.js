@@ -3494,14 +3494,10 @@
     return n;
   }
 
-  function paintSearchResults(cache) {
-    var results = body.querySelector('#sk-results');
-    var facetHead = body.querySelector('#sk-facet-head');
-    var facetGrid = body.querySelector('#sk-facet-grid');
-    var toggle = body.querySelector('#sk-filter-toggle');
-    var badge = body.querySelector('#sk-filter-badge');
+  // "← back to …" link above the results: previous search if there is one,
+  // else the Shows episode list this search came from, else hidden.
+  function paintSearchBackLink(cache) {
     var backWrap = body.querySelector('#sk-back-to-shows');
-
     if (searchHistory.length) {
       var prev = searchHistory[searchHistory.length - 1];
       var prevLabel = prev.tags.join(' ');
@@ -3531,9 +3527,10 @@
       backWrap.style.display = 'none';
       backWrap.innerHTML = '';
     }
+  }
 
-    maybeRenderShowAnimatorsInSearch(body.querySelector('#sk-show-animators-wrap'), cache);
-
+  // The solo-cut and hide-uncredited toggles above the results.
+  function paintSearchToggles(cache) {
     var soloRow = body.querySelector('#sk-solo-row');
     var soloBtn = body.querySelector('#sk-solo-toggle');
     var unknownBtn = body.querySelector('#sk-unknown-toggle');
@@ -3576,12 +3573,15 @@
     } else {
       soloRow.style.display = 'none';
     }
+  }
 
+  // The posts that survive the exclude-tags facets, hide-uncredited and solo filters.
+  function filterVisiblePosts(cache) {
     // Solo cut = exactly one animator-type tag on the post. Same client-side
     // approach as the exclude-tags filter below, since there's no server-side
     // tag syntax for "exactly one of type X" — reuses the same tagTypeMap
     // already populated after every search.
-    var visible = safeFilter(cache.posts, function (p) {
+    return safeFilter(cache.posts, function (p) {
       var tags = (p.tags || '').split(/\s+/);
       for (var i = 0; i < tags.length; i++) {
         if (cache.excluded[tags[i]]) return false;
@@ -3596,7 +3596,11 @@
       }
       return true;
     });
+  }
 
+  // The card grid, plus the load-more sentinel / retry button underneath.
+  function paintResultGrid(cache, visible) {
+    var results = body.querySelector('#sk-results');
     if (!visible.length) {
       results.innerHTML = '<div class="sk-empty">' +
         (cache.posts.length ? 'no clips left after filtering' : 'no posts matched those tags') + '</div>';
@@ -3650,7 +3654,14 @@
         }
       }
     }
+  }
 
+  // The collapsible "exclude tags" facet filter and its badge.
+  function paintFacetFilter(cache, visible) {
+    var facetHead = body.querySelector('#sk-facet-head');
+    var facetGrid = body.querySelector('#sk-facet-grid');
+    var toggle = body.querySelector('#sk-filter-toggle');
+    var badge = body.querySelector('#sk-filter-badge');
     var activeCount = safeFilter(Object.keys(cache.excluded), function (t) { return cache.excluded[t]; }).length;
     if (activeCount) { badge.style.display = 'inline'; badge.textContent = activeCount; }
     else { badge.style.display = 'none'; }
@@ -3695,6 +3706,15 @@
       facetHead.style.display = 'none';
       facetGrid.innerHTML = '';
     }
+  }
+
+  function paintSearchResults(cache) {
+    paintSearchBackLink(cache);
+    maybeRenderShowAnimatorsInSearch(body.querySelector('#sk-show-animators-wrap'), cache);
+    paintSearchToggles(cache);
+    var visible = filterVisiblePosts(cache);
+    paintResultGrid(cache, visible);
+    paintFacetFilter(cache, visible);
   }
 
   function runSearch(opts) {
