@@ -46,11 +46,6 @@
     '#sk-enh-toggle:hover{border-color:' + C.amber + ';}',
     '#sk-enh-panel{position:fixed;z-index:1;background:' + C.panel + ';border:1px solid ' + C.line + ';border-radius:6px;',
     'box-shadow:0 12px 40px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden;}',
-    '#sk-enh-head{display:flex;align-items:center;justify-content:space-between;',
-    'padding:10px 12px;border-bottom:1px solid ' + C.line + ';background:' + C.panel2 + ';',
-    'cursor:move;user-select:none;touch-action:none;}',
-    '#sk-enh-head .brand{font-family:"Courier New",monospace;font-size:12px;color:' + C.dim + ';letter-spacing:1px;}',
-    '#sk-enh-head .brand b{color:' + C.amber + ';}',
     '.sk-icon-btn{width:24px;height:24px;border-radius:5px;border:1px solid ' + C.line + ';',
     'background:transparent;color:' + C.dim + ';display:flex;align-items:center;justify-content:center;',
     'cursor:pointer;font-size:13px;line-height:1;padding:0;font-family:inherit;}',
@@ -89,10 +84,6 @@
     '.sk-resize-edge.s{bottom:0;left:14px;right:14px;height:6px;cursor:ns-resize;}',
     '.sk-resize-edge.w{left:0;top:14px;bottom:14px;width:6px;cursor:ew-resize;}',
     '.sk-resize-edge.e{right:0;top:14px;bottom:14px;width:6px;cursor:ew-resize;}',
-    '#sk-enh-tabs{display:flex;border-bottom:1px solid ' + C.line + ';}',
-    '.sk-tab{flex:1;padding:9px 0;text-align:center;font-size:12px;letter-spacing:.5px;',
-    'text-transform:uppercase;cursor:pointer;color:' + C.dim + ';border-bottom:2px solid transparent;}',
-    '.sk-tab.active{color:' + C.amber + ';border-bottom-color:' + C.amber + ';}',
     '.sk-body{padding:12px;overflow-y:auto;flex:1;min-height:0;}',
     '.sk-row{display:flex;gap:6px;margin-bottom:8px;}',
     '.sk-input{flex:1;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
@@ -106,51 +97,10 @@
     '.sk-btn{background:' + C.amberDim + ';border:1px solid ' + C.amber + ';color:' + C.amber + ';',
     'padding:7px 12px;border-radius:4px;font-size:12px;cursor:pointer;white-space:nowrap;}',
     '.sk-btn:hover{background:' + C.amber + ';color:#1a1509;}',
-    '.sk-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;min-height:0;}',
-    '.sk-suggest-list{background:' + C.panel + ';border:1px solid ' + C.line + ';border-radius:6px;',
-    'margin-bottom:8px;overflow:hidden;}',
-    '.sk-suggest-row{display:flex;justify-content:space-between;align-items:center;',
-    'padding:8px 10px;border-top:1px solid ' + C.line + ';cursor:pointer;font-size:12px;}',
-    '.sk-suggest-row:first-child{border-top:none;}',
-    '.sk-suggest-row:hover{background:' + C.panel2 + ';}',
-    '.sk-suggest-row.is-artist span:first-child{color:' + C.amber + ';}',
-    '.sk-suggest-row.is-copyright span:first-child{color:' + C.link + ';}',
-    '.sk-suggest-count{color:' + C.dim + ';font-size:11px;font-family:monospace;}',
-    '.sk-chip{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
-    'font-size:11px;padding:3px 7px;border-radius:20px;display:flex;align-items:center;gap:5px;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-chip span{cursor:pointer;color:' + C.red + ';font-weight:bold;}',
-    // Type 1 = artist/animator, type 3 = copyright/show — the standard
     // Danbooru1/Moebooru tag-type numbering, already relied on elsewhere in
     // this file for the amber animator color; type 3 specifically wasn't
     // re-verified against a live response this time, just following that
     // same well-established convention.
-    '.sk-chip.is-artist{border-color:' + C.amberDim + ';color:' + C.amber + ';}',
-    '.sk-chip.is-copyright{border-color:' + C.link + ';color:' + C.link + ';}',
-    '.sk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}',
-    '#sk-enh-panel.sk-size-locked .sk-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}',
-    '.sk-card{position:relative;border:1px solid ' + C.line + ';border-radius:4px;overflow:hidden;',
-    'aspect-ratio:1/1;background:#000;cursor:pointer;}',
-    '.sk-card img,.sk-card video{width:100%;height:100%;object-fit:cover;display:block;opacity:.9;}',
-    '.sk-card:hover img,.sk-card:hover video{opacity:1;}',
-    '.sk-card video{position:absolute;top:0;left:0;}',
-    '.sk-card .score{position:absolute;top:3px;right:4px;background:rgba(0,0,0,.7);',
-    'color:' + C.amber + ';font-size:10px;padding:1px 5px;border-radius:8px;z-index:2;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-card .vidmark{position:absolute;top:3px;left:4px;background:rgba(0,0,0,.7);',
-    'color:' + C.text + ';font-size:9px;padding:1px 4px;border-radius:8px;z-index:2;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-meta{font-size:11px;color:' + C.dim + ';margin:8px 0 4px;font-family:"Courier New",monospace;}',
-    '.sk-card .info-badge{position:absolute;bottom:3px;right:4px;background:rgba(0,0,0,.7);',
-    'color:' + C.text + ';font-size:11px;width:18px;height:18px;border-radius:50%;',
-    'display:flex;align-items:center;justify-content:center;z-index:2;cursor:pointer;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-card .info-badge:hover{background:rgba(0,0,0,.9);color:' + C.amber + ';}',
-    '.sk-card .remove-badge{position:absolute;bottom:3px;left:4px;background:rgba(0,0,0,.7);',
-    'color:' + C.text + ';font-size:13px;width:18px;height:18px;border-radius:50%;',
-    'display:flex;align-items:center;justify-content:center;z-index:2;cursor:pointer;',
-    'font-family:"Courier New",monospace;line-height:1;}',
-    '.sk-card .remove-badge:hover{background:' + C.red + ';color:#fff;}',
     '.sk-info-popup{position:fixed;z-index:2147483300;width:280px;max-height:320px;',
     'overflow-y:auto;background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:6px;',
     'box-shadow:0 10px 30px rgba(0,0,0,.6);}',
@@ -195,20 +145,6 @@
     'font-family:"Courier New",monospace;}',
     '.sk-facet-item .fcount{flex-shrink:0;color:' + C.dim + ';font-family:"Courier New",monospace;font-size:10px;}',
     '.sk-facet-item.is-artist .fname{color:' + C.amber + ';font-weight:bold;}',
-    '.sk-filter-toggle{display:inline-flex;align-items:center;gap:6px;background:transparent;',
-    'border:1px solid ' + C.line + ';color:' + C.text + ';padding:4px 10px;border-radius:14px;',
-    'font-size:11px;cursor:pointer;font-family:inherit;}',
-    '.sk-filter-toggle:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-filter-toggle .chev{font-size:8px;color:' + C.dim + ';transition:transform .15s ease;}',
-    '.sk-filter-toggle.open .chev{transform:rotate(180deg);}',
-    '.sk-filter-badge{background:' + C.amberDim + ';color:' + C.amber + ';border-radius:8px;',
-    'padding:0 6px;font-family:"Courier New",monospace;font-size:10px;line-height:1.5;}',
-    '.sk-mode-row{display:flex;gap:6px;margin-bottom:10px;}',
-    '.sk-mode-btn{flex:1;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.dim + ';',
-    'padding:7px 6px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;',
-    'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
-    '.sk-mode-btn:hover{border-color:' + C.amber + ';}',
-    '.sk-mode-btn.active{background:' + C.amberDim + ';border-color:' + C.amber + ';color:' + C.amber + ';font-weight:bold;}',
     '.sk-facet-grid{border:1px solid ' + C.line + ';border-radius:6px;padding:8px 8px 6px;',
     'margin:-2px 0 8px;background:' + C.bg + ';',
     'display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:2px 10px;',
@@ -221,67 +157,95 @@
     '.sk-show-pick .cnt{color:' + C.dim + ';font-size:11px;}',
     '.sk-show-pick.off{opacity:.5;cursor:default;}',
     '.sk-show-pick.off:hover{border-color:' + C.line + ';background:none;}',
-    '.sk-show-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}',
-    '.sk-mini-toggle{background:transparent;border:1px solid ' + C.line + ';color:' + C.dim + ';',
-    'padding:3px 9px;border-radius:12px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap;}',
-    '.sk-mini-toggle:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-show-head .title{font-size:15px;color:' + C.amber + ';font-family:"Courier New",monospace;}',
-    '.sk-show-head a{font-size:11px;color:' + C.dim + ';text-decoration:none;}',
-    '.sk-show-head a:hover{color:' + C.amber + ';}',
-    '.sk-show-nav{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px;}',
-    '.sk-freq-list{border:1px solid ' + C.line + ';border-radius:8px;padding:10px 12px 6px;',
-    'background:linear-gradient(180deg,' + C.panel2 + ',' + C.panel + ');}',
-    '.sk-freq-row{display:flex;align-items:center;gap:8px;padding:4px 2px;border-radius:5px;cursor:pointer;',
-    'transition:background .12s ease;}',
-    '.sk-freq-row:hover{background:rgba(255,176,32,.08);}',
-    '.sk-freq-row.is-show:hover{background:rgba(109,179,242,.08);}',
-    '.sk-freq-rank{width:14px;flex-shrink:0;font-size:10px;color:' + C.dim + ';text-align:right;font-family:"Courier New",monospace;}',
-    '.sk-freq-name{width:112px;flex-shrink:0;font-size:12px;color:' + C.amber + ';white-space:nowrap;',
-    'overflow:hidden;text-overflow:ellipsis;}',
-    '.sk-freq-row.is-show .sk-freq-name{color:' + C.link + ';}',
-    '.sk-freq-bar-wrap{flex:1;height:6px;border-radius:3px;background:' + C.bg + ';overflow:hidden;}',
-    '.sk-freq-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,' + C.amberDim + ',' + C.amber + ');}',
-    '.sk-freq-row.is-show .sk-freq-bar{background:linear-gradient(90deg,#2c5170,' + C.link + ');}',
-    '.sk-freq-count{width:34px;flex-shrink:0;text-align:right;font-size:11px;color:' + C.dim + ';',
-    'font-family:"Courier New",monospace;}',
     '.sk-nav-btn{background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
     'padding:5px 10px;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;}',
     '.sk-nav-btn:hover:not(:disabled){border-color:' + C.amber + ';color:' + C.amber + ';}',
     '.sk-nav-btn:disabled{opacity:.35;cursor:default;}',
-    '.sk-nav-crumb{flex:1;text-align:center;font-size:11px;color:' + C.dim + ';font-family:"Courier New",monospace;',
-    'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
-    '.sk-related-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}',
-    '.sk-chip.clickable{cursor:pointer;}',
-    '.sk-chip.clickable:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
-    '.sk-ep-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}',
-    '.sk-ep-btn{background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:5px;',
-    'padding:8px 4px;text-align:center;cursor:pointer;}',
-    '.sk-ep-btn:hover{border-color:' + C.amber + ';}',
-    '.sk-ep-btn .num{display:block;font-family:"Courier New",monospace;color:' + C.amber + ';',
-    'font-size:13px;font-weight:bold;}',
-    '.sk-ep-btn .cnt{display:block;font-size:10px;color:' + C.dim + ';margin-top:2px;}',
-    '.sk-stat-big{font-size:34px;color:' + C.amber + ';font-family:"Courier New",monospace;',
-    'font-weight:bold;line-height:1;}',
-    '.sk-stat-label{font-size:11px;color:' + C.dim + ';text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}',
-    '.sk-stat-block{display:flex;gap:22px;margin:6px 0 14px;}',
-    '.sk-taglist{display:flex;flex-direction:column;gap:5px;}',
-    '.sk-tagrow{display:flex;align-items:center;gap:8px;font-size:12px;}',
-    '.sk-tagrow .name{width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + C.text + ';}',
-    '.sk-tagrow .bar{flex:1;height:6px;background:' + C.bg + ';border-radius:3px;overflow:hidden;}',
-    '.sk-tagrow .bar i{display:block;height:100%;background:' + C.amber + ';}',
-    '.sk-tagrow .n{width:28px;text-align:right;color:' + C.dim + ';font-family:"Courier New",monospace;font-size:11px;}',
-    '.sk-filmstrip{display:flex;align-items:flex-end;gap:2px;height:70px;margin:10px 0 4px;',
-    'border-bottom:1px solid ' + C.line + ';padding-bottom:2px;}',
-    '.sk-frame{flex:1;background:' + C.amberDim + ';border-radius:1px 1px 0 0;min-height:2px;position:relative;}',
-    '.sk-frame:hover{background:' + C.amber + ';}',
-    '.sk-frame .yr{position:absolute;bottom:-16px;left:0;right:0;text-align:center;',
-    'font-size:9px;color:' + C.dim + ';font-family:"Courier New",monospace;}',
-    '.sk-frame .ct{position:absolute;top:-15px;left:0;right:0;text-align:center;',
-    'font-size:9px;color:' + C.amber + ';font-family:"Courier New",monospace;opacity:0;}',
-    '.sk-frame:hover .ct{opacity:1;}',
     '.sk-empty{color:' + C.dim + ';font-size:12px;text-align:center;padding:20px 0;}',
     '.sk-loading{color:' + C.amber + ';font-size:12px;text-align:center;padding:20px 0;',
     'font-family:"Courier New",monospace;}',
+    '.sk-xc-box{max-width:1120px;height:min(90vh,800px);max-height:none;display:flex;flex-direction:column;overflow:hidden;',
+    'font-family:"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif;color:' + C.text + ';}',
+    '.sk-xc-box button,.sk-xc-box input,.sk-xc-box select{font-family:inherit;}',
+    '.sk-xc-title{font-size:13px;color:' + C.text + ';}',
+    '.sk-xc-title span{color:' + C.dim + ';margin-left:6px;}',
+    '.sk-xc-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);}',
+    '.sk-xc-left{overflow-y:auto;padding:14px 16px;border-right:1px solid ' + C.line + ';min-height:0;}',
+    '.sk-xc-right{display:flex;flex-direction:column;min-height:0;}',
+    '.sk-xc-stage{display:flex;align-items:center;justify-content:center;background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:6px;padding:10px;box-sizing:border-box;}',
+    '.sk-xc-canvas{position:relative;background:#000;flex-shrink:0;overflow:hidden;}',
+    '.sk-xc-cell{position:absolute;box-sizing:border-box;border:1px solid #000;overflow:hidden;cursor:grab;touch-action:none;background:#1a1a1a;',
+    'transition:left .18s ease,top .18s ease,width .18s ease,height .18s ease;}',
+    '.sk-xc-cell.ph{outline:2px dashed ' + C.amber + ';outline-offset:-2px;}',
+    '.sk-xc-cell.ph img,.sk-xc-cell.ph .sk-xc-lblwrap{opacity:.3;}',
+    '.sk-xc-box .sk-xc-cell img{max-height:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:transparent;}',
+    '.sk-xc-cell.hl{outline:2px solid ' + C.amber + ';outline-offset:-2px;z-index:1;}',
+    '.sk-xc-num{position:absolute;top:3px;right:4px;font:10px "Courier New",monospace;color:' + C.text + ';background:rgba(0,0,0,.6);padding:0 4px;border-radius:2px;}',
+    '.sk-xc-lblwrap{position:absolute;pointer-events:none;}',
+    '.sk-xc-chip{position:absolute;white-space:pre;color:#fff;font-family:Arial,Helvetica,sans-serif;pointer-events:auto;cursor:grab;touch-action:none;user-select:none;}',
+    '.sk-xc-chip:hover{outline:1px dashed ' + C.amber + ';}',
+    '.sk-xc-ghost{position:fixed !important;margin:0;z-index:2147483647;pointer-events:none;box-sizing:border-box;box-shadow:0 14px 32px rgba(0,0,0,.7);transform:scale(1.05);transition:none;}',
+    '.sk-xc-ghost.settling{transition:left .18s ease,top .18s ease,width .18s ease,height .18s ease,transform .18s ease,box-shadow .18s ease;transform:none;box-shadow:none;}',
+    '.sk-xc-ghost.sk-xc-rowhead{background:' + C.panel2 + ';border:1px solid ' + C.amber + ';border-radius:6px;}',
+    '.xc-dragging,.xc-dragging *{cursor:grabbing !important;}',
+    '.sk-xc-film{flex-wrap:wrap;gap:6px;margin-top:8px;}',
+    '.sk-xc-fr{position:relative;width:72px;height:41px;box-sizing:border-box;border:1px solid ' + C.line + ';border-radius:3px;overflow:hidden;cursor:grab;touch-action:none;background:#000;}',
+    '.sk-xc-film.port .sk-xc-fr{width:36px;height:64px;}',
+    '.sk-xc-fr:hover{border-color:' + C.dim + ';}',
+    '.sk-xc-fr.on{border-color:' + C.amber + ';box-shadow:0 0 0 1px ' + C.amber + ';}',
+    '.sk-xc-fr.ph{opacity:.3;}',
+    '.sk-xc-box .sk-xc-fr img{width:100%;height:100%;max-height:none;object-fit:cover;display:block;pointer-events:none;}',
+    '.sk-xc-frn{position:absolute;left:2px;top:1px;font:9px "Courier New",monospace;color:' + C.text + ';background:rgba(0,0,0,.6);padding:0 3px;border-radius:2px;}',
+    '.sk-xc-hint{min-height:16px;margin:6px 2px 0;font-size:11px;color:' + C.dim + ';}',
+    '.sk-xc-pos{display:inline-grid;grid-template-columns:repeat(3,20px);gap:3px;padding:4px;border:1px solid ' + C.line + ';border-radius:5px;background:' + C.bg + ';}',
+    '.sk-xc-pos button{width:20px;height:12px;padding:0;border:1px solid ' + C.line + ';border-radius:2px;background:transparent;cursor:pointer;}',
+    '.sk-xc-pos button:hover{border-color:' + C.amber + ';}',
+    '.sk-xc-pos button.on{background:' + C.amber + ';border-color:' + C.amber + ';}',
+    '.sk-xc-poshint{font-size:11px;color:' + C.dim + ';}',
+    '.sk-xc-chip::after{content:"";position:absolute;inset:-6px;}',
+    '.sk-xc-hint a{color:' + C.amber + ';}',
+    '.sk-xc-set{margin-top:12px;border-top:1px solid ' + C.line + ';padding-top:8px;}',
+    '.sk-xc-line{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;padding:5px 0;}',
+    '.sk-xc-line .k{width:108px;flex-shrink:0;font-size:12px;color:' + C.dim + ';}',
+    '#xc-music-line{border:1px dashed transparent;border-radius:6px;}',
+    '#xc-music-line.is-dragover{border-color:' + C.amber + ';background:' + C.panel2 + ';}',
+    '.sk-xc-tracks{display:inline-flex;flex-wrap:wrap;gap:4px;}',
+    '.sk-xc-track{display:inline-flex;align-items:center;gap:6px;max-width:170px;padding:2px 8px;border:1px solid ' + C.line + ';border-radius:10px;font-size:11px;color:' + C.text + ';}',
+    '.sk-xc-track .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-xc-cap{margin:0 0 0 116px;font-size:11px;color:' + C.dim + ';}',
+    '.sk-xc-cap:empty{display:none;}',
+    '.sk-xc-listhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid ' + C.line + ';font-size:12px;color:' + C.text + ';}',
+    '.sk-xc-listhead b{font-weight:normal;color:' + C.dim + ';}',
+    '.sk-xc-list{flex:1;min-height:0;overflow-y:auto;position:relative;}',
+    '.sk-xc-row.ph{background:' + C.panel2 + ';outline:1px dashed ' + C.amber + ';outline-offset:-3px;}',
+    '.sk-xc-row.ph>*{opacity:.3;}',
+    '.sk-xc-row{border-bottom:1px solid ' + C.line + ';}',
+    '.sk-xc-row.open{background:' + C.panel2 + ';}',
+    '.sk-xc-row.dragging{opacity:.55;background:' + C.panel2 + ';}',
+    '.sk-xc-rowhead{display:flex;align-items:center;gap:8px;padding:7px 12px;min-height:46px;box-sizing:border-box;cursor:grab;user-select:nonetouch-action:pan-y;}',
+    '.sk-xc-rowhead:hover .sk-xc-name{color:' + C.amber + ';}',
+    '.sk-xc-grip{cursor:grab;color:' + C.dim + ';font-size:12px;letter-spacing:-2px;line-height:1;touch-action:none;user-select:none;padding:2px 2px;border-radius:3px;}',
+    '.sk-xc-grip:hover,.sk-xc-grip:focus{color:' + C.amber + ';outline:none;}',
+    '.sk-xc-n{width:14px;text-align:right;font:11px "Courier New",monospace;color:' + C.dim + ';flex-shrink:0;}',
+    '.sk-xc-box .sk-xc-rowhead img{width:44px;height:25px;max-height:none;object-fit:cover;border-radius:2px;background:#000;flex-shrink:0;}',
+    '.sk-xc-who{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}',
+    '.sk-xc-name{font-size:12px;color:' + C.text + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-xc-sub{font-size:10px;color:' + C.dim + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-xc-sub .id{font-family:"Courier New",monospace;}',
+    '.sk-xc-row.hl:not(.open){background:' + C.panel2 + ';}',
+    '.sk-xc-badge{font-size:10px;color:' + C.amber + ';white-space:nowrap;}',
+    '.sk-xc-badge:empty{display:none;}',
+    '.sk-xc-chev{color:' + C.dim + ';font-size:10px;width:10px;text-align:center;}',
+    '.sk-xc-edit{padding:2px 12px 10px 34px;}',
+    '.sk-xc-field{display:flex;align-items:center;gap:6px;padding:3px 0;}',
+    '.sk-xc-field .k{width:40px;flex-shrink:0;font-size:11px;color:' + C.dim + ';}',
+    '.sk-xc-field .dash{color:' + C.dim + ';}',
+    '.sk-xc-field .sk-input{min-width:0;font-size:12px;padding:4px 6px;}',
+    '.sk-xc-field input[data-s],.sk-xc-field input[data-e]{flex:0 1 96px;}',
+    '.sk-xc-actions{display:flex;gap:6px;justify-content:flex-end;padding-top:4px;}',
+    '.sk-xc-foot{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid ' + C.line + ';background:' + C.panel2 + ';}',
+    '.sk-xc-sum{flex:1;min-width:0;font-size:12px;color:' + C.dim + ';}',
+    '@media (max-width:760px){.sk-xc-box{height:92vh;}.sk-xc-body{display:block;overflow-y:auto;}.sk-xc-left{overflow:visible;border-right:0;}.sk-xc-list{overflow:visible;}}',
     '.sk-spinner{display:inline-block;width:12px;height:12px;border:2px solid ' + C.line + ';',
     'border-top-color:' + C.amber + ';border-radius:50%;vertical-align:middle;margin-right:6px;',
     'animation:sk-spin .7s linear infinite;}',
@@ -366,7 +330,179 @@
     '.sk-media-box::-webkit-scrollbar-thumb{background:' + C.amberDim + ';border-radius:4px;}',
     '.sk-body::-webkit-scrollbar-thumb:hover,.sk-comments-panel::-webkit-scrollbar-thumb:hover,',
     '.sk-facet-grid::-webkit-scrollbar-thumb:hover,.sk-chipwrap::-webkit-scrollbar-thumb:hover,',
-    '.sk-media-box::-webkit-scrollbar-thumb:hover{background:' + C.amber + ';}'
+    '.sk-media-box::-webkit-scrollbar-thumb:hover{background:' + C.amber + ';}',
+    // ===== main screen =====
+    // Language shared with the Export Composer: sans-serif UI text with
+    // monospace only for numbers and ids, dim sentence-case labels, amber
+    // reserved for the active/primary state, segmented controls and switches
+    // instead of button strips, rows over boxes.
+    '#sk-enh-root button,#sk-enh-root input,#sk-enh-root select{font-family:inherit;}',
+    '#sk-enh-head{display:flex;align-items:center;justify-content:space-between;padding:9px 8px 8px 14px;',
+    'cursor:move;user-select:none;touch-action:none;}',
+    '#sk-enh-head .brand{font-size:12px;font-weight:600;color:' + C.text + ';letter-spacing:.2px;}',
+    '#sk-enh-head .brand i{font-style:normal;font-family:"Courier New",monospace;color:' + C.amber + ';margin-right:7px;letter-spacing:-1px;}',
+    '#sk-enh-tabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid ' + C.line + ';}',
+    '.sk-tab{padding:7px 10px 9px;font-size:13px;color:' + C.dim + ';cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}',
+    '.sk-tab:hover{color:' + C.text + ';}',
+    '.sk-tab.active{color:' + C.amber + ';border-bottom-color:' + C.amber + ';}',
+    '.sk-menu{position:absolute;top:38px;right:8px;z-index:6;min-width:230px;background:' + C.panel2 + ';border:1px solid ' + C.line + ';',
+    'border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,.55);padding:4px;}',
+    '.sk-menu-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:8px 10px;border:0;border-radius:5px;',
+    'background:transparent;color:' + C.text + ';font-size:12px;text-align:left;cursor:pointer;}',
+    '.sk-menu-row:hover{background:' + C.bg + ';}',
+    '.sk-menu-row small{display:block;margin-top:1px;font-size:11px;color:' + C.dim + ';}',
+    '.sk-menu-row.active .sk-toggle-switch{background:' + C.amberDim + ';}',
+    '.sk-menu-row.active .sk-toggle-knob{left:17px;background:' + C.amber + ';}',
+    '.sk-seg{display:inline-flex;border:1px solid ' + C.line + ';border-radius:5px;overflow:hidden;flex-shrink:0;}',
+    '.sk-seg button{background:transparent;border:0;color:' + C.dim + ';padding:4px 11px;font-size:12px;cursor:pointer;font-family:inherit;}',
+    '.sk-seg button+button{border-left:1px solid ' + C.line + ';}',
+    '.sk-seg button:hover{color:' + C.text + ';}',
+    '.sk-seg button.on{background:' + C.amberDim + ';color:' + C.amber + ';}',
+    '.sk-seg.dis{opacity:.4;pointer-events:none;}',
+    // --- query field ---
+    '.sk-qrow{position:relative;display:flex;gap:6px;align-items:flex-start;margin-bottom:2px;}',
+    '.sk-back-btn{flex-shrink:0;width:36px;height:36px;border-radius:8px;border:1px solid ' + C.line + ';background:' + C.bg + ';color:' + C.text + ';',
+    'font-size:18px;line-height:1;cursor:pointer;padding:0 0 2px;}',
+    '.sk-back-btn:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
+    '.sk-field{flex:1;min-width:0;display:flex;align-items:flex-start;gap:6px;background:' + C.bg + ';border:1px solid ' + C.line + ';',
+    'border-radius:8px;padding:4px 6px 4px 8px;min-height:36px;cursor:text;}',
+    '.sk-field:focus-within{border-color:' + C.amber + ';}',
+    '.sk-field-main{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:1px 0;}',
+    '.sk-field-main input,.sk-field>input{flex:1;min-width:96px;background:transparent;border:0;outline:0;color:' + C.text + ';font-size:13px;padding:4px 2px;}',
+    '.sk-field>input{width:100%;}',
+    '.sk-field-main input::placeholder,.sk-field>input::placeholder{color:' + C.dim + ';}',
+    '.sk-field-end{display:flex;align-items:center;gap:4px;flex-shrink:0;height:26px;}',
+    '.sk-sort{background:transparent;border:0;color:' + C.dim + ';font-size:11px;padding:2px 0;cursor:pointer;outline:0;max-width:92px;}',
+    '.sk-sort:hover{color:' + C.text + ';}',
+    '.sk-sort option{background:' + C.panel2 + ';color:' + C.text + ';}',
+    '.sk-go-btn{width:26px;height:26px;border:0;border-radius:6px;background:transparent;color:' + C.dim + ';cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}',
+    '.sk-go-btn:hover{color:' + C.amber + ';background:' + C.panel2 + ';}',
+    '.sk-chip{display:inline-flex;align-items:center;gap:3px;white-space:nowrap;background:' + C.panel2 + ';border:1px solid ' + C.line + ';color:' + C.text + ';',
+    'border-radius:5px;padding:2px 3px 2px 7px;font-size:12px;line-height:1.3;}',
+    '.sk-chip .x{cursor:pointer;color:' + C.dim + ';font-size:14px;line-height:1;padding:0 3px;border-radius:3px;}',
+    '.sk-chip .x:hover{color:' + C.red + ';}',
+    '.sk-chip.is-artist{color:' + C.amber + ';border-color:' + C.amberDim + ';}',
+    '.sk-chip.is-copyright{color:' + C.link + ';border-color:#2c5170;}',
+    '.sk-chip.clickable{cursor:pointer;padding-right:8px;}',
+    '.sk-chip.clickable:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
+    '.sk-chip .n{color:' + C.dim + ';font:10px "Courier New",monospace;margin-left:4px;}',
+    '.sk-suggest-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:5;background:' + C.panel2 + ';border:1px solid ' + C.line + ';',
+    'border-radius:8px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.55);}',
+    '.sk-suggest-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 11px;font-size:12px;cursor:pointer;}',
+    '.sk-suggest-row:hover,.sk-suggest-row.sel{background:' + C.bg + ';}',
+    '.sk-suggest-row.is-artist span:first-child{color:' + C.amber + ';}',
+    '.sk-suggest-row.is-copyright span:first-child{color:' + C.link + ';}',
+    '.sk-suggest-count{color:' + C.dim + ';font:11px "Courier New",monospace;}',
+    // --- results toolbar ---
+    '.sk-bar{display:flex;align-items:center;gap:8px;margin:12px 0 8px;}',
+    '.sk-bar .sp{flex:1;}',
+    '.sk-count{font:11px "Courier New",monospace;color:' + C.dim + ';}',
+    '.sk-pill{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid ' + C.line + ';color:' + C.text + ';',
+    'padding:4px 10px;border-radius:14px;font-size:12px;cursor:pointer;white-space:nowrap;}',
+    '.sk-pill:hover,.sk-pill.open{border-color:' + C.amber + ';color:' + C.amber + ';}',
+    '.sk-pill .n{background:' + C.amberDim + ';color:' + C.amber + ';border-radius:8px;padding:0 6px;font:10px/1.5 "Courier New",monospace;}',
+    '.sk-pill .chev{font-size:8px;color:' + C.dim + ';transition:transform .15s ease;}',
+    '.sk-pill.open .chev{transform:rotate(180deg);}',
+    '.sk-panel{border:1px solid ' + C.line + ';border-radius:8px;background:' + C.bg + ';padding:6px 12px 8px;margin-bottom:10px;}',
+    '.sk-opt{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:7px 0;}',
+    '.sk-opt .t{font-size:12px;color:' + C.text + ';}',
+    '.sk-opt .d{font-size:11px;color:' + C.dim + ';margin-top:1px;}',
+    '.sk-opt.dis{opacity:.45;}',
+    '.sk-opt.dis .sk-toggle-switch{cursor:default;}',
+    '.sk-panel-sec{display:flex;align-items:center;justify-content:space-between;margin:8px 0 4px;padding-top:9px;border-top:1px solid ' + C.line + ';font-size:12px;color:' + C.dim + ';}',
+    '.sk-panel-sec a{color:' + C.amber + ';font-size:11px;text-decoration:none;}',
+    '.sk-facet-grid{border:0;padding:0;margin:0;background:transparent;max-height:200px;}',
+    '.sk-facet-item .fname,.sk-facet-item .fcount{font-family:inherit;}',
+    '.sk-facet-item .fcount{font:10px "Courier New",monospace;}',
+    // --- clip cards ---
+    '.sk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}',
+    '#sk-enh-panel.sk-size-locked .sk-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}',
+    '.sk-card{position:relative;border:1px solid ' + C.line + ';border-radius:7px;overflow:hidden;aspect-ratio:1/1;background:#000;cursor:pointer;}',
+    '.sk-card:hover{border-color:' + C.amberDim + ';}',
+    '.sk-card img,.sk-card video{width:100%;height:100%;object-fit:cover;display:block;opacity:.92;}',
+    '.sk-card:hover img,.sk-card:hover video{opacity:1;}',
+    '.sk-card video{position:absolute;top:0;left:0;}',
+    '.sk-card .cap{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:18px 7px 5px;display:flex;align-items:flex-end;justify-content:space-between;gap:6px;',
+    'background:linear-gradient(transparent,rgba(0,0,0,.82));pointer-events:none;}',
+    '.sk-card .cap .who{font-size:10.5px;color:' + C.text + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}',
+    '.sk-card .cap .sc{font:10px "Courier New",monospace;color:' + C.amber + ';flex-shrink:0;}',
+    '.sk-card .kind{position:absolute;top:5px;left:6px;z-index:2;font-size:9px;color:' + C.text + ';background:rgba(0,0,0,.65);padding:1px 6px;border-radius:8px;}',
+    '.sk-card .info-badge,.sk-card .remove-badge{position:absolute;top:5px;z-index:3;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.65);',
+    'color:' + C.text + ';display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .12s ease;line-height:1;}',
+    '.sk-card .info-badge{right:5px;font-size:12px;}',
+    '.sk-card .remove-badge{left:5px;font-size:14px;}',
+    '.sk-card:hover .info-badge,.sk-card:hover .remove-badge{opacity:.85;}',
+    '@media (hover:none){.sk-card .info-badge,.sk-card .remove-badge{opacity:.7;}}',
+    '.sk-card .info-badge:hover{opacity:1;color:' + C.amber + ';}',
+    '.sk-card .remove-badge:hover{opacity:1;background:' + C.red + ';color:#fff;}',
+    // --- rows (shows, pools, lists) ---
+    '.sk-sec{display:flex;align-items:center;justify-content:space-between;margin:14px 6px 6px;font-size:12px;color:' + C.dim + ';}',
+    '.sk-sec:first-child{margin-top:2px;}',
+    '.sk-sec a{color:' + C.amber + ';font-size:11px;text-decoration:none;cursor:pointer;}',
+    '.sk-list{display:flex;flex-direction:column;gap:1px;}',
+    '.sk-item{display:flex;align-items:center;gap:11px;padding:8px 6px;border-radius:7px;cursor:pointer;}',
+    '.sk-item:hover{background:' + C.panel2 + ';}',
+    '.sk-item .main{flex:1;min-width:0;}',
+    '.sk-item .t{font-size:13px;color:' + C.text + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+    '.sk-item .s{font-size:11px;color:' + C.dim + ';margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+    '.sk-item .end{font:11px "Courier New",monospace;color:' + C.dim + ';flex-shrink:0;}',
+    '.sk-item .chev{color:' + C.dim + ';font-size:11px;}',
+    '.sk-item:hover .t,.sk-item:hover .chev{color:' + C.amber + ';}',
+    '.sk-item .thumbs{display:flex;gap:2px;flex-shrink:0;}',
+    '.sk-item .thumbs img,.sk-item .thumbs i{width:32px;height:32px;object-fit:cover;border-radius:3px;background:' + C.panel2 + ';display:block;}',
+    '.sk-item.off{opacity:.5;cursor:default;}',
+    '.sk-item.off:hover{background:none;}',
+    '.sk-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}',
+    '.sk-head .ttl{flex:1;min-width:0;font-size:15px;font-weight:600;color:' + C.text + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+    '.sk-head .ttl small{display:block;font-size:11px;font-weight:normal;color:' + C.dim + ';margin-top:1px;}',
+    '.sk-link{color:' + C.dim + ';font-size:11px;background:none;border:0;padding:4px 2px;cursor:pointer;text-decoration:none;}',
+    '.sk-link:hover{color:' + C.red + ';}',
+    '.sk-link.amber:hover{color:' + C.amber + ';}',
+    '.sk-addrow{display:flex;gap:6px;margin-bottom:10px;}',
+    '.sk-ep-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}',
+    '.sk-ep-btn{border:1px solid ' + C.line + ';border-radius:7px;padding:9px 6px;text-align:center;cursor:pointer;}',
+    '.sk-ep-btn:hover{border-color:' + C.amber + ';background:' + C.panel2 + ';}',
+    '.sk-ep-btn .num{display:block;font-size:13px;font-weight:600;color:' + C.text + ';}',
+    '.sk-ep-btn:hover .num{color:' + C.amber + ';}',
+    '.sk-ep-btn .cnt{display:block;font-size:10.5px;color:' + C.dim + ';margin-top:2px;}',
+    '.sk-empty b{color:' + C.text + ';font-weight:600;}',
+    '.sk-hero{padding:26px 8px 8px;text-align:center;}',
+    '.sk-hero .h{font-size:15px;font-weight:600;color:' + C.text + ';}',
+    '.sk-hero .p{font-size:12px;color:' + C.dim + ';margin:5px 0 14px;line-height:1.5;}',
+    '.sk-hero .sk-chip{margin:0 3px 6px;}',
+    // --- stats ---
+    '.sk-stats-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 6px 12px;}',
+    '.sk-stats-head .ttl{font-size:17px;font-weight:600;color:' + C.amber + ';}',
+    '.sk-stats-head .sub{font-size:11px;color:' + C.dim + ';}',
+    '.sk-stat-row{display:flex;gap:28px;margin:0 6px 6px;}',
+    '.sk-stat-big{font-size:26px;font-weight:600;color:' + C.text + ';line-height:1.1;font-variant-numeric:tabular-nums;}',
+    '.sk-stat-label{font-size:11px;color:' + C.dim + ';margin-top:2px;}',
+    '.sk-bars{display:flex;flex-direction:column;gap:1px;}',
+    '.sk-bar-row{display:flex;align-items:center;gap:10px;padding:4px 6px;border-radius:5px;}',
+    '.sk-bar-row.clickable{cursor:pointer;}',
+    '.sk-bar-row.clickable:hover{background:' + C.panel2 + ';}',
+    '.sk-bar-row .name{width:128px;flex-shrink:0;font-size:12px;color:' + C.text + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+    '.sk-bar-row.is-artist .name{color:' + C.amber + ';}',
+    '.sk-bar-row.is-show .name{color:' + C.link + ';}',
+    '.sk-bar-row .track{flex:1;height:4px;border-radius:2px;background:' + C.line + ';overflow:hidden;}',
+    '.sk-bar-row .track i{display:block;height:100%;background:' + C.dim + ';border-radius:2px;}',
+    '.sk-bar-row.is-artist .track i{background:' + C.amber + ';}',
+    '.sk-bar-row.is-show .track i{background:' + C.link + ';}',
+    '.sk-bar-row .n{width:30px;flex-shrink:0;text-align:right;font:11px "Courier New",monospace;color:' + C.dim + ';}',
+    '.sk-years{display:flex;align-items:flex-end;gap:3px;height:78px;padding:0 2px 16px;position:relative;margin-top:4px;}',
+    '.sk-years .yb{flex:1;min-width:3px;background:' + C.amberDim + ';border-radius:2px 2px 0 0;position:relative;}',
+    '.sk-years .yb:hover{background:' + C.amber + ';}',
+    '.sk-years .yb span{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);font:9px "Courier New",monospace;color:' + C.dim + ';}',
+    '.sk-note{font-size:11px;color:' + C.dim + ';margin:8px 2px 0;line-height:1.5;}',
+    '.sk-note a{color:' + C.amber + ';}',
+    '#sk-enh-head .sk-close{padding:3px 8px;font-size:19px;}',
+    '#sk-enh-body .sk-loading{font-family:inherit;color:' + C.dim + ';}',
+    '.sk-chips-row{display:flex;flex-wrap:wrap;gap:5px;margin:0 6px 4px;}',
+    '.sk-head>.ttl:first-child{padding-left:6px;}',
+    '.sk-back-btn:disabled{opacity:.35;cursor:default;}',
+    '.sk-stats-head .ttl.show{color:' + C.link + ';}',
+    '.sk-hero .sk-btn{padding:7px 18px;}',
+    '.sk-load-more-wrap .sk-pill{margin:0 auto;}'
   ].join('');
 
   var styleTag = document.createElement('style');
@@ -377,12 +513,18 @@
   root.id = 'sk-enh-root';
   root.innerHTML =
     '<div id="sk-enh-panel" style="display:none">' +
-      '<div id="sk-enh-head"><div class="brand">SAKUGA <b>ENHANCER</b></div>' +
-        '<div id="sk-enh-head-actions" style="display:flex;align-items:center;gap:6px">' +
-          '<button type="button" class="sk-icon-btn" id="sk-enh-lock-size" title="lock clip size — resizing the panel adds/removes clips per row instead of resizing them">&#9638;</button>' +
-          '<button type="button" class="sk-icon-btn" id="sk-enh-reset" title="reset size and position">&#8634;</button>' +
+      '<div id="sk-enh-head"><div class="brand"><i>##</i>Sakuga Enhancer</div>' +
+        '<div id="sk-enh-head-actions" style="display:flex;align-items:center;gap:2px">' +
+          '<button type="button" class="sk-icon-btn" id="sk-enh-gear" title="Panel settings" style="border-color:transparent">' +
+            '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="display:block"><circle cx="2.5" cy="7" r="1.2"/><circle cx="7" cy="7" r="1.2"/><circle cx="11.5" cy="7" r="1.2"/></svg>' +
+          '</button>' +
           '<div class="sk-close" id="sk-enh-x">&times;</div>' +
         '</div></div>' +
+      '<div class="sk-menu" id="sk-enh-menu" style="display:none">' +
+        '<button type="button" class="sk-menu-row" id="sk-enh-lock-size"><span>Lock clip size<small>Resizing adds columns instead of enlarging clips</small></span>' +
+          '<span class="sk-toggle-switch"><span class="sk-toggle-knob"></span></span></button>' +
+        '<button type="button" class="sk-menu-row" id="sk-enh-reset"><span>Reset size and position</span></button>' +
+      '</div>' +
       '<div id="sk-enh-tabs">' +
         '<div class="sk-tab active" data-tab="search">Search</div>' +
         '<div class="sk-tab" data-tab="shows">Shows</div>' +
@@ -552,10 +694,18 @@
     panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
   };
   root.querySelector('#sk-enh-x').onclick = function () { panel.style.display = 'none'; };
+  var menuEl = root.querySelector('#sk-enh-menu');
+  var gearBtn = root.querySelector('#sk-enh-gear');
+  function closeMenu() { menuEl.style.display = 'none'; }
+  gearBtn.onclick = function () { menuEl.style.display = menuEl.style.display === 'none' ? 'block' : 'none'; };
+  document.addEventListener('mousedown', function (e) {
+    if (menuEl.style.display !== 'none' && !menuEl.contains(e.target) && !gearBtn.contains(e.target)) closeMenu();
+  }, true);
   root.querySelector('#sk-enh-reset').onclick = function () {
     geom = clampFull(defaultGeometry());
     applyGeometry(geom);
     saveGeometry(geom);
+    closeMenu();
   };
 
   // ===================== LOCK SIZE (fixed clip size vs. fixed column count) =====================
@@ -882,8 +1032,7 @@
 
   // ---------- cross-tab sync state ----------
   // Keeps the two tabs in lockstep so switching tabs never requires re-searching.
-  var sync = { artistTag: null }; // canonical animator tag currently "in focus"
-  var searchCache = null; // { tags, order, posts, excluded, facetTags }
+  var searchCache = null; // { tags, order, posts, excluded, facetTags, ... }
   var searchScrollObserver = null; // watches the load-more sentinel; recreated each render since the sentinel itself is a fresh DOM node each time
   var searchHistory = []; // previous searches in the Search tab, newest last — drives the "← back" button
   var searchOrigin = null; // e.g. {type:'shows'} — set right before a Shows-originated search, consumed by runSearch
@@ -943,186 +1092,342 @@
   }
 
   // ===================== SEARCH TAB =====================
+  // One field does everything: tags are chips inside it, sort lives at its
+  // right edge, and results follow the chips as they change (no Search
+  // button to remember). The Clips / Stats switch below it looks at the same
+  // query — Stats simply reads whichever animator or show is in it.
   var searchState = { tags: [], order: 'date', rating: '' };
   var searchViewMode = 'results'; // 'results' | 'stats'
+  var filterOpen = false;         // the Filter panel stays open across repaints
+  var searchTimer = null;         // debounce for live search while editing chips
+  var searchSeq = 0;              // newest request wins when responses arrive out of order
+  var statsToken = 0;             // invalidates in-flight stats renders
+  var manualPending = false;      // chips were preloaded (post page) — wait for the person to confirm
+  var pendingRunOpts = null;      // one-shot options for the next automatic run
+  var lastRunPromise = null;
+
+  function $b(sel) { return body.querySelector(sel); }
+  function tagLabel(t) { return String(t).replace(/_/g, ' '); }
+  function chipClassFor(t) {
+    var ty = tagTypeMap && tagTypeMap[t];
+    return ty === 1 ? ' is-artist' : (ty === 3 ? ' is-copyright' : '');
+  }
 
   function tagsEqual(a, b) {
     return a.length === b.length && safeFilter(a, function (t, i) { return t === b[i]; }).length === a.length;
   }
+  function cacheMatches() {
+    return !!searchCache && tagsEqual(searchCache.tags, searchState.tags) && searchCache.order === searchState.order;
+  }
+  // A query exists once there are chips — or once "browse newest" has run with none.
+  function hasQuery() { return searchState.tags.length > 0 || cacheMatches(); }
 
   function renderSearch() {
     body.innerHTML =
-      '<div id="sk-tag-controls">' +
-        '<div class="sk-row">' +
-          '<input class="sk-input" id="sk-tag-input" placeholder="add tag, enter to confirm">' +
-          '<select class="sk-select" id="sk-order">' +
-            '<option value="score">top score</option>' +
-            '<option value="score_asc">lowest score</option>' +
-            '<option value="date">newest</option>' +
-            '<option value="id">oldest</option>' +
-            '<option value="random">random</option>' +
-          '</select>' +
+      '<div class="sk-qrow">' +
+        '<button type="button" class="sk-back-btn" id="sk-back" style="display:none">&#8249;</button>' +
+        '<div class="sk-field" id="sk-field">' +
+          '<div class="sk-field-main" id="sk-chips">' +
+            '<input id="sk-tag-input" autocomplete="off" spellcheck="false">' +
+          '</div>' +
+          '<div class="sk-field-end">' +
+            '<select class="sk-sort" id="sk-order" title="Sort order">' +
+              '<option value="date">Newest</option>' +
+              '<option value="score">Top score</option>' +
+              '<option value="score_asc">Lowest score</option>' +
+              '<option value="id">Oldest</option>' +
+              '<option value="random">Random</option>' +
+            '</select>' +
+            '<button type="button" class="sk-go-btn" id="sk-go" title="Search">' +
+              '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block">' +
+              '<circle cx="6" cy="6" r="4.2"/><path d="M9.2 9.2 12.5 12.5"/></svg>' +
+            '</button>' +
+          '</div>' +
         '</div>' +
-        '<div class="sk-chips" id="sk-chips"></div>' +
         '<div class="sk-suggest-list" id="sk-tag-suggestions" style="display:none"></div>' +
-        '<div class="sk-row">' +
-          '<button class="sk-btn" id="sk-go" style="flex:1">Search</button>' +
+      '</div>' +
+      '<div class="sk-bar" id="sk-bar" style="display:none">' +
+        '<div class="sk-seg" id="sk-view-seg">' +
+          '<button type="button" data-v="results">Clips</button>' +
+          '<button type="button" data-v="stats">Stats</button>' +
         '</div>' +
+        '<span class="sk-count" id="sk-count"></span><span class="sp"></span>' +
+        '<button type="button" class="sk-pill" id="sk-filter-pill" style="display:none">Filter' +
+          '<span class="n" style="display:none"></span><span class="chev">&#9660;</span></button>' +
       '</div>' +
-      '<div class="sk-mode-row">' +
-        '<button class="sk-mode-btn active" id="sk-mode-results" type="button">▤ Results</button>' +
-        '<button class="sk-mode-btn" id="sk-mode-stats" type="button">▥ Animator Stats</button>' +
-      '</div>' +
+      '<div class="sk-panel" id="sk-filter-panel" style="display:none"></div>' +
       '<div id="sk-search-view"></div>';
 
-    renderChips();
-
-    body.querySelector('#sk-order').value = searchState.order;
-    body.querySelector('#sk-order').onchange = function (e) { searchState.order = e.target.value; };
-
-    var input = body.querySelector('#sk-tag-input');
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && input.value.trim()) {
-        commitPendingTag();
-      }
-    });
-
-    // Live tag suggestions as you type — reuses the same cached full tag
-    // dictionary the Shows tab already builds, just filtered across all tag
-    // types instead of only type 3 (shows), no separate fetch mechanism
-    // needed. Selecting a suggestion runs the search immediately rather than
-    // just adding the chip, since picking a suggestion is how someone
-    // finishes specifying what they're looking for — no reason to also
-    // require a separate Search tap after. Manually typing a full tag and
-    // pressing Enter still just adds a chip without searching, since that
-    // path is more often used to string several tags together first.
-    var suggestWrap = body.querySelector('#sk-tag-suggestions');
+    var input = $b('#sk-tag-input');
+    var field = $b('#sk-field');
+    var orderSel = $b('#sk-order');
+    var suggestWrap = $b('#sk-tag-suggestions');
     var suggestDebounce = null;
+    var suggestSel = -1;
+
+    orderSel.value = searchState.order;
+    orderSel.onchange = function (e) {
+      searchState.order = e.target.value;
+      if (searchViewMode === 'stats') return; // stats ignore sort; Clips re-runs when you switch back
+      if (searchState.tags.length || (searchCache && !searchCache.tags.length)) {
+        clearTimeout(searchTimer);
+        manualPending = false;
+        runSearch();
+      }
+    };
+
+    field.onclick = function (e) {
+      if (e.target === field || e.target.id === 'sk-chips') input.focus();
+    };
+
+    function hideSuggest() {
+      suggestWrap.style.display = 'none';
+      suggestWrap.innerHTML = '';
+      suggestSel = -1;
+    }
+    function markSuggest() {
+      var rows = suggestWrap.querySelectorAll('.sk-suggest-row');
+      for (var i = 0; i < rows.length; i++) rows[i].classList.toggle('sel', i === suggestSel);
+    }
+    function pickTag(name) {
+      if (searchState.tags.indexOf(name) === -1) searchState.tags.push(name);
+      input.value = '';
+      hideSuggest();
+      commitQuery(true);
+      input.focus();
+    }
+    // Enter / the magnifier: turn whatever is typed into a chip and search now.
+    function submitTyped() {
+      var val = input.value.trim().toLowerCase().replace(/\s+/g, '_');
+      if (val && searchState.tags.indexOf(val) === -1) searchState.tags.push(val);
+      input.value = '';
+      hideSuggest();
+      if (!val && !searchState.tags.length) return;
+      commitQuery(true);
+    }
+
+    // Live suggestions while typing, from the same cached tag dictionary the
+    // Shows tab uses (all tag types).
     input.addEventListener('input', function () {
       clearTimeout(suggestDebounce);
       var q = normalizeForTagMatch(input.value.trim().toLowerCase().replace(/\s+/g, '_'));
-      if (!q) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
+      if (!q) { hideSuggest(); return; }
       suggestDebounce = setTimeout(function () {
         ensureAllTags().then(function (list) {
-          var matches = safeFilter(list, function (t) { return normalizeForTagMatch(t.name).indexOf(q) !== -1; });
+          if (!input.value.trim()) return;
+          var matches = safeFilter(list, function (t) {
+            return normalizeForTagMatch(t.name).indexOf(q) !== -1 && searchState.tags.indexOf(t.name) === -1;
+          });
           matches = safeSort(matches, function (a, b) { return b.count - a.count; }).slice(0, 8);
-          if (!matches.length) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
+          if (!matches.length) { hideSuggest(); return; }
+          suggestSel = -1;
           suggestWrap.style.display = 'block';
           suggestWrap.innerHTML = safeMap(matches, function (t) {
             var typeClass = t.type === 1 ? ' is-artist' : (t.type === 3 ? ' is-copyright' : '');
             return '<div class="sk-suggest-row' + typeClass + '" data-name="' + esc(t.name) + '">' +
-              '<span>' + esc(t.name) + '</span><span class="sk-suggest-count">' + t.count + '</span></div>';
+              '<span>' + esc(tagLabel(t.name)) + '</span><span class="sk-suggest-count">' + t.count + '</span></div>';
           }).join('');
           var rows = suggestWrap.querySelectorAll('.sk-suggest-row');
           for (var i = 0; i < rows.length; i++) {
-            rows[i].onclick = function (e) {
-              var name = e.currentTarget.getAttribute('data-name');
-              searchState.tags.push(name);
-              input.value = '';
-              suggestWrap.style.display = 'none';
-              suggestWrap.innerHTML = '';
-              renderChips();
-              searchViewMode = 'results';
-              ensureResultsMarkup();
-              runSearch();
+            rows[i].onmousedown = function (e) {
+              e.preventDefault(); // keep focus in the field
+              pickTag(e.currentTarget.getAttribute('data-name'));
             };
           }
-        }).catch(function () { /* a failed suggestion lookup just shows nothing, not worth an error banner */ });
+        }).catch(function () { /* a failed suggestion lookup just shows nothing */ });
       }, 150);
     });
+    input.addEventListener('keydown', function (e) {
+      var rows = suggestWrap.querySelectorAll('.sk-suggest-row');
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (!rows.length) return;
+        e.preventDefault();
+        if (e.key === 'ArrowDown') suggestSel = suggestSel + 1 >= rows.length ? 0 : suggestSel + 1;
+        else suggestSel = suggestSel <= 0 ? rows.length - 1 : suggestSel - 1;
+        markSuggest();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (suggestSel >= 0 && rows[suggestSel]) pickTag(rows[suggestSel].getAttribute('data-name'));
+        else submitTyped();
+      } else if (e.key === 'Escape') {
+        hideSuggest();
+      } else if (e.key === 'Backspace' && !input.value && searchState.tags.length) {
+        searchState.tags.pop();
+        commitQuery(false);
+      }
+    });
+    input.addEventListener('blur', function () { hideSuggest(); });
+    $b('#sk-go').onclick = submitTyped;
 
-    body.querySelector('#sk-go').onclick = function () {
-      commitPendingTag();
-      searchViewMode = 'results';
-      ensureResultsMarkup();
-      runSearch();
+    var segBtns = $b('#sk-view-seg').querySelectorAll('button');
+    for (var si = 0; si < segBtns.length; si++) {
+      segBtns[si].onclick = function (e) {
+        searchViewMode = e.currentTarget.getAttribute('data-v');
+        renderSearchView();
+      };
+    }
+    $b('#sk-filter-pill').onclick = function () {
+      filterOpen = !filterOpen;
+      if (searchCache && cacheMatches()) paintSearchChrome(searchCache);
     };
+    $b('#sk-back').onclick = goBackSearch;
 
-    body.querySelector('#sk-mode-results').onclick = function () { searchViewMode = 'results'; renderSearchView(); };
-    body.querySelector('#sk-mode-stats').onclick = function () { searchViewMode = 'stats'; renderSearchView(); };
-
+    renderChips();
     renderSearchView();
   }
 
-  function renderSearchView() {
-    var toggleResults = body.querySelector('#sk-mode-results');
-    var toggleStats = body.querySelector('#sk-mode-stats');
-    toggleResults.classList.toggle('active', searchViewMode === 'results');
-    toggleStats.classList.toggle('active', searchViewMode === 'stats');
-    toggleStats.textContent = sync.artistTag ? '▥ Stats: ' + sync.artistTag : '▥ Animator Stats';
-    // Tag-search controls only matter in Results mode — showing them in Stats
-    // mode too was exactly the "why two search fields" confusion.
-    body.querySelector('#sk-tag-controls').style.display = searchViewMode === 'stats' ? 'none' : 'block';
-
-    var view = body.querySelector('#sk-search-view');
-
-    if (searchViewMode === 'stats') {
-      view.innerHTML =
-        '<div class="sk-row">' +
-          '<input class="sk-input" id="sk-artist-input" placeholder="animator name, e.g. yutaka_nakamura">' +
-          '<button class="sk-btn" id="sk-artist-go">Look up</button>' +
-        '</div>' +
-        '<div id="sk-stats-out"></div>';
-
-      var input = view.querySelector('#sk-artist-input');
-      var go = function () {
-        var name = input.value.trim().replace(/\s+/g, '_').toLowerCase();
-        if (name) loadArtistStats(name);
-      };
-      view.querySelector('#sk-artist-go').onclick = go;
-      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
-
-      // Reuse the cached lookup if it's already for the animator currently "in focus".
-      if (statsCache && sync.artistTag && statsCache.tagName === sync.artistTag) {
-        input.value = statsCache.tagName;
-        renderArtistStats(view.querySelector('#sk-stats-out'), statsCache.tagName, statsCache.allPosts);
-      } else if (sync.artistTag && (!statsCache || statsCache.tagName !== sync.artistTag)) {
-        input.value = sync.artistTag;
-        loadArtistStats(sync.artistTag);
-      } else if (statsCache) {
-        input.value = statsCache.tagName;
-        renderArtistStats(view.querySelector('#sk-stats-out'), statsCache.tagName, statsCache.allPosts);
-      }
-      return;
+  // The chips changed. Results (or Stats) catch up after a short pause, so
+  // adding or removing several tags in a row costs one request, not several.
+  function commitQuery(immediate) {
+    renderChips();
+    clearTimeout(searchTimer);
+    manualPending = false;
+    function go() {
+      if (!$b('#sk-search-view')) return; // moved to another tab meanwhile
+      if (searchViewMode === 'stats' || !searchState.tags.length) renderSearchView();
+      else runSearch();
     }
+    if (immediate) go(); else searchTimer = setTimeout(go, 380);
+  }
 
-    ensureResultsMarkup();
-
-    // Reuse an exact cached result if nothing's changed since we last saw this tab.
-    if (searchCache && tagsEqual(searchCache.tags, searchState.tags) && searchCache.order === searchState.order) {
-      paintSearchResults(searchCache);
-    // Otherwise, if Stats just identified an animator we haven't searched yet, sync to it.
-    } else if (sync.artistTag && !(searchCache && searchCache.tags.indexOf(sync.artistTag) !== -1)) {
-      searchState.tags = [sync.artistTag];
+  // Point the Search tab at a query from anywhere (a tag chip, a Shows
+  // click-through, a stats row). Returns the request's promise when one was
+  // started, null when the result was already cached.
+  function setQuery(tags, o) {
+    o = o || {};
+    searchState.tags = tags.slice();
+    if (o.order) searchState.order = o.order;
+    searchViewMode = 'results';
+    searchOrigin = o.origin || null;
+    if (o.history) searchHistory = o.history;
+    manualPending = false;
+    clearTimeout(searchTimer);
+    pendingRunOpts = o.noHistory ? { noHistory: true } : null;
+    lastRunPromise = null;
+    if (!$b('#sk-search-view')) {
+      switchToTab('search');
+    } else {
       renderChips();
-      runSearch();
+      var orderSel = $b('#sk-order');
+      if (orderSel) orderSel.value = searchState.order;
+      renderSearchView();
     }
+    pendingRunOpts = null;
+    return lastRunPromise;
+  }
+
+  function renderSearchView() {
+    var view = $b('#sk-search-view');
+    if (!view) return;
+    statsToken++;
+    syncBar();
+    updateBackBtn();
+    if (!hasQuery()) { renderHero(view); return; }
+    if (searchViewMode === 'stats') { renderStatsView(view); return; }
+    if (cacheMatches()) { ensureResultsMarkup(); paintSearchResults(searchCache); return; }
+    if (manualPending) { renderPending(view); return; }
+    var o = pendingRunOpts || {};
+    pendingRunOpts = null;
+    lastRunPromise = runSearch(o);
   }
 
   function ensureResultsMarkup() {
-    var view = body.querySelector('#sk-search-view');
+    var view = $b('#sk-search-view');
+    statsToken++; // a late stats response must not overwrite clips
+    if (view) view.innerHTML = '<div id="sk-results"></div>';
+  }
+
+  // Segmented control, count and filter pill: what's visible depends on
+  // whether there is a query and which view is showing.
+  function syncBar() {
+    var bar = $b('#sk-bar');
+    if (!bar) return;
+    bar.style.display = hasQuery() ? 'flex' : 'none';
+    var segs = $b('#sk-view-seg').querySelectorAll('button');
+    for (var i = 0; i < segs.length; i++) segs[i].classList.toggle('on', segs[i].getAttribute('data-v') === searchViewMode);
+    var live = searchViewMode === 'results' && cacheMatches();
+    $b('#sk-count').style.display = live ? '' : 'none';
+    $b('#sk-filter-pill').style.display = live && searchCache.posts.length ? '' : 'none';
+    if (!live) $b('#sk-filter-panel').style.display = 'none';
+  }
+
+  function backTarget() {
+    if (searchHistory.length) {
+      var prev = searchHistory[searchHistory.length - 1];
+      var label = safeMap(prev.tags, tagLabel).join(', ');
+      if (label.length > 36) label = label.slice(0, 35) + '…';
+      return { kind: 'history', label: label || 'previous search' };
+    }
+    if (cacheMatches() && searchCache.origin && searchCache.origin.type === 'shows') {
+      return { kind: 'shows', label: 'episode list' };
+    }
+    return null;
+  }
+  function updateBackBtn() {
+    var btn = $b('#sk-back');
+    if (!btn) return;
+    var t = backTarget();
+    btn.style.display = t ? '' : 'none';
+    btn.title = t ? 'Back to ' + t.label : '';
+  }
+  function goBackSearch() {
+    var t = backTarget();
+    if (!t) return;
+    if (t.kind === 'shows') { switchToTab('shows'); return; }
+    var entry = searchHistory.pop();
+    if (!entry) return;
+    searchState.tags = entry.tags.slice();
+    searchState.order = entry.order;
+    searchOrigin = entry.origin;
+    manualPending = false;
+    var orderSel = $b('#sk-order');
+    if (orderSel) orderSel.value = entry.order;
+    renderChips();
+    runSearch({ noHistory: true });
+  }
+
+  function renderHero(view) {
     view.innerHTML =
-      '<div id="sk-back-to-shows" style="display:none"></div>' +
-      '<div id="sk-show-animators-wrap" style="margin-bottom:8px"></div>' +
-      '<div id="sk-solo-row" style="display:none;gap:6px;margin-bottom:8px">' +
-        '<button type="button" class="sk-icon-btn" id="sk-solo-toggle">&#9312;</button>' +
-        '<button type="button" class="sk-icon-btn" id="sk-unknown-toggle">' +
-          '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block">' +
-            '<path d="M5 5.2a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.3"/><circle cx="7" cy="10.7" r=".4" fill="currentColor"/><path d="M2 12.5 12 1.5"/></svg>' +
-        '</button>' +
-      '</div>' +
-      '<div class="sk-meta" id="sk-facet-head" style="display:none;justify-content:space-between;align-items:center">' +
-        '<button class="sk-filter-toggle" id="sk-filter-toggle" type="button">' +
-          'Filter <span class="sk-filter-badge" id="sk-filter-badge" style="display:none"></span>' +
-          '<span class="chev">▾</span></button>' +
-        '<span><a href="#" id="sk-facet-all" style="color:' + C.amber + '">reset</a></span>' +
-      '</div>' +
-      '<div class="sk-facet-grid" id="sk-facet-grid" style="display:none"></div>' +
-      '<div id="sk-results"></div>';
+      '<div class="sk-hero">' +
+        '<div class="h">Find a clip</div>' +
+        '<div class="p">Add an animator, a show or a character.<br>Results update as you go.</div>' +
+        '<div id="sk-hero-chips"></div>' +
+        '<button type="button" class="sk-link amber" id="sk-hero-newest">Or browse the newest clips</button>' +
+      '</div>';
+    view.querySelector('#sk-hero-newest').onclick = function () { runSearch(); };
+    ensureAllTags().then(function (list) {
+      var host = view.querySelector('#sk-hero-chips');
+      if (!host || !list.length) return;
+      function top(type, n) {
+        return safeSort(safeFilter(list, function (t) { return t.type === type && t.name !== UNKNOWN_ARTIST_TAG; }),
+          function (a, b) { return b.count - a.count; }).slice(0, n);
+      }
+      var picks = top(1, 5).concat(top(3, 3));
+      host.innerHTML = '<div class="p" style="margin:0 0 8px">Most tagged on the site</div>' +
+        safeMap(picks, function (t) {
+          return '<span class="sk-chip clickable' + (t.type === 1 ? ' is-artist' : ' is-copyright') + '" data-name="' + esc(t.name) + '">' + esc(tagLabel(t.name)) + '</span>';
+        }).join('');
+      var chips = host.querySelectorAll('.sk-chip');
+      for (var i = 0; i < chips.length; i++) {
+        chips[i].onclick = function (e) { setQuery([e.currentTarget.getAttribute('data-name')]); };
+      }
+    }).catch(function () { /* suggestions are a nicety */ });
+  }
+
+  // Chips were preloaded from the post the bookmarklet was opened on. A query
+  // made of every one of its tags only matches that same post, so wait.
+  function renderPending(view) {
+    view.innerHTML =
+      '<div class="sk-hero">' +
+        '<div class="h">' + searchState.tags.length + ' tags from this post</div>' +
+        '<div class="p">Remove the ones you don\'t need, then search.<br>Animators and shows are usually enough.</div>' +
+        '<button type="button" class="sk-btn" id="sk-pending-go">Search</button>' +
+      '</div>';
+    view.querySelector('#sk-pending-go').onclick = function () { commitQuery(true); };
   }
 
   function commitPendingTag() {
-    var input = body.querySelector('#sk-tag-input');
+    var input = $b('#sk-tag-input');
     if (!input) return;
     var val = input.value.trim().toLowerCase();
     if (val) {
@@ -1133,20 +1438,24 @@
   }
 
   function renderChips() {
-    var wrap = body.querySelector('#sk-chips');
-    if (!wrap) return; // search tab isn't the active view right now — nothing to update
-    wrap.innerHTML = '';
+    var main = $b('#sk-chips');
+    if (!main) return; // search tab isn't the active view right now — nothing to update
+    var input = main.querySelector('input');
+    var old = main.querySelectorAll('.sk-chip');
+    for (var k = 0; k < old.length; k++) main.removeChild(old[k]);
     searchState.tags.forEach(function (t, i) {
-      var chip = document.createElement('div');
-      var typeClass = tagTypeMap && tagTypeMap[t] === 1 ? ' is-artist' : (tagTypeMap && tagTypeMap[t] === 3 ? ' is-copyright' : '');
-      chip.className = 'sk-chip' + typeClass;
-      chip.innerHTML = esc(t) + ' <span data-i="' + i + '">&times;</span>';
-      chip.querySelector('span').onclick = function () {
+      var chip = document.createElement('span');
+      chip.className = 'sk-chip' + chipClassFor(t);
+      chip.title = t;
+      chip.innerHTML = esc(tagLabel(t)) + '<span class="x" title="Remove">&times;</span>';
+      chip.querySelector('.x').onclick = function (e) {
+        e.stopPropagation();
         searchState.tags.splice(i, 1);
-        renderChips();
+        commitQuery(false);
       };
-      wrap.appendChild(chip);
+      main.insertBefore(chip, input);
     });
+    input.placeholder = searchState.tags.length ? 'Add another tag' : 'Search by animator, show or character';
   }
 
   // ---------- full tag dictionary (name, type, count) ----------
@@ -1277,15 +1586,7 @@
     container.onclick = function (e) {
       var chipEl = e.target.closest && e.target.closest('.sk-mini-chip[data-tag]');
       if (!chipEl) return;
-      var tag = chipEl.getAttribute('data-tag');
-      searchState.tags = [tag];
-      searchViewMode = 'results';
-      // switchToTab (not just ensureResultsMarkup) so this also rebuilds the
-      // chip pills from the tags array, and correctly switches away from
-      // Shows if that's where the clip was opened from — ensureResultsMarkup
-      // alone only rebuilds the results container, not the chips display.
-      switchToTab('search');
-      runSearch();
+      setQuery([chipEl.getAttribute('data-tag')]);
       if (onNavigate) onNavigate();
     };
   }
@@ -1465,6 +1766,7 @@
   function measureLabelTextWidth(text, fontSize) {
     if (!labelMeasureCanvas) labelMeasureCanvas = document.createElement('canvas');
     var ctx = labelMeasureCanvas.getContext('2d');
+    if (!ctx) return String(text).length * fontSize * 0.56; // no canvas support: rough estimate rather than failing
     // The exact same font file (and bytes) ffmpeg renders with — see
     // ensureLabelFont — not a generic system font name, which measuring
     // confirmed can silently under-report width by a wide margin.
@@ -2163,7 +2465,27 @@
     ], statusEl, duration, base, span);
   }
 
-  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides, musicFiles, musicLoop) {
+  // Names credited on one clip: its artist-type tags, title-cased.
+  function clipAnimatorNames(p) {
+    return safeMap(
+      safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 1; }),
+      function (t) { return titleCase(t.replace(/_/g, ' ')); }
+    );
+  }
+
+  // The text block drawn on one clip: the custom override if there is one
+  // (wrapped at its own word breaks), else the animator names, else null.
+  // Shared by the real export and the composer's live preview so the two
+  // can never disagree about what a label says or how it wraps.
+  function buildLabelFor(p, override, cellW, cellH) {
+    if (override && override.trim()) {
+      return buildClipLabel(safeFilter(override.trim().split(/\s+/), function (w) { return !!w; }), ' ', cellW, cellH);
+    }
+    var names = clipAnimatorNames(p);
+    return names.length ? buildAnimatorLabel(names, cellW, cellH) : null;
+  }
+
+  function performGridExport(clips, statusEl, orientation, mode, trims, loopMode, labelMode, format, labelStyle, labelOverrides, musicFiles, musicLoop, labelPos) {
     if (clips.length < 2) return Promise.reject(new Error('need at least 2 video clips in this pool'));
     // Each entry in clips is a {post, instId} occurrence, not a bare post —
     // this is what lets the same clip appear twice in a sequence (see the
@@ -2186,6 +2508,7 @@
     labelStyle = labelStyle || 'outline';
     labelOverrides = labelOverrides || {};
     musicFiles = musicFiles || [];
+    labelPos = labelPos || { fx: 0, fy: 1 };
 
     return getFfmpegConsent(statusEl)
       .then(function () { return ensureFfmpegLoaded(statusEl); })
@@ -2326,34 +2649,26 @@
                 chain += ',tpad=stop_mode=clone:stop_duration=' + (targetDuration - effectiveDurations[i]).toFixed(2);
               }
               if (labelMode !== 'off') {
-                var override = labelOverrides[p.id];
-                var built;
-                if (override && override.trim()) {
-                  // A custom label replaces the auto-detected staff names
-                  // entirely for this clip — wrapped at its own natural
-                  // word breaks like ordinary text, not treated as a single
-                  // atomic name the way a real animator name is.
-                  built = buildClipLabel(safeFilter(override.trim().split(/\s+/), function (w) { return !!w; }), ' ', pos.w, pos.h);
-                } else {
-                  // Only this clip's own animator tags — not the show, not
-                  // other general tags — since the point is identifying
-                  // who's credited on THIS specific cut, matching the
-                  // community request this came from (identifying whose
-                  // cut is whose in a multi-animator grid or sequence).
-                  var animatorNames = safeMap(
-                    safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 1; }),
-                    function (t) { return titleCase(t.replace(/_/g, ' ')); }
-                  );
-                  built = animatorNames.length ? buildAnimatorLabel(animatorNames, pos.w, pos.h) : null;
-                }
+                // A custom label replaces the auto-detected staff names
+                // entirely for this clip; otherwise only this clip's own
+                // animator tags are used (not the show or other tags).
+                var built = buildLabelFor(p, labelOverrides[p.id], pos.w, pos.h);
                 if (built) {
-                  var xExpr = labelMode === 'right' ? 'w-tw-10' : '10';
+                  // Free room = frame size minus the text block; the label sits
+                  // at that fraction of it (0 = left/top, 1 = right/bottom),
+                  // then is clamped to keep a 10px margin from every edge.
+                  // The escaped commas are required inside a filtergraph.
+                  var fxNum = Math.max(0, Math.min(1, Number(labelPos.fx))) || 0;
+                  var fyNum = Math.max(0, Math.min(1, Number(labelPos.fy)));
+                  if (isNaN(fyNum)) fyNum = 1;
+                  var xExpr = 'max(10\\,min(w-tw-10\\,(w-tw)*' + fxNum.toFixed(4) + '))';
+                  var yExpr = 'max(10\\,min(h-th-10\\,(h-th)*' + fyNum.toFixed(4) + '))';
                   var styleExpr = labelStyle === 'box'
                     ? 'box=1:boxcolor=black@0.5:boxborderw=6'
                     : 'bordercolor=black:borderw=2';
                   chain += ',drawtext=fontfile=label_font.ttf:text=\'' + escapeDrawtext(built.text) + '\'' +
                     ':fontsize=' + built.fontSize + ':fontcolor=white:' + styleExpr + ':line_spacing=4' +
-                    ':x=' + xExpr + ':y=h-th-10';
+                    ':x=' + xExpr + ':y=' + yExpr;
                 }
               }
               filterParts.push(chain + '[v' + i + ']');
@@ -3360,7 +3675,18 @@
     addCommentsSection(box, p);
   }
 
-  function buildCard(p) {
+  // Names shown under a clip: its credited animators (artist_unknown is the
+  // catch-all for "nobody confirmed", so it isn't a name). Animators already in
+  // the search are left out — repeating the same name on every card says nothing.
+  function cardWho(p, skip) {
+    var names = safeMap(
+      safeFilter((p.tags || '').split(/\s+/), function (t) {
+        return t && t !== UNKNOWN_ARTIST_TAG && tagTypeMap && tagTypeMap[t] === 1 && !(skip && skip.indexOf(t) !== -1);
+      }), tagLabel);
+    return names.join(', ');
+  }
+
+  function buildCard(p, skipTags) {
     var card = document.createElement('div');
     card.className = 'sk-card';
     card.setAttribute('data-post-id', String(p.id)); // lets a vote cast later find this exact card and refresh its score without a full re-render
@@ -3369,9 +3695,9 @@
     var playable = isVideoFile(clipUrl);
     card.innerHTML =
       (thumb ? '<img loading="lazy" src="' + thumb + '">' : '') +
-      (playable ? '<video muted loop playsinline preload="none"></video><div class="vidmark">▶ clip</div>' : '') +
-      '<div class="score">&#9650; ' + (p.score || 0) + '</div>' +
-      '<div class="info-badge" title="tags &amp; info">&#9432;</div>';
+      (playable ? '<video muted loop playsinline preload="none"></video>' : '<div class="kind">Image</div>') +
+      '<div class="cap"><span class="who">' + esc(cardWho(p, skipTags)) + '</span><span class="sc score">&#9650; ' + (p.score || 0) + '</span></div>' +
+      '<div class="info-badge" title="Tags and info">&#9432;</div>';
 
     var hoverVid = null;
     if (playable) {
@@ -3388,10 +3714,8 @@
     }
 
     // A floating popup anchored to this badge, rather than a dock inline in
-    // the results flow — the old version lived at the bottom of the whole
-    // grid and had to yank the scroll position to bring itself into view on
-    // every hover, which fought with normal browsing. This one just appears
-    // next to whatever you clicked and doesn't touch scroll position at all.
+    // the results flow — it appears next to whatever you clicked and doesn't
+    // touch scroll position at all.
     var infoBadge = card.querySelector('.info-badge');
     infoBadge.addEventListener('click', function (e) {
       e.stopPropagation(); // don't also trigger the card's own click-to-open
@@ -3420,94 +3744,24 @@
     return n;
   }
 
-  function paintSearchResults(cache) {
-    var results = body.querySelector('#sk-results');
-    var facetHead = body.querySelector('#sk-facet-head');
-    var facetGrid = body.querySelector('#sk-facet-grid');
-    var toggle = body.querySelector('#sk-filter-toggle');
-    var badge = body.querySelector('#sk-filter-badge');
-    var backWrap = body.querySelector('#sk-back-to-shows');
+  // Which clips are hidden by the Filter panel, and which of its switches
+  // can't apply to this search.
+  function filterAvail(cache) {
+    // A search that already needs 2+ animators can't also mean "exactly one".
+    var soloDisabled = safeFilter(cache.tags, function (t) { return tagTypeMap && tagTypeMap[t] === 1; }).length > 1;
+    if (soloDisabled && cache.soloOnly) cache.soloOnly = false;
+    // Pointless while searching for artist_unknown itself.
+    var unknownDisabled = cache.tags.indexOf(UNKNOWN_ARTIST_TAG) !== -1;
+    if (unknownDisabled && cache.hideUnknown) cache.hideUnknown = false;
+    return { soloDisabled: soloDisabled, unknownDisabled: unknownDisabled };
+  }
 
-    if (searchHistory.length) {
-      var prev = searchHistory[searchHistory.length - 1];
-      var prevLabel = prev.tags.join(' ');
-      if (prevLabel.length > 40) prevLabel = prevLabel.slice(0, 39) + '…';
-      backWrap.style.display = 'block';
-      backWrap.innerHTML = '<a href="#" id="sk-back-link" class="sk-mini-toggle" style="display:inline-block;margin-bottom:8px">← back to ' + esc(prevLabel || 'previous search') + '</a>';
-      backWrap.querySelector('#sk-back-link').onclick = function (e) {
-        e.preventDefault();
-        var entry = searchHistory.pop();
-        if (!entry) return;
-        searchState.tags = entry.tags.slice();
-        searchState.order = entry.order;
-        searchOrigin = entry.origin;
-        var orderSel = body.querySelector('#sk-order');
-        if (orderSel) orderSel.value = entry.order;
-        renderChips();
-        runSearch({ noHistory: true });
-      };
-    } else if (cache.origin && cache.origin.type === 'shows') {
-      backWrap.style.display = 'block';
-      backWrap.innerHTML = '<a href="#" id="sk-back-to-shows-link" class="sk-mini-toggle" style="display:inline-block;margin-bottom:8px">← back to episode list</a>';
-      backWrap.querySelector('#sk-back-to-shows-link').onclick = function (e) {
-        e.preventDefault();
-        switchToTab('shows');
-      };
-    } else {
-      backWrap.style.display = 'none';
-      backWrap.innerHTML = '';
-    }
-
-    maybeRenderShowAnimatorsInSearch(body.querySelector('#sk-show-animators-wrap'), cache);
-
-    var soloRow = body.querySelector('#sk-solo-row');
-    var soloBtn = body.querySelector('#sk-solo-toggle');
-    var unknownBtn = body.querySelector('#sk-unknown-toggle');
-    if (cache.posts.length) {
-      soloRow.style.display = 'flex';
-      // Contradicts a search that already requires 2+ animators to all be
-      // credited together (every result would necessarily have 2+ animator
-      // tags, so "exactly 1" could never match anything) — disable rather
-      // than let someone hit a silently-empty result.
-      var soloDisabled = safeFilter(cache.tags, function (t) { return tagTypeMap && tagTypeMap[t] === 1; }).length > 1;
-      if (soloDisabled && cache.soloOnly) cache.soloOnly = false;
-      soloBtn.disabled = soloDisabled;
-      soloBtn.classList.toggle('active', !!cache.soloOnly);
-      soloBtn.title = soloDisabled
-        ? 'solo cuts only — disabled, this search already requires 2+ animators'
-        : (cache.soloOnly ? 'showing solo cuts only (exactly one animator) — click to show all' : 'solo cuts only — exactly one animator credited');
-      soloBtn.onclick = function () {
-        if (soloBtn.disabled) return;
-        cache.soloOnly = !cache.soloOnly;
-        paintSearchResults(cache);
-      };
-
-      // Hides cuts with no real credit: tagged only artist_unknown (the
-      // catch-all for "no confirmed animator") or with no animator tag at
-      // all. A cut with artist_unknown AND a real animator is kept, since
-      // there IS info about who did something. Pointless while searching
-      // for artist_unknown itself, so it's disabled then.
-      var unknownDisabled = cache.tags.indexOf(UNKNOWN_ARTIST_TAG) !== -1;
-      if (unknownDisabled && cache.hideUnknown) cache.hideUnknown = false;
-      unknownBtn.disabled = unknownDisabled;
-      unknownBtn.classList.toggle('active', !!cache.hideUnknown);
-      unknownBtn.title = unknownDisabled
-        ? 'hide uncredited cuts — disabled, this search is for artist_unknown'
-        : (cache.hideUnknown ? 'hiding cuts with no known animator — click to show all' : 'hide cuts with no known animator (only artist_unknown, or no animator tag)');
-      unknownBtn.onclick = function () {
-        if (unknownBtn.disabled) return;
-        cache.hideUnknown = !cache.hideUnknown;
-        paintSearchResults(cache);
-      };
-    } else {
-      soloRow.style.display = 'none';
-    }
-
-    // Solo cut = exactly one animator-type tag on the post. Same client-side
-    // approach as the exclude-tags filter below, since there's no server-side
-    // tag syntax for "exactly one of type X" — reuses the same tagTypeMap
-    // already populated after every search.
-    var visible = safeFilter(cache.posts, function (p) {
+  function getVisible(cache) {
+    filterAvail(cache);
+    // Solo cut = exactly one animator-type tag on the post. There is no
+    // server-side syntax for "exactly one of type X", so this runs client-side
+    // against the same tag-type map used everywhere else.
+    return safeFilter(cache.posts, function (p) {
       var tags = (p.tags || '').split(/\s+/);
       for (var i = 0; i < tags.length; i++) {
         if (cache.excluded[tags[i]]) return false;
@@ -3522,112 +3776,167 @@
       }
       return true;
     });
+  }
 
-    if (!visible.length) {
-      results.innerHTML = '<div class="sk-empty">' +
-        (cache.posts.length ? 'no clips left after filtering' : 'no posts matched those tags') + '</div>';
-    } else {
-      var grid = document.createElement('div');
-      grid.className = 'sk-grid';
-      if (cache.sampledOnly) {
-        var note = document.createElement('div');
-        note.className = 'sk-caption';
-        note.style.gridColumn = '1/-1';
-        note.textContent = 'showing ' + visible.length + ' sampled post(s) with non-standard source text — ' +
-          'not a complete search, just what turned up while sampling this show.';
-        grid.appendChild(note);
-      }
-      visible.forEach(function (p) { grid.appendChild(buildCard(p)); });
-      results.innerHTML = '';
-      results.appendChild(grid);
+  function activeFilterCount(cache) {
+    return (cache.soloOnly ? 1 : 0) + (cache.hideUnknown ? 1 : 0) +
+      safeFilter(Object.keys(cache.excluded), function (t) { return cache.excluded[t]; }).length;
+  }
 
-      if (cache.hasMore || cache.loadMoreError) {
-        var moreWrap = document.createElement('div');
-        moreWrap.className = 'sk-load-more-wrap';
-        if (cache.loadMoreError) {
-          // Not auto-retried on scroll — a failed request re-entering view
-          // would just retry-loop while it's still visible, so this stays a
-          // deliberate click.
-          moreWrap.innerHTML = '<div class="sk-empty">couldn\'t load more: ' + esc(cache.loadMoreError) + '</div>' +
-            '<button class="sk-frame-btn" id="sk-load-more">retry</button>';
-          moreWrap.querySelector('#sk-load-more').onclick = function () { loadMoreResults(cache); };
-        } else if (cache.loadingMore) {
-          moreWrap.innerHTML = '<div class="sk-loading" style="padding:10px 0">loading more…</div>';
-        } else {
-          moreWrap.innerHTML = '<div id="sk-load-sentinel" style="height:1px"></div>';
-        }
-        results.appendChild(moreWrap);
+  function optRowHtml(key, title, desc, on, disabled) {
+    return '<div class="sk-opt' + (disabled ? ' dis' : '') + '" data-opt="' + key + '" style="cursor:' + (disabled ? 'default' : 'pointer') + '">' +
+      '<div><div class="t">' + title + '</div><div class="d">' + desc + '</div></div>' +
+      '<span class="sk-toggle-switch' + (on ? ' active' : '') + '"><span class="sk-toggle-knob"></span></span></div>';
+  }
 
-        if (!cache.loadMoreError && !cache.loadingMore) {
-          var sentinel = moreWrap.querySelector('#sk-load-sentinel');
-          if (searchScrollObserver) searchScrollObserver.disconnect();
-          // root: body (not the default viewport) since the actual scrolling
-          // happens inside the panel's own body, not the host page — the
-          // default root would never report an intersection at all here.
-          // rootMargin starts the fetch a bit before the sentinel is
-          // literally on-screen, closer to how FlatList's onEndReached feels.
-          searchScrollObserver = new IntersectionObserver(function (entries) {
-            if (entries[0].isIntersecting) {
-              searchScrollObserver.disconnect();
-              loadMoreResults(cache);
-            }
-          }, { root: body, rootMargin: '200px' });
-          searchScrollObserver.observe(sentinel);
-        }
-      }
+  // Count, filter pill and the panel itself — everything except the grid.
+  function paintSearchChrome(cache) {
+    var visible = getVisible(cache);
+    var avail = filterAvail(cache);
+    var filtered = visible.length !== cache.posts.length;
+    $b('#sk-count').textContent = (filtered ? visible.length + ' of ' + cache.posts.length : cache.posts.length + (cache.hasMore ? '+' : '')) +
+      (cache.posts.length === 1 ? ' clip' : ' clips');
+
+    var pill = $b('#sk-filter-pill');
+    var n = activeFilterCount(cache);
+    pill.classList.toggle('open', filterOpen);
+    var badge = pill.querySelector('.n');
+    badge.style.display = n ? '' : 'none';
+    badge.textContent = n;
+
+    var panelEl = $b('#sk-filter-panel');
+    if (!filterOpen || !cache.posts.length) { panelEl.style.display = 'none'; return; }
+    var prevGrid = panelEl.querySelector('.sk-facet-grid');
+    var prevScroll = prevGrid ? prevGrid.scrollTop : 0;
+    panelEl.style.display = 'block';
+    panelEl.innerHTML =
+      optRowHtml('solo', 'Solo cuts only',
+        avail.soloDisabled ? 'This search already needs 2+ animators' : 'Exactly one animator credited', cache.soloOnly, avail.soloDisabled) +
+      optRowHtml('unknown', 'Hide uncredited',
+        avail.unknownDisabled ? 'This search is for artist_unknown' : 'Cuts with no known animator', cache.hideUnknown, avail.unknownDisabled) +
+      (cache.facetTags.length
+        ? '<div class="sk-panel-sec"><span>Hide clips tagged</span>' +
+            (n && safeFilter(Object.keys(cache.excluded), function (t) { return cache.excluded[t]; }).length
+              ? '<a href="#" id="sk-facet-all">Reset</a>' : '') +
+          '</div><div class="sk-facet-grid" id="sk-facet-grid"></div>'
+        : '');
+
+    var optEls = panelEl.querySelectorAll('.sk-opt');
+    for (var i = 0; i < optEls.length; i++) {
+      optEls[i].onclick = function (e) {
+        var el = e.currentTarget;
+        if (el.classList.contains('dis')) return;
+        if (el.getAttribute('data-opt') === 'solo') cache.soloOnly = !cache.soloOnly;
+        else cache.hideUnknown = !cache.hideUnknown;
+        paintSearchResults(cache);
+      };
+    }
+    var resetEl = panelEl.querySelector('#sk-facet-all');
+    if (resetEl) resetEl.onclick = function (e) { e.preventDefault(); cache.excluded = {}; paintSearchResults(cache); };
+
+    var facetGrid = panelEl.querySelector('#sk-facet-grid');
+    if (!facetGrid) return;
+    facetGrid.innerHTML = '<div class="sk-loading" style="grid-column:1/-1;padding:4px 0">Loading tag info…</div>';
+    ensureTagTypes().then(function (map) {
+      if (!document.body.contains(facetGrid)) return;
+      var sorted = safeSort(cache.facetTags, function (a, b) {
+        return (map[a] === 1 ? 0 : 1) - (map[b] === 1 ? 0 : 1);
+      });
+      facetGrid.innerHTML = '';
+      sorted.forEach(function (t) {
+        var count = safeFilter(visible, function (p) { return (' ' + p.tags + ' ').indexOf(' ' + t + ' ') !== -1; }).length;
+        var item = document.createElement('label');
+        item.className = 'sk-facet-item' + (cache.excluded[t] ? ' off' : '') + (map[t] === 1 ? ' is-artist' : '');
+        item.innerHTML =
+          '<input type="checkbox" ' + (cache.excluded[t] ? '' : 'checked') + '> ' +
+          '<span class="fname" title="' + esc(t) + '">' + esc(tagLabel(t)) + '</span>' +
+          '<span class="fcount">' + count + '</span>';
+        item.querySelector('input').addEventListener('change', function (e) {
+          cache.excluded[t] = !e.target.checked;
+          paintSearchResults(cache);
+        });
+        facetGrid.appendChild(item);
+      });
+      facetGrid.scrollTop = prevScroll;
+    });
+  }
+
+  function paintSearchResults(cache) {
+    var results = $b('#sk-results');
+    if (!results) return; // tab changed while a request was in flight
+    syncBar();
+    updateBackBtn();
+
+    // Filters and captions depend on the tag-type map; repaint once when it arrives.
+    if (!tagTypeMap && !cache.typesTried) {
+      cache.typesTried = true;
+      ensureTagTypes().then(function () {
+        if (searchCache === cache && $b('#sk-results') && searchViewMode === 'results') paintSearchResults(cache);
+      });
     }
 
-    var activeCount = safeFilter(Object.keys(cache.excluded), function (t) { return cache.excluded[t]; }).length;
-    if (activeCount) { badge.style.display = 'inline'; badge.textContent = activeCount; }
-    else { badge.style.display = 'none'; }
+    var visible = getVisible(cache);
+    paintSearchChrome(cache);
 
-    toggle.onclick = function () {
-      var open = facetGrid.style.display !== 'none';
-      facetGrid.style.display = open ? 'none' : 'block';
-      toggle.classList.toggle('open', !open);
-    };
+    if (!visible.length) {
+      results.innerHTML = cache.posts.length
+        ? '<div class="sk-empty"><b>Nothing left after filtering</b><br>Loosen a filter to see the other ' + cache.posts.length + ' clips.</div>'
+        : '<div class="sk-empty"><b>No clips found</b><br>Try removing a tag, or searching a broader one.</div>';
+      return;
+    }
 
-    if (cache.facetTags.length) {
-      facetHead.style.display = 'flex';
-      facetGrid.innerHTML = '<div class="sk-loading" style="padding:4px 0">loading tag info…</div>';
-      ensureTagTypes().then(function (map) {
-        var sorted = safeSort(cache.facetTags, function (a, b) {
-          var aArtist = map[a] === 1 ? 0 : 1;
-          var bArtist = map[b] === 1 ? 0 : 1;
-          return aArtist - bArtist;
-        });
-        facetGrid.innerHTML = '<div class="sk-caption" style="grid-column:1/-1">' +
-          'hides clips carrying an unchecked tag — most clips carry several, so unchecking ' +
-          'just one still leaves the rest visible</div>';
-        sorted.forEach(function (t) {
-          var count = safeFilter(visible, function (p) { return (' ' + p.tags + ' ').indexOf(' ' + t + ' ') !== -1; }).length;
-          var item = document.createElement('label');
-          item.className = 'sk-facet-item' + (cache.excluded[t] ? ' off' : '') + (map[t] === 1 ? ' is-artist' : '');
-          item.innerHTML =
-            '<input type="checkbox" ' + (cache.excluded[t] ? '' : 'checked') + '> ' +
-            '<span class="fname" title="' + esc(t) + '">' + esc(t) + '</span>' +
-            '<span class="fcount">' + count + '</span>';
-          item.querySelector('input').addEventListener('change', function (e) {
-            cache.excluded[t] = !e.target.checked;
-            paintSearchResults(cache);
-          });
-          facetGrid.appendChild(item);
-        });
-      });
-      body.querySelector('#sk-facet-all').onclick = function (e) {
-        e.preventDefault(); cache.excluded = {}; paintSearchResults(cache);
-      };
-    } else {
-      facetHead.style.display = 'none';
-      facetGrid.innerHTML = '';
+    var grid = document.createElement('div');
+    grid.className = 'sk-grid';
+    if (cache.sampledOnly) {
+      var note = document.createElement('div');
+      note.className = 'sk-note';
+      note.style.gridColumn = '1/-1';
+      note.style.margin = '0 0 4px';
+      note.textContent = 'Showing ' + visible.length + ' sampled clip(s) whose source text isn\'t an episode marker. ' +
+        'This isn\'t a complete search, just what turned up while sampling the show.';
+      grid.appendChild(note);
+    }
+    visible.forEach(function (p) { grid.appendChild(buildCard(p, cache.tags)); });
+    results.innerHTML = '';
+    results.appendChild(grid);
+
+    if (cache.hasMore || cache.loadMoreError) {
+      var moreWrap = document.createElement('div');
+      moreWrap.className = 'sk-load-more-wrap';
+      if (cache.loadMoreError) {
+        // Not auto-retried on scroll — a failed request re-entering view
+        // would just retry-loop while it's still visible.
+        moreWrap.innerHTML = '<div class="sk-empty" style="padding:10px 0 6px">Couldn\'t load more: ' + esc(cache.loadMoreError) + '</div>' +
+          '<button class="sk-pill" id="sk-load-more" type="button">Retry</button>';
+        moreWrap.querySelector('#sk-load-more').onclick = function () { cache.loadMoreError = null; loadMoreResults(cache); };
+      } else if (cache.loadingMore) {
+        moreWrap.innerHTML = '<div class="sk-loading" style="padding:10px 0">Loading more…</div>';
+      } else {
+        moreWrap.innerHTML = '<div id="sk-load-sentinel" style="height:1px"></div>';
+      }
+      results.appendChild(moreWrap);
+
+      if (!cache.loadMoreError && !cache.loadingMore) {
+        var sentinel = moreWrap.querySelector('#sk-load-sentinel');
+        if (searchScrollObserver) searchScrollObserver.disconnect();
+        // root: body (not the viewport) since the scrolling happens inside the
+        // panel's own body; rootMargin starts the fetch a bit early.
+        searchScrollObserver = new IntersectionObserver(function (entries) {
+          if (entries[0].isIntersecting) {
+            searchScrollObserver.disconnect();
+            loadMoreResults(cache);
+          }
+        }, { root: body, rootMargin: '200px' });
+        searchScrollObserver.observe(sentinel);
+      }
     }
   }
 
   function runSearch(opts) {
     opts = opts || {};
-    // Remember where we were so "← back" can return to it. A search launched
-    // from the Shows tab (searchOrigin set) starts a fresh trail instead —
-    // its way back is the episode list. Going back itself passes noHistory.
+    // Remember where we were so the back button can return to it. A search
+    // launched from the Shows tab (searchOrigin set) starts a fresh trail
+    // instead — its way back is the episode list. Going back passes noHistory.
     if (!opts.noHistory) {
       if (searchOrigin) {
         searchHistory = [];
@@ -3636,39 +3945,44 @@
         if (searchHistory.length > 20) searchHistory.shift();
       }
     }
-    var results = body.querySelector('#sk-results');
-    results.innerHTML = '<div class="sk-loading">fetching…</div>';
-    body.querySelector('#sk-facet-head').style.display = 'none';
-    body.querySelector('#sk-facet-grid').innerHTML = '';
-    body.querySelector('#sk-facet-grid').style.display = 'none';
-    body.querySelector('#sk-filter-toggle').classList.remove('open');
+    var seq = ++searchSeq;
+    clearTimeout(searchTimer);
+    manualPending = false;
+    searchViewMode = 'results';
+    filterOpen = false;
+    ensureResultsMarkup();
+    var results = $b('#sk-results');
+    results.innerHTML = '<div class="sk-loading">Loading clips…</div>';
+    syncBar();
+    updateBackBtn();
     var tagsSnapshot = searchState.tags.slice();
     var orderSnapshot = searchState.order;
+    var originSnapshot = searchOrigin;
+    searchOrigin = null; // consumed — only applies to the search that was pending when set
     var tagQuery = tagsSnapshot.join(' ') + ' order:' + orderSnapshot;
     var PAGE_SIZE = 24;
 
     return getJSON('/post.json?limit=' + PAGE_SIZE + '&tags=' + encodeURIComponent(tagQuery.trim()))
       .then(function (posts) {
+        if (seq !== searchSeq) return posts.length; // a newer search superseded this one
         searchCache = {
           tags: tagsSnapshot, order: orderSnapshot, posts: posts, excluded: {}, soloOnly: false,
           facetTags: computeFacetTags(posts, tagsSnapshot),
           page: 1, pageSize: PAGE_SIZE, hasMore: posts.length === PAGE_SIZE, loadingMore: false,
-          origin: searchOrigin
+          origin: originSnapshot
         };
-        searchOrigin = null; // consumed — only applies to the search that was pending when set
         paintSearchResults(searchCache);
-
-        // Figure out if this query is "about" a specific animator, so Stats can sync to it.
-        ensureTagTypes().then(function (map) {
-          var found = safeFilter(tagsSnapshot, function (t) { return map[t] === 1; })[0] || null;
-          sync.artistTag = found;
-          var statsBtn = body.querySelector('#sk-mode-stats');
-          if (statsBtn) statsBtn.textContent = sync.artistTag ? '▥ Stats: ' + sync.artistTag : '▥ Animator Stats';
-        });
+        ensureTagTypes().then(function () { renderChips(); }); // chip colours once types are known
         return posts.length;
       })
       .catch(function (err) {
-        results.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+        if (seq !== searchSeq) return 0;
+        var r = $b('#sk-results');
+        if (!r) return 0;
+        r.innerHTML = '<div class="sk-empty"><b>Couldn\'t load clips</b><br>' + esc(err.message) +
+          '<br><button class="sk-pill" id="sk-retry" type="button" style="margin-top:10px">Try again</button></div>';
+        r.querySelector('#sk-retry').onclick = function () { runSearch({ noHistory: true }); };
+        return 0;
       });
   }
 
@@ -3691,17 +4005,13 @@
   }
 
   function searchEpisodeWithFallback(showTag, candidates) {
-    searchState.order = 'date';
-    searchViewMode = 'results';
-    sync.artistTag = null;
     var i = 0;
     function tryNext() {
       if (i >= candidates.length) return;
-      searchState.tags = [showTag, 'source:' + candidates[i]];
-      searchOrigin = { type: 'shows', showTag: showTag };
-      if (i === 0) { switchToTab('search'); } else { renderChips(); }
       var attempt = i;
-      runSearch().then(function (count) {
+      var pr = setQuery([showTag, 'source:' + candidates[i]], { order: 'date', origin: { type: 'shows', showTag: showTag } });
+      if (!pr) return; // served from cache
+      pr.then(function (count) {
         if (count === 0 && attempt + 1 < candidates.length) {
           i = attempt + 1;
           tryNext();
@@ -3748,13 +4058,56 @@
       });
   }
 
-  // ===================== STATS TAB =====================
+  // ===================== STATS =====================
   var MAX_PAGES = 5; // politeness cap: up to 500 posts per animator
   var PAGE_DELAY = 350; // ms between paginated requests
 
+  // Stats follow the search: the first animator in the query wins, otherwise
+  // the first show. Anything else has nothing to summarise.
+  function statsTarget() {
+    var map = tagTypeMap || {};
+    var tags = searchState.tags, i, fallback = null;
+    for (i = 0; i < tags.length; i++) {
+      if (map[tags[i]] === 1) {
+        if (tags[i] !== UNKNOWN_ARTIST_TAG) return { kind: 'artist', tag: tags[i] };
+        fallback = fallback || { kind: 'artist', tag: tags[i] };
+      }
+    }
+    if (fallback) return fallback;
+    for (i = 0; i < tags.length; i++) {
+      if (map[tags[i]] === 3) return { kind: 'show', tag: tags[i] };
+    }
+    return null;
+  }
+
+  function renderStatsView(view) {
+    view.innerHTML = '<div class="sk-loading">Loading…</div>';
+    var token = statsToken;
+    ensureTagTypes().then(function () {
+      if (token !== statsToken || searchViewMode !== 'stats' || !document.body.contains(view)) return;
+      var target = statsTarget();
+      if (!target) {
+        view.innerHTML = '<div class="sk-hero"><div class="h">Nothing to summarise yet</div>' +
+          '<div class="p">Stats appear when the search includes an animator or a show.<br>' +
+          (searchState.tags.length ? 'None of these tags is one.' : 'Add one above.') + '</div></div>';
+        return;
+      }
+      view.innerHTML = '<div id="sk-stats-out"></div>';
+      var out = view.querySelector('#sk-stats-out');
+      if (target.kind === 'artist') {
+        if (statsCache && statsCache.tagName === target.tag) renderArtistStats(out, target.tag, statsCache.allPosts);
+        else loadArtistStats(target.tag);
+      } else {
+        renderShowStats(out, target.tag, token);
+      }
+    });
+  }
+
   function loadArtistStats(tagName) {
-    var out = body.querySelector('#sk-stats-out');
-    out.innerHTML = '<div class="sk-loading">pulling posts… (paced, may take a few seconds)</div>';
+    var out = $b('#sk-stats-out');
+    if (!out) return;
+    var token = statsToken;
+    out.innerHTML = '<div class="sk-loading">Pulling clips… (paced, may take a few seconds)</div>';
 
     var allPosts = [];
     function fetchPage(page) {
@@ -3768,28 +4121,43 @@
     }
 
     fetchPage(1).then(function () {
+      if (allPosts.length) statsCache = { tagName: tagName, allPosts: allPosts };
+      if (token !== statsToken || !document.body.contains(out)) return; // moved on; the cache still helps next time
       if (!allPosts.length) {
-        out.innerHTML = '<div class="sk-empty">no posts found for tag "' + esc(tagName) + '" — check the exact tag spelling on the site\'s artist page</div>';
+        out.innerHTML = '<div class="sk-empty"><b>No clips found for ' + esc(tagLabel(tagName)) + '</b><br>Check the tag spelling on the site\'s artist page.</div>';
         return;
       }
-      statsCache = { tagName: tagName, allPosts: allPosts };
-      sync.artistTag = tagName;
-      var statsBtn = body.querySelector('#sk-mode-stats');
-      if (statsBtn) statsBtn.textContent = '▥ Stats: ' + tagName;
       renderArtistStats(out, tagName, allPosts);
     }).catch(function (err) {
-      out.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+      if (token !== statsToken || !document.body.contains(out)) return;
+      out.innerHTML = '<div class="sk-empty"><b>Couldn\'t load stats</b><br>' + esc(err.message) + '</div>';
     });
+  }
+
+  // Rows for a frequency list. `variant` colours by what the tag is: amber for
+  // animators, blue for shows, plain for everything else.
+  function buildBarRows(names, freq, typeOf) {
+    var maxCount = freq[names[0]];
+    return safeMap(names, function (name) {
+      var ty = typeOf(name);
+      var pct = Math.max(5, Math.round((freq[name] / maxCount) * 100));
+      return '<div class="sk-bar-row clickable' + (ty === 1 ? ' is-artist' : ty === 3 ? ' is-show' : '') + '" data-tag="' + esc(name) + '">' +
+        '<span class="name" title="' + esc(name) + '">' + esc(tagLabel(name)) + '</span>' +
+        '<span class="track"><i style="width:' + pct + '%"></i></span>' +
+        '<span class="n">' + freq[name] + '</span></div>';
+    }).join('');
   }
 
   function renderArtistStats(out, tagName, posts) {
     var total = posts.length;
-    var scoreSum = 0;
+    var scoreSum = 0, topScore = 0;
     var tagFreq = {};
     var yearCounts = {};
 
     posts.forEach(function (p) {
-      scoreSum += (p.score || 0);
+      var s = p.score || 0;
+      scoreSum += s;
+      if (s > topScore) topScore = s;
       (p.tags || '').split(/\s+/).forEach(function (t) {
         if (!t || t === tagName) return;
         tagFreq[t] = (tagFreq[t] || 0) + 1;
@@ -3800,92 +4168,99 @@
       }
     });
 
-    var topTags = safeSort(Object.keys(tagFreq), function (a, b) { return tagFreq[b] - tagFreq[a]; })
-      .slice(0, 10);
-    var maxTagCount = topTags.length ? tagFreq[topTags[0]] : 1;
-
+    var topTags = safeSort(Object.keys(tagFreq), function (a, b) { return tagFreq[b] - tagFreq[a]; }).slice(0, 10);
     var years = safeSort(Object.keys(yearCounts), function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
     var maxYearCount = years.reduce(function (m, y) { return Math.max(m, yearCounts[y]); }, 1);
     var avgScore = total ? (scoreSum / total).toFixed(1) : '0';
-    var note = total >= MAX_PAGES * 100
-      ? '<div class="sk-meta">capped at ' + (MAX_PAGES * 100) + ' most relevant posts to keep this quick &amp; light on the server</div>'
-      : '';
+    var capped = total >= MAX_PAGES * 100;
 
     out.innerHTML =
-      '<div class="sk-meta">tag: <b style="color:' + C.amber + '">' + esc(tagName) + '</b> · ' +
-        '<a href="#" id="sk-goto-search" style="color:' + C.amber + '">← back to results</a></div>' +
-      '<div class="sk-stat-block">' +
-        '<div><div class="sk-stat-big">' + total + '</div><div class="sk-stat-label">cuts found</div></div>' +
-        '<div><div class="sk-stat-big">' + avgScore + '</div><div class="sk-stat-label">avg score</div></div>' +
+      '<div class="sk-stats-head"><div class="ttl">' + esc(tagLabel(tagName)) + '</div>' +
+        '<div class="sub">' + (capped ? 'Most relevant ' + total + ' clips' : 'All ' + total + ' clips') + '</div></div>' +
+      '<div class="sk-stat-row">' +
+        '<div><div class="sk-stat-big">' + total + '</div><div class="sk-stat-label">Clips</div></div>' +
+        '<div><div class="sk-stat-big">' + avgScore + '</div><div class="sk-stat-label">Average score</div></div>' +
+        '<div><div class="sk-stat-big">' + topScore + '</div><div class="sk-stat-label">Highest score</div></div>' +
       '</div>' +
-      '<div class="sk-meta">most frequent shows</div>' +
-      '<div id="sk-artist-shows"><div class="sk-loading">loading…</div></div>' +
-      '<div style="height:6px"></div>' +
-      '<div class="sk-meta" title="Based on when each post was added/tagged on sakugabooru, not when the original episode aired — a 2005 cut uploaded in 2021 shows up as 2021 here.">upload year ⓘ</div>' +
-      '<div class="sk-filmstrip" id="sk-strip"></div>' +
-      '<div style="height:18px"></div>' +
-      '<div class="sk-meta">most frequent co-tags &mdash; use Search\'s filter grid to narrow by these</div>' +
-      '<div class="sk-taglist" id="sk-taglist"></div>' +
-      note;
+      '<div class="sk-sec"><span>Most frequent shows</span></div>' +
+      '<div id="sk-artist-shows"><div class="sk-loading" style="padding:8px 0">Loading…</div></div>' +
+      (years.length
+        ? '<div class="sk-sec"><span>Clips by upload year</span></div>' +
+          '<div class="sk-years" id="sk-strip"></div>' +
+          '<div class="sk-note" style="margin-top:0">By when each clip was uploaded to the booru, not when it aired.</div>'
+        : '') +
+      '<div class="sk-sec"><span>Often tagged with</span></div>' +
+      '<div class="sk-bars" id="sk-taglist"></div>' +
+      (capped ? '<div class="sk-note">Capped at ' + (MAX_PAGES * 100) + ' clips to keep this light on the server.</div>' : '');
 
-    // Same tally already gathered for co-tags above, just narrowed to
-    // show/copyright-type tags specifically — no separate pass over the
-    // posts needed. Async only because the tag-type dictionary might not
-    // be loaded yet; everything else on this screen doesn't need it.
+    // Show/copyright tags out of the same tally. Async only because the
+    // tag-type dictionary might not be loaded yet.
     var showsWrap = out.querySelector('#sk-artist-shows');
     ensureTagTypes().then(function (map) {
+      if (!document.body.contains(showsWrap)) return;
       var showNames = safeSort(
         safeFilter(Object.keys(tagFreq), function (t) { return map && map[t] === 3; }),
         function (a, b) { return tagFreq[b] - tagFreq[a]; }
       ).slice(0, 8);
-      if (!showNames.length) { showsWrap.innerHTML = '<div class="sk-caption">no show tags found among these cuts.</div>'; return; }
-      showsWrap.innerHTML = '<div class="sk-freq-list">' + buildFreqRows(showNames, tagFreq, 'show') + '</div>';
-      var rowEls = showsWrap.querySelectorAll('.sk-freq-row');
+      if (!showNames.length) { showsWrap.innerHTML = '<div class="sk-note" style="margin-top:0">No show tags among these clips.</div>'; return; }
+      showsWrap.innerHTML = '<div class="sk-bars">' + buildBarRows(showNames, tagFreq, function () { return 3; }) + '</div>';
+      var rowEls = showsWrap.querySelectorAll('.sk-bar-row');
       for (var i = 0; i < rowEls.length; i++) {
+        // "How much do they show up here" implies clicking means "show me
+        // their cuts in this show" — the show and the animator together.
         rowEls[i].onclick = function (e) {
-          var show = e.currentTarget.getAttribute('data-tag');
-          // Combined with the animator tag, same convention as the
-          // show-screen's own animator list — "how much do they show up
-          // here" implies clicking means "show me their cuts in this show".
-          searchState.tags = [show, tagName];
-          searchViewMode = 'results';
-          searchOrigin = null;
-          // Same pitfall as the show screen's animator list: leaving the
-          // Stats animator set here would make the Search tab's sync step
-          // replace [show, animator] with just [animator].
-          sync.artistTag = null;
-          switchToTab('search');
-          renderChips();
-          runSearch();
+          setQuery([e.currentTarget.getAttribute('data-tag'), tagName]);
         };
       }
     });
 
     var strip = out.querySelector('#sk-strip');
-    years.forEach(function (y) {
-      var f = document.createElement('div');
-      f.className = 'sk-frame';
-      f.style.height = Math.max(4, (yearCounts[y] / maxYearCount) * 68) + 'px';
-      f.innerHTML = '<span class="ct">' + yearCounts[y] + '</span><span class="yr">' + String(y).slice(2) + '</span>';
-      strip.appendChild(f);
+    if (strip) years.forEach(function (y) {
+      var bar = document.createElement('div');
+      bar.className = 'yb';
+      bar.style.height = Math.max(3, (yearCounts[y] / maxYearCount) * 58) + 'px';
+      bar.title = y + ': ' + yearCounts[y] + (yearCounts[y] === 1 ? ' clip' : ' clips');
+      bar.innerHTML = '<span>' + String(y).slice(2) + '</span>';
+      strip.appendChild(bar);
     });
 
     var tl = out.querySelector('#sk-taglist');
-    topTags.forEach(function (t) {
-      var row = document.createElement('div');
-      row.className = 'sk-tagrow';
-      row.innerHTML =
-        '<div class="name" title="' + esc(t) + '">' + esc(t) + '</div>' +
-        '<div class="bar"><i style="width:' + ((tagFreq[t] / maxTagCount) * 100) + '%"></i></div>' +
-        '<div class="n">' + tagFreq[t] + '</div>';
-      tl.appendChild(row);
-    });
+    if (topTags.length) {
+      var map0 = tagTypeMap || {};
+      tl.innerHTML = buildBarRows(topTags, tagFreq, function (t) { return map0[t]; });
+      var tagRows = tl.querySelectorAll('.sk-bar-row');
+      for (var k = 0; k < tagRows.length; k++) {
+        // Adds the tag to the search and goes to the clips.
+        tagRows[k].onclick = function (e) {
+          var t = e.currentTarget.getAttribute('data-tag');
+          var next = searchState.tags.slice();
+          if (next.indexOf(t) === -1) next.push(t);
+          setQuery(next);
+        };
+      }
+    } else {
+      tl.innerHTML = '<div class="sk-note" style="margin-top:0">No other tags.</div>';
+    }
+  }
 
-    out.querySelector('#sk-goto-search').onclick = function (e) {
-      e.preventDefault();
-      searchViewMode = 'results';
-      renderSearchView();
-    };
+  function renderShowStats(out, showTag, token) {
+    out.innerHTML = '<div class="sk-loading">Sampling the show…</div>';
+    getShowEntry(showTag).then(function (entry) {
+      if (token !== statsToken || !document.body.contains(out)) return;
+      if (!entry.totalSampled) {
+        out.innerHTML = '<div class="sk-empty"><b>No clips found for ' + esc(tagLabel(showTag)) + '</b></div>';
+        return;
+      }
+      out.innerHTML =
+        '<div class="sk-stats-head"><div class="ttl show">' + esc(tagLabel(showTag)) + '</div>' +
+          '<div class="sub">From the ' + entry.totalSampled + ' newest clips</div></div>' +
+        '<div class="sk-sec"><span>Most credited animators</span></div>' +
+        '<div id="sk-show-animators"></div>';
+      renderTopAnimatorsContent(out.querySelector('#sk-show-animators'), showTag, entry.posts, 12);
+    }).catch(function (err) {
+      if (token !== statsToken || !document.body.contains(out)) return;
+      out.innerHTML = '<div class="sk-empty"><b>Couldn\'t load stats</b><br>' + esc(err.message) + '</div>';
+    });
   }
 
   // ===================== SHOWS TAB =====================
@@ -3943,22 +4318,24 @@
     } catch (e) { return []; }
   }
 
+  var showsPaintToken = 0; // invalidates async Shows renders that were overtaken
+
   function renderShows() {
     body.innerHTML =
-      '<div class="sk-row"><input class="sk-input" id="sk-show-input" placeholder="search a show or movie title"></div>' +
-      '<div class="sk-show-nav" id="sk-show-nav" style="display:none">' +
-        '<button class="sk-nav-btn" id="sk-nav-back" type="button">← Back</button>' +
-        '<span class="sk-nav-crumb" id="sk-nav-crumb"></span>' +
-        '<button class="sk-nav-btn" id="sk-nav-forward" type="button">Forward →</button>' +
+      '<div class="sk-qrow">' +
+        '<button type="button" class="sk-back-btn" id="sk-nav-back" style="display:none" title="Back">&#8249;</button>' +
+        '<div class="sk-field"><input id="sk-show-input" placeholder="Search a show or movie" autocomplete="off" spellcheck="false"></div>' +
+        '<button type="button" class="sk-back-btn" id="sk-nav-forward" style="display:none" title="Forward">&#8250;</button>' +
       '</div>' +
-      '<div id="sk-show-content"></div>';
+      '<div id="sk-show-content" style="margin-top:10px"></div>';
 
     var input = body.querySelector('#sk-show-input');
+    var content = body.querySelector('#sk-show-content');
     var debounceTimer = null;
     input.addEventListener('input', function () {
       clearTimeout(debounceTimer);
       var q = input.value.trim();
-      if (!q) return;
+      if (!q) { showsPaintToken++; paintShowsHome(content); return; }
       debounceTimer = setTimeout(function () { searchShowTags(q); }, 300);
     });
 
@@ -3967,56 +4344,98 @@
 
     // Restore wherever we left off if this tab was visited before this session.
     if (navStack.length) renderNavCurrent();
+    else paintShowsHome(content);
+  }
+
+  function showItem(name, count, content) {
+    var item = document.createElement('div');
+    item.className = 'sk-item';
+    item.innerHTML = '<div class="main"><div class="t">' + esc(tagLabel(name)) + '</div>' +
+      '<div class="s">' + count + (count === 1 ? ' clip' : ' clips') + '</div></div><span class="chev">&#8250;</span>';
+    item.onclick = function () { openShow(name, content); };
+    return item;
+  }
+
+  function openShow(name, content) {
+    var t = ++showsPaintToken;
+    content.innerHTML = '<div class="sk-loading">Loading ' + esc(tagLabel(name)) + '…</div>';
+    getShowEntry(name).then(function (entry) {
+      if (t !== showsPaintToken) return;
+      pushNav({ type: 'episodes', showTag: name, entry: entry });
+    }).catch(function (err) {
+      if (t !== showsPaintToken) return;
+      content.innerHTML = '<div class="sk-empty"><b>Couldn\'t load the show</b><br>' + esc(err.message) + '</div>';
+    });
+  }
+
+  // Before anything is searched: the most-tagged shows on the site.
+  function paintShowsHome(content) {
+    var t = ++showsPaintToken;
+    content.innerHTML = '<div class="sk-loading">Loading shows…</div>';
+    updateNavChrome();
+    ensureAllTags(function (n) {
+      if (t === showsPaintToken && !allTagsList) content.innerHTML = '<div class="sk-loading">Loading the tag dictionary… (' + n + ' so far)</div>';
+    }).then(function (list) {
+      if (t !== showsPaintToken) return;
+      var shows = safeSort(safeFilter(list, function (x) { return x.type === 3; }), function (a, b) { return b.count - a.count; }).slice(0, 10);
+      if (!shows.length) {
+        content.innerHTML = '<div class="sk-hero"><div class="h">Find a show</div><div class="p">Type a title above. Search matches parts of a name, not nicknames.</div></div>';
+        return;
+      }
+      content.innerHTML = '<div class="sk-sec"><span>Most tagged shows</span></div><div class="sk-list" id="sk-show-list"></div>';
+      var listEl = content.querySelector('#sk-show-list');
+      shows.forEach(function (s) { listEl.appendChild(showItem(s.name, s.count, content)); });
+    }).catch(function () {
+      if (t !== showsPaintToken) return;
+      content.innerHTML = '<div class="sk-hero"><div class="h">Find a show</div><div class="p">Type a title above to search shows and movies.</div></div>';
+    });
   }
 
   function updateNavChrome() {
-    var navBar = body.querySelector('#sk-show-nav');
     var backBtn = body.querySelector('#sk-nav-back');
     var fwdBtn = body.querySelector('#sk-nav-forward');
-    var crumb = body.querySelector('#sk-nav-crumb');
-    if (!navStack.length) { navBar.style.display = 'none'; return; }
-    navBar.style.display = 'flex';
-    backBtn.disabled = navIndex <= 0;
-    fwdBtn.disabled = navIndex >= navStack.length - 1;
-    var cur = navStack[navIndex];
-    crumb.textContent = cur.type === 'episodes' ? cur.showTag : ('"' + cur.query + '"');
+    if (!backBtn) return;
+    backBtn.style.display = navIndex > 0 ? '' : 'none';
+    fwdBtn.style.display = navIndex < navStack.length - 1 ? '' : 'none';
   }
 
   function renderNavCurrent() {
+    showsPaintToken++;
     updateNavChrome();
     var content = body.querySelector('#sk-show-content');
     var cur = navStack[navIndex];
     var input = body.querySelector('#sk-show-input');
     if (!cur) { content.innerHTML = ''; return; }
-    input.value = cur.type === 'episodes' ? cur.showTag : cur.query;
-    if (cur.type === 'results') paintShowResults(content, cur.showsList);
+    input.value = cur.type === 'episodes' ? tagLabel(cur.showTag) : cur.query;
+    if (cur.type === 'results') paintShowResults(content, cur.showsList, cur.query);
     else paintShowDetail(content, cur.showTag, cur.entry);
   }
 
   function searchShowTags(q) {
     var content = body.querySelector('#sk-show-content');
-    content.innerHTML = '<div class="sk-loading">loading tag dictionary…</div>';
+    var t = ++showsPaintToken;
+    content.innerHTML = '<div class="sk-loading">Loading the tag dictionary…</div>';
     var norm = normalizeForTagMatch(q.trim().toLowerCase().replace(/\s+/g, '_'));
 
     ensureAllTags(function (n) {
-      if (!allTagsList) content.innerHTML = '<div class="sk-loading">loading tag dictionary… (' + n + ' so far)</div>';
+      if (t === showsPaintToken && !allTagsList) content.innerHTML = '<div class="sk-loading">Loading the tag dictionary… (' + n + ' so far)</div>';
     }).then(function (list) {
+      if (t !== showsPaintToken) return;
       if (!list.length) {
-        content.innerHTML = '<div class="sk-empty">couldn\'t load sakugabooru\'s tag list right now — try again in a moment</div>';
+        content.innerHTML = '<div class="sk-empty"><b>Couldn\'t load the tag list</b><br>Try again in a moment.</div>';
         return;
       }
-      var direct = safeFilter(list, function (t) { return t.type === 3 && normalizeForTagMatch(t.name).indexOf(norm) !== -1; });
-      var showsList = direct;
+      var showsList = safeFilter(list, function (x) { return x.type === 3 && normalizeForTagMatch(x.name).indexOf(norm) !== -1; });
       if (!showsList.length) {
         // Multi-word query rarely matches one contiguous tag name — try each word.
         var words = safeFilter(norm.split('_'), function (w) { return w.length >= 3; });
         var seen = {};
         showsList = [];
         words.forEach(function (w) {
-          list.forEach(function (t) {
-            if (t.type === 3 && normalizeForTagMatch(t.name).indexOf(w) !== -1 && !seen[t.name]) {
-              seen[t.name] = true;
-              showsList.push(t);
+          list.forEach(function (x) {
+            if (x.type === 3 && normalizeForTagMatch(x.name).indexOf(w) !== -1 && !seen[x.name]) {
+              seen[x.name] = true;
+              showsList.push(x);
             }
           });
         });
@@ -4024,33 +4443,22 @@
       showsList = safeSort(showsList, function (a, b) { return b.count - a.count; }).slice(0, 15);
 
       if (!showsList.length) {
-        content.innerHTML = '<div class="sk-empty">no tags contain "' + esc(q) +
-          '" — sakugabooru search is substring-based, not fuzzy, so try the full ' +
-          'romanized title rather than a nickname or abbreviation</div>';
+        content.innerHTML = '<div class="sk-empty"><b>No shows match "' + esc(q) + '"</b><br>' +
+          'Search matches parts of a name, not nicknames. Try the full romanized title.</div>';
         return;
       }
       pushNav({ type: 'results', query: q, showsList: showsList });
     }).catch(function (err) {
-      content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+      if (t !== showsPaintToken) return;
+      content.innerHTML = '<div class="sk-empty"><b>Something went wrong</b><br>' + esc(err.message) + '</div>';
     });
   }
 
-  function paintShowResults(content, showsList) {
-    content.innerHTML = '';
-    showsList.forEach(function (t) {
-      var item = document.createElement('div');
-      item.className = 'sk-show-pick';
-      item.innerHTML = '<span class="name">' + esc(t.name) + '</span><span class="cnt">' + t.count + ' posts</span>';
-      item.onclick = function () {
-        content.innerHTML = '<div class="sk-loading">loading ' + esc(t.name) + '…</div>';
-        getShowEntry(t.name).then(function (entry) {
-          pushNav({ type: 'episodes', showTag: t.name, entry: entry });
-        }).catch(function (err) {
-          content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
-        });
-      };
-      content.appendChild(item);
-    });
+  function paintShowResults(content, showsList, query) {
+    content.innerHTML = '<div class="sk-sec"><span>' + showsList.length + (showsList.length === 1 ? ' show' : ' shows') +
+      ' matching "' + esc(query || '') + '"</span></div><div class="sk-list" id="sk-show-list"></div>';
+    var listEl = content.querySelector('#sk-show-list');
+    showsList.forEach(function (x) { listEl.appendChild(showItem(x.name, x.count, content)); });
   }
 
   function getShowEntry(showTag, targetPages) {
@@ -4100,160 +4508,83 @@
     });
   }
 
-  // Ranks animator-type tags by how often they appear across a show's
-  // sampled posts — same tag-type map already used for color-coding
-  // everywhere else, just tallied instead of just colored. Collapsed by
-  // default wherever it's used: it's a nice-to-have alongside the main
-  // content (episodes, or search results), not something that should push
-  // that content down before anyone's asked to see it.
-  function renderTopAnimatorsPanel(wrap, showTag, posts) {
-    wrap.innerHTML = '<button class="sk-mini-toggle" id="sk-top-animators-toggle" type="button">Most Frequently Tagged ▾</button>' +
-      '<div id="sk-top-animators-body" style="display:none;margin-top:8px"></div>';
-    var toggleBtn = wrap.querySelector('#sk-top-animators-toggle');
-    var bodyEl = wrap.querySelector('#sk-top-animators-body');
-    var loaded = false;
-    toggleBtn.onclick = function () {
-      var open = bodyEl.style.display !== 'none';
-      bodyEl.style.display = open ? 'none' : 'block';
-      toggleBtn.textContent = 'Most Frequently Tagged ' + (open ? '▾' : '▴');
-      if (!open && !loaded) {
-        loaded = true;
-        bodyEl.innerHTML = '<div class="sk-loading">loading…</div>';
-        renderTopAnimatorsContent(bodyEl, showTag, posts);
-      }
-    };
-  }
-
-  // Shared by both directions of this feature (a show's most-tagged
-  // animators, and an animator's most-frequent shows) — same visual
-  // language either way, just a different accent color per variant so the
-  // two stay visually distinct (amber for animators, blue for shows,
-  // matching the tag-chip color-coding used everywhere else).
-  function buildFreqRows(names, freq, variant) {
-    var maxCount = freq[names[0]];
-    return safeMap(names, function (name, i) {
-      var pct = Math.max(6, Math.round((freq[name] / maxCount) * 100));
-      return '<div class="sk-freq-row' + (variant === 'show' ? ' is-show' : '') + '" data-tag="' + esc(name) + '">' +
-        '<span class="sk-freq-rank">' + (i + 1) + '</span>' +
-        '<span class="sk-freq-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
-        '<span class="sk-freq-bar-wrap"><span class="sk-freq-bar" style="width:' + pct + '%"></span></span>' +
-        '<span class="sk-freq-count">' + freq[name] + '</span>' +
-      '</div>';
-    }).join('');
-  }
-
-  function renderTopAnimatorsContent(bodyEl, showTag, posts) {
+  function renderTopAnimatorsContent(bodyEl, showTag, posts, limit) {
+    bodyEl.innerHTML = '<div class="sk-loading" style="padding:8px 0">Loading…</div>';
     ensureTagTypes().then(function (map) {
+      if (!document.body.contains(bodyEl)) return;
       var freq = {};
       posts.forEach(function (p) {
         var seen = {}; // count each animator once per post even if the tag string somehow repeats it
         safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).forEach(function (t) {
-          if (t === showTag || seen[t]) return;
+          if (t === showTag || t === UNKNOWN_ARTIST_TAG || seen[t]) return;
           if (map && map[t] === 1) {
             freq[t] = (freq[t] || 0) + 1;
             seen[t] = true;
           }
         });
       });
-      var names = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 8);
-      if (!names.length) { bodyEl.innerHTML = '<div class="sk-caption">no animator tags found in the sample.</div>'; return; }
-      bodyEl.innerHTML = '<div class="sk-freq-list">' + buildFreqRows(names, freq, 'artist') + '</div>';
-      var rowEls = bodyEl.querySelectorAll('.sk-freq-row');
+      var names = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, limit || 8);
+      if (!names.length) { bodyEl.innerHTML = '<div class="sk-note" style="margin-top:0">No animators credited in the sample.</div>'; return; }
+      bodyEl.innerHTML = '<div class="sk-bars">' + buildBarRows(names, freq, function () { return 1; }) + '</div>';
+      var rowEls = bodyEl.querySelectorAll('.sk-bar-row');
       for (var i = 0; i < rowEls.length; i++) {
         rowEls[i].onclick = function (e) {
           var tag = e.currentTarget.getAttribute('data-tag');
-          // Combined with the show tag rather than searching the animator
-          // alone — this list means "who shows up a lot in this show", so
-          // clicking one means "show me their cuts in this show", not
-          // their entire catalog everywhere.
-          // The show-only search is the step "back" returns to. From the Shows
-          // tab it was never run in the Search tab, so it's recorded here
-          // (with the episode-list origin); from the Search tab's own panel
-          // it's simply the search currently on screen.
+          // Combined with the show tag: this list means "who shows up a lot in
+          // this show", so a click means "their cuts in this show", not their
+          // whole catalogue. The show-only search is what Back returns to —
+          // from the Shows tab it was never run, so it's recorded here with
+          // the episode-list origin.
           var fromShowsTab = !!body.querySelector('#sk-show-content');
-          searchHistory = [{
-            tags: [showTag],
-            order: searchState.order,
-            origin: fromShowsTab ? { type: 'shows', showTag: showTag } : (searchCache && searchCache.origin) || null
-          }];
-          searchState.tags = [showTag, tag];
-          searchViewMode = 'results';
-          // Must be null here, NOT the clicked animator: switching to the
-          // Search tab runs its "sync to the Stats animator" step, which
-          // sees an animator that isn't in the previous results and
-          // replaces the whole tag list with just that animator — silently
-          // dropping the show tag. runSearch() sets this itself afterward
-          // once it finds the animator among the query's tags.
-          sync.artistTag = null;
-          // No searchOrigin: this is a show+animator search, not an episode
-          // lookup. The back link comes from searchHistory above instead.
-          searchOrigin = null;
-          switchToTab('search');
-          renderChips();
-          runSearch({ noHistory: true });
+          setQuery([showTag, tag], {
+            history: [{
+              tags: [showTag],
+              order: searchState.order,
+              origin: fromShowsTab ? { type: 'shows', showTag: showTag } : (searchCache && searchCache.origin) || null
+            }],
+            noHistory: true
+          });
         };
       }
     });
   }
 
-  // Only fires for a search that's just a single show/copyright-type tag
-  // and nothing else — anything more specific (an episode, an animator
-  // combo) isn't really "browsing a show" anymore, so the panel would be
-  // answering a question nobody asked at that point.
-  function maybeRenderShowAnimatorsInSearch(wrap, cache) {
-    wrap.innerHTML = '';
-    if (!cache.tags || cache.tags.length !== 1) return;
-    var tag = cache.tags[0];
-    ensureTagTypes().then(function (map) {
-      if (!map || map[tag] !== 3) return;
-      return getShowEntry(tag).then(function (entry) {
-        if (!entry.totalSampled) return;
-        renderTopAnimatorsPanel(wrap, tag, entry.posts);
-      });
-    }).catch(function () { /* nice-to-have alongside search — fail silently rather than surface an error for it */ });
-  }
-
   function paintShowDetail(content, showTag, entry) {
     window.__skDebugShowEntry = entry; // debug hook — inspect real source text in console, see README
     if (!entry.totalSampled) {
-      content.innerHTML = '<div class="sk-empty">no posts sampled for "' + esc(showTag) + '"</div>';
+      content.innerHTML = '<div class="sk-empty"><b>No clips found for ' + esc(tagLabel(showTag)) + '</b></div>';
       return;
     }
     content.innerHTML =
-      '<div class="sk-show-head">' +
-        '<span class="title">' + esc(showTag) + '</span>' +
-        (entry.related.length ? '<button class="sk-mini-toggle" id="sk-related-toggle">related (' + entry.related.length + ') ▾</button>' : '') +
-        '<button class="sk-mini-toggle" id="sk-info-toggle">ⓘ how this works</button>' +
+      '<div class="sk-head">' +
+        '<div class="ttl" title="' + esc(showTag) + '">' + esc(tagLabel(showTag)) +
+          '<small>' + entry.totalSampled + ' recent clips sampled</small></div>' +
+        '<button type="button" class="sk-pill" id="sk-show-all">All clips</button>' +
       '</div>' +
-      (entry.related.length ? '<div class="sk-related-row" id="sk-related-row" style="display:none"></div>' : '') +
-      '<div id="sk-top-animators-wrap" style="margin-bottom:8px"></div>' +
-      '<div class="sk-caption" id="sk-show-info" style="display:none">episode grouping below is parsed from each post\'s source text (the ' +
-        '"Title #12" convention), sampled from the ' + entry.totalSampled + ' most <b>recently tagged</b> posts — ' +
-        'not chronological by episode, so which numbers show up is down to tagging activity, not air order ' +
-        '(that\'s why the list might skip straight from Episode 357 to 1056 instead of starting at 1). ' +
-        'Anything that isn\'t a recognizable episode/OP/ED/movie marker (like individual social-media credit ' +
-        'links) gets grouped into one "Other" bucket. For a specific known episode, use the jump box below — ' +
-        'it searches directly rather than relying on this sample.</div>' +
-      '<div class="sk-row">' +
-        '<input class="sk-input" id="sk-ep-jump" type="number" min="1" placeholder="know the episode number? jump straight to it, e.g. 1000">' +
-        '<button class="sk-btn" id="sk-ep-jump-go">Go</button>' +
+      (entry.related.length ? '<div class="sk-sec"><span>Related shows</span></div><div class="sk-chips-row" id="sk-related-row"></div>' : '') +
+      '<div class="sk-sec"><span>Most credited animators</span></div>' +
+      '<div id="sk-top-animators-wrap"></div>' +
+      '<div class="sk-sec"><span>Episodes</span><a href="#" id="sk-info-toggle">How this works</a></div>' +
+      '<div class="sk-note" id="sk-show-info" style="display:none;margin:0 2px 8px">Episodes are read from each clip\'s source text (the "Title #12" ' +
+        'convention) across the ' + entry.totalSampled + ' most <b>recently tagged</b> clips, so which numbers appear depends on tagging ' +
+        'activity, not air order. That\'s why the list can jump from Episode 357 to 1056. Anything that isn\'t an episode, OP, ED or movie ' +
+        'marker, like individual social-media credit links, is grouped under "Other". For a specific episode, use the jump box: it ' +
+        'searches directly instead of relying on this sample.</div>' +
+      '<div class="sk-addrow">' +
+        '<input class="sk-input" id="sk-ep-jump" type="number" min="1" placeholder="Jump to episode number">' +
+        '<button class="sk-btn" id="sk-ep-jump-go" type="button">Go</button>' +
       '</div>' +
       '<div class="sk-ep-grid" id="sk-ep-grid"></div>' +
-      '<div class="sk-load-more-wrap" id="sk-scan-more-wrap"></div>';
+      '<div class="sk-load-more-wrap" id="sk-scan-more-wrap" style="margin-top:10px"></div>';
 
-    if (entry.related.length) {
-      content.querySelector('#sk-related-toggle').onclick = function () {
-        var row = content.querySelector('#sk-related-row');
-        var open = row.style.display !== 'none';
-        row.style.display = open ? 'none' : 'flex';
-        this.textContent = 'related (' + entry.related.length + ') ' + (open ? '▾' : '▴');
-      };
-    }
-    renderTopAnimatorsPanel(content.querySelector('#sk-top-animators-wrap'), showTag, entry.posts);
-    content.querySelector('#sk-info-toggle').onclick = function () {
+    content.querySelector('#sk-show-all').onclick = function () {
+      setQuery([showTag], { order: 'date', origin: { type: 'shows', showTag: showTag } });
+    };
+    renderTopAnimatorsContent(content.querySelector('#sk-top-animators-wrap'), showTag, entry.posts, 6);
+    content.querySelector('#sk-info-toggle').onclick = function (e) {
+      e.preventDefault();
       var info = content.querySelector('#sk-show-info');
-      var open = info.style.display !== 'none';
-      info.style.display = open ? 'none' : 'block';
+      info.style.display = info.style.display === 'none' ? 'block' : 'none';
     };
 
     content.querySelector('#sk-ep-jump-go').onclick = function () {
@@ -4270,16 +4601,9 @@
       var row = content.querySelector('#sk-related-row');
       entry.related.forEach(function (r) {
         var chip = document.createElement('span');
-        chip.className = 'sk-chip clickable';
-        chip.textContent = r.name + ' (' + r.count + ')';
-        chip.onclick = function () {
-          content.innerHTML = '<div class="sk-loading">loading ' + esc(r.name) + '…</div>';
-          getShowEntry(r.name).then(function (e2) {
-            pushNav({ type: 'episodes', showTag: r.name, entry: e2 });
-          }).catch(function (err) {
-            content.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
-          });
-        };
+        chip.className = 'sk-chip clickable is-copyright';
+        chip.innerHTML = esc(tagLabel(r.name)) + '<span class="n">' + r.count + '</span>';
+        chip.onclick = function () { openShow(r.name, content); };
         row.appendChild(chip);
       });
     }
@@ -4291,19 +4615,13 @@
       btn.innerHTML = '<span class="num">' + esc(ep.label) + '</span><span class="cnt">' +
         (ep.token ? ep.count + ' sampled' : ep.count + ' sampled · browse only') + '</span>';
       btn.onclick = function () {
-        searchState.order = 'date';
-        searchViewMode = 'results';
-        sync.artistTag = null; // avoid Search's auto-sync overwriting this specific episode query
         if (ep.token && ep.sortNum < 1e6) {
           // A numbered episode — try the exact text we actually observed first,
           // then fall back through likely alternate formats (see buildEpisodeCandidates).
           searchEpisodeWithFallback(showTag, buildEpisodeCandidates(ep.sortNum, ep.token));
         } else if (ep.token) {
           // OP/ED/Movie/OVA/PV — a fixed word, not a number, so no fallback needed.
-          searchState.tags = [showTag, 'source:' + ep.token];
-          searchOrigin = { type: 'shows', showTag: showTag };
-          switchToTab('search');
-          runSearch();
+          setQuery([showTag, 'source:' + ep.token], { order: 'date', origin: { type: 'shows', showTag: showTag } });
         } else {
           // No single query can isolate this bucket (e.g. individual social-media credit
           // links each with a different URL) — show exactly the posts we already sampled
@@ -4317,6 +4635,9 @@
           });
           var facetTags = safeSort(Object.keys(freq), function (a, b) { return freq[b] - freq[a]; }).slice(0, 24);
           searchState.tags = [showTag];
+          searchState.order = 'date';
+          searchViewMode = 'results';
+          manualPending = false;
           searchCache = {
             tags: [showTag], order: 'date', posts: ep.posts, excluded: {}, soloOnly: false, facetTags: facetTags,
             sampledOnly: true, origin: { type: 'shows', showTag: showTag }
@@ -4330,20 +4651,20 @@
     var scanWrap = content.querySelector('#sk-scan-more-wrap');
     function renderScanButton() {
       if (entry.exhausted) {
-        scanWrap.innerHTML = '<div class="sk-caption">sampled this show\'s entire post history — nothing more to scan</div>';
+        scanWrap.innerHTML = '<div class="sk-note" style="margin-top:0">That\'s the show\'s entire post history. Nothing more to scan.</div>';
         return;
       }
-      scanWrap.innerHTML = '<button class="sk-frame-btn" id="sk-scan-more">' +
-        'scan further back (+300 more posts, currently ' + entry.totalSampled + ')</button>';
+      scanWrap.innerHTML = '<button class="sk-pill" id="sk-scan-more" type="button">Scan 300 more clips</button>' +
+        '<div class="sk-note">Reads further back to find more episodes. Currently ' + entry.totalSampled + ' sampled.</div>';
       scanWrap.querySelector('#sk-scan-more').onclick = function () {
-        scanWrap.innerHTML = '<div class="sk-loading">scanning further back… (may take a few seconds)</div>';
+        scanWrap.innerHTML = '<div class="sk-loading" style="padding:8px 0">Scanning further back… (may take a few seconds)</div>';
         getShowEntry(showTag, (entry.pagesFetched || SHOW_SAMPLE_PAGES) + 3).then(function (deeperEntry) {
           if (navStack[navIndex] && navStack[navIndex].type === 'episodes' && navStack[navIndex].showTag === showTag) {
             navStack[navIndex].entry = deeperEntry;
           }
           paintShowDetail(content, showTag, deeperEntry);
         }).catch(function (err) {
-          scanWrap.innerHTML = '<div class="sk-empty">couldn\'t scan further: ' + esc(err.message) + '</div>';
+          scanWrap.innerHTML = '<div class="sk-empty"><b>Couldn\'t scan further</b><br>' + esc(err.message) + '</div>';
         });
       };
     }
@@ -4359,152 +4680,923 @@
 
   function renderPools() {
     body.innerHTML =
-      '<div class="sk-mode-row">' +
-        '<button class="sk-mode-btn active" id="sk-pools-mode-local" type="button">My Pools</button>' +
-        '<button class="sk-mode-btn" id="sk-pools-mode-public" type="button">Public Pools</button>' +
+      '<div class="sk-bar" style="margin-top:0">' +
+        '<div class="sk-seg" id="sk-pools-seg">' +
+          '<button type="button" data-v="local">My pools</button>' +
+          '<button type="button" data-v="public">Public pools</button>' +
+        '</div>' +
       '</div>' +
       '<div id="sk-pools-view"></div>';
-    body.querySelector('#sk-pools-mode-local').onclick = function () { poolsViewMode = 'local'; renderPoolsView(); };
-    body.querySelector('#sk-pools-mode-public').onclick = function () { poolsViewMode = 'public'; renderPoolsView(); };
+    var segBtns = body.querySelectorAll('#sk-pools-seg button');
+    for (var i = 0; i < segBtns.length; i++) {
+      segBtns[i].onclick = function (e) { poolsViewMode = e.currentTarget.getAttribute('data-v'); renderPoolsView(); };
+    }
     renderPoolsView();
   }
 
   function renderPoolsView() {
-    body.querySelector('#sk-pools-mode-local').classList.toggle('active', poolsViewMode === 'local');
-    body.querySelector('#sk-pools-mode-public').classList.toggle('active', poolsViewMode === 'public');
+    var segBtns = body.querySelectorAll('#sk-pools-seg button');
+    for (var i = 0; i < segBtns.length; i++) segBtns[i].classList.toggle('on', segBtns[i].getAttribute('data-v') === poolsViewMode);
     var view = body.querySelector('#sk-pools-view');
     if (poolsViewMode === 'local') renderLocalPoolsList(view);
     else renderPublicPoolsBrowse(view);
   }
 
+  function poolThumbs(posts) {
+    var out = '';
+    for (var i = 0; i < 3; i++) {
+      var p = posts[i];
+      var src = p && (p.preview_url || p.jpeg_url || p.sample_url);
+      out += src ? '<img loading="lazy" src="' + esc(src) + '">' : '<i></i>';
+    }
+    return '<span class="thumbs">' + out + '</span>';
+  }
+
   function renderLocalPoolsList(view) {
     var pools = getLocalPools();
     view.innerHTML =
-      '<div class="sk-row">' +
-        '<input class="sk-input" id="sk-lp-new-name" placeholder="new pool name">' +
-        '<button class="sk-btn" id="sk-lp-new-go">Create</button>' +
+      '<div class="sk-addrow">' +
+        '<input class="sk-input" id="sk-lp-new-name" placeholder="Name a new pool" autocomplete="off">' +
+        '<button class="sk-btn" id="sk-lp-new-go" type="button">Create</button>' +
       '</div>' +
       '<div id="sk-lp-list"></div>';
 
-    view.querySelector('#sk-lp-new-go').onclick = function () {
+    function create() {
       var input = view.querySelector('#sk-lp-new-name');
       var name = input.value.trim();
       if (!name) return;
       createLocalPool(name, '');
       renderLocalPoolsList(view);
-    };
+    }
+    view.querySelector('#sk-lp-new-go').onclick = create;
+    view.querySelector('#sk-lp-new-name').addEventListener('keydown', function (e) { if (e.key === 'Enter') create(); });
 
     var listEl = view.querySelector('#sk-lp-list');
     if (!pools.length) {
-      listEl.innerHTML = '<div class="sk-empty">no pools yet</div>';
+      listEl.innerHTML = '<div class="sk-hero"><div class="h">No pools yet</div>' +
+        '<div class="p">Create one above, then add clips to it from the player.<br>Pools live in this browser only.</div></div>';
       return;
     }
-    listEl.innerHTML = '';
+    listEl.className = 'sk-list';
     pools.forEach(function (pl) {
       var item = document.createElement('div');
-      item.className = 'sk-show-pick';
-      item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + pl.posts.length + '</span>';
+      item.className = 'sk-item';
+      item.innerHTML = poolThumbs(pl.posts) +
+        '<div class="main"><div class="t">' + esc(pl.name) + '</div>' +
+        '<div class="s">' + pl.posts.length + (pl.posts.length === 1 ? ' clip' : ' clips') + '</div></div>' +
+        '<span class="chev">&#8250;</span>';
       item.onclick = function () { renderLocalPoolDetail(view, pl.id); };
       listEl.appendChild(item);
     });
   }
 
+  // ===========================================================================
+  // Export Composer
+  //
+  // One modal for building a pool export. The centrepiece is a live preview
+  // that draws the real layout — the actual thumbnails in the actual cells,
+  // numbered, with each clip's real label text where it will land — so the
+  // person arranges the thing itself instead of filling in a form about it.
+  // Everything is visible at once: five aligned settings rows under the
+  // preview, the clip list beside it (reorder by dragging, open a row for
+  // trim / custom text / duplicate / remove). No panel toggles, no sub-screens.
+  //
+  // onStart(cfg) receives exactly what performGridExport needs.
+  // ===========================================================================
+  var COMPOSER_MAX_MUSIC = 5;
+
+  function openExportComposer(pool, videoPosts, onStart) {
+    var st = {
+      format: 'grid',            // 'grid' | 'serial'
+      orientation: 'landscape',
+      featured: false,           // first clip larger above the rest (grid only)
+      loopMode: 'replay',        // 'replay' | 'stop'
+      labelsOn: false,
+      labelStyle: 'outline',     // 'outline' | 'box'
+      labelPos: { fx: 0, fy: 1 },// fractions of the free room inside a clip; 0,1 = bottom-left
+      musicFiles: [],
+      musicLoop: false,
+      clips: [],                 // [{post, instId}]
+      trims: {},                 // instId -> {start, end}
+      overrides: {},             // instId -> custom label text
+      expanded: null,            // instId of the open row
+      focus: null                // instId shown in the frame in Back to back mode
+    };
+    var nextInst = 0;
+    function mk(post) { return { post: post, instId: 'inst' + (nextInst++) }; }
+    st.clips = safeMap(videoPosts.slice(0, MAX_GRID_CLIPS), mk);
+
+    function seg(key, opts) {
+      var h = '<span class="sk-seg" data-seg="' + key + '">';
+      for (var i = 0; i < opts.length; i++) h += '<button type="button" data-v="' + opts[i][0] + '">' + opts[i][1] + '</button>';
+      return h + '</span>';
+    }
+
+    var backdrop = document.createElement('div');
+    backdrop.className = 'sk-media-backdrop';
+    backdrop.innerHTML =
+      '<div class="sk-media-box sk-xc-box" role="dialog" aria-label="Export clips">' +
+        '<div class="sk-media-top"><span class="sk-xc-title">Export <span>' + esc(pool.name) + '</span></span>' +
+          '<span class="sk-media-close" data-close style="margin-left:auto" title="close (Esc)">&times;</span></div>' +
+        '<div class="sk-xc-body">' +
+          '<div class="sk-xc-left">' +
+            '<div class="sk-xc-stage" id="xc-stage"><div class="sk-xc-canvas" id="xc-canvas"></div></div>' +
+            '<div class="sk-xc-film" id="xc-film" style="display:none"></div>' +
+            '<div class="sk-xc-hint" id="xc-hint"></div>' +
+            '<div class="sk-xc-set">' +
+              '<div class="sk-xc-line"><span class="k">Layout</span>' +
+                seg('format', [['grid', 'Grid'], ['serial', 'Back to back']]) + ' ' +
+                seg('orientation', [['landscape', 'Landscape'], ['portrait', 'Portrait']]) + '</div>' +
+              '<div class="sk-xc-line" data-gridonly><span class="k">First clip</span>' +
+                seg('featured', [['no', 'Same size'], ['yes', 'Featured']]) + '</div>' +
+              '<div class="sk-xc-line" data-gridonly><span class="k">Shorter clips</span>' +
+                seg('loopMode', [['replay', 'Replay'], ['stop', 'Hold last frame']]) + '</div>' +
+              '<div class="sk-xc-line"><span class="k">Labels</span>' +
+                seg('labels', [['off', 'Off'], ['on', 'Animator names']]) +
+                '<span id="xc-style-wrap"> ' + seg('labelStyle', [['outline', 'Outline'], ['box', 'Box']]) + '</span></div>' +
+              '<div class="sk-xc-line" id="xc-posline"><span class="k">Label position</span>' +
+                '<span class="sk-xc-pos" id="xc-pos"></span>' +
+                '<span class="sk-xc-poshint" id="xc-poshint">or drag the label in the preview</span></div>' +
+              '<div class="sk-xc-line" id="xc-music-line"><span class="k">Music <span class="sk-mad-tag">Sakuga MAD</span></span>' +
+                '<span class="sk-xc-tracks" id="xc-tracks"></span>' +
+                '<button class="sk-nav-btn" id="xc-addaudio" type="button">+ Add audio</button>' +
+                '<span id="xc-musicloop-wrap"> ' + seg('musicLoop', [['once', 'Play once'], ['loop', 'Loop']]) + '</span>' +
+                '<input type="file" id="xc-audiofile" accept="audio/*" multiple style="display:none"></div>' +
+              '<div class="sk-xc-cap" id="xc-music-cap"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="sk-xc-right">' +
+            '<div class="sk-xc-listhead"><span>Clips <b id="xc-count"></b></span>' +
+              '<select class="sk-select" id="xc-add" style="max-width:55%"></select></div>' +
+            '<div class="sk-xc-list" id="xc-list"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="sk-xc-foot">' +
+          '<span class="sk-xc-sum" id="xc-sum"></span>' +
+          '<button class="sk-nav-btn" data-close type="button">Cancel</button>' +
+          '<button class="sk-btn" id="xc-go" type="button">Export</button>' +
+        '</div>' +
+      '</div>';
+
+    function $(sel) { return backdrop.querySelector(sel); }
+    var stageEl = $('#xc-stage'), canvasEl = $('#xc-canvas'), listEl = $('#xc-list'), filmEl = $('#xc-film'), boxEl = $('.sk-xc-box');
+    var tagsReady = false;
+
+    // ---------- derived layout ----------
+    function effectiveMode() { return st.format === 'grid' && st.featured && st.clips.length >= 3 ? 'stretch' : 'center'; }
+    function frameInfo() {
+      var n = st.clips.length;
+      if (st.format === 'serial') {
+        var w = st.orientation === 'portrait' ? SERIAL_SHORT : SERIAL_LONG;
+        var h = st.orientation === 'portrait' ? SERIAL_LONG : SERIAL_SHORT;
+        return { W: w, H: h, positions: [{ x: 0, y: 0, w: w, h: h }] };
+      }
+      var pos = computeCellPositions(Math.max(n, 1), st.orientation, effectiveMode());
+      var W = 0, H = 0;
+      for (var i = 0; i < pos.length; i++) {
+        if (pos[i].x + pos[i].w > W) W = pos[i].x + pos[i].w;
+        if (pos[i].y + pos[i].h > H) H = pos[i].y + pos[i].h;
+      }
+      return { W: W, H: H, positions: pos };
+    }
+    function posName() {
+      var fx = st.labelPos.fx, fy = st.labelPos.fy;
+      var xs = fx === 0 ? 'left' : fx === 1 ? 'right' : fx === 0.5 ? 'centre' : null;
+      var ys = fy === 0 ? 'top' : fy === 1 ? 'bottom' : fy === 0.5 ? 'middle' : null;
+      if (!xs || !ys) return 'custom position';
+      if (xs === 'centre' && ys === 'middle') return 'centre';
+      if (xs === 'centre') return ys + ' centre';
+      if (ys === 'middle') return 'middle ' + xs;
+      return ys + ' ' + xs;
+    }
+    function pct(f) { return (Math.round(f * 10000) / 100) + '%'; }
+
+    // ---------- preview ----------
+    // The order on screen right now: the in-flight drag order while one is
+    // happening, otherwise the committed one.
+    function liveIds() {
+      return drag && drag.live ? drag.live : safeMap(st.clips, function (c) { return c.instId; });
+    }
+    function focusInst() {
+      for (var i = 0; i < st.clips.length; i++) if (st.clips[i].instId === st.focus) return st.clips[i];
+      return st.clips[0];
+    }
+    function renderFilm() {
+      var show = st.format === 'serial' && st.clips.length > 0;
+      filmEl.style.display = show ? 'flex' : 'none';
+      filmEl.className = 'sk-xc-film' + (st.orientation === 'portrait' ? ' port' : '');
+      if (!show) { filmEl.innerHTML = ''; return; }
+      var fi = focusInst();
+      filmEl.innerHTML = safeMap(st.clips, function (c, i) {
+        return '<div class="sk-xc-fr' + (c === fi ? ' on' : '') + '" data-inst="' + c.instId + '" title="' + esc(rowName(c.post)) + '">' +
+          '<img src="' + esc(c.post.preview_url || '') + '" alt="" draggable="false"><span class="sk-xc-frn">' + (i + 1) + '</span></div>';
+      }).join('');
+    }
+    var previewScale = 0.4;
+    function renderPreview() {
+      var n = st.clips.length;
+      var f = frameInfo();
+      var availW = Math.max(160, (stageEl.clientWidth || 440) - 20);
+      var maxH = Math.max(180, Math.round((window.innerHeight || 700) * 0.46));
+      var aspect = f.W / f.H;
+      var boxW = Math.min(availW, maxH * aspect);
+      var boxH = boxW / aspect;
+      canvasEl.style.width = Math.round(boxW) + 'px';
+      canvasEl.style.height = Math.round(boxH) + 'px';
+      var s = boxW / f.W;
+      previewScale = s;
+      if (n < 1) { canvasEl.innerHTML = ''; return; }
+
+      var html = '';
+      var cells = st.format === 'serial' ? 1 : n;
+      for (var i = 0; i < cells; i++) {
+        var inst = st.format === 'serial' ? focusInst() : st.clips[i];
+        var pz = f.positions[i];
+        var p = inst.post;
+        html += '<div class="sk-xc-cell" data-inst="' + inst.instId + '" style="left:' + pct(pz.x / f.W) + ';top:' + pct(pz.y / f.H) +
+          ';width:' + pct(pz.w / f.W) + ';height:' + pct(pz.h / f.H) + '">' +
+          '<img src="' + esc(p.preview_url || '') + '" alt="" draggable="false">' +
+          '<span class="sk-xc-num">' + (st.format === 'serial' ? (st.clips.indexOf(inst) + 1) + ' of ' + n : (i + 1)) + '</span>';
+        if (st.labelsOn) {
+          var built = buildLabelFor(p, st.overrides[inst.instId], pz.w, pz.h);
+          if (built) {
+            var lines = built.text.split(String.fromCharCode(10));
+            var fs = built.fontSize * s;
+            var chipStyle = 'font-size:' + fs.toFixed(2) + 'px;line-height:' + ((built.fontSize + 4) / built.fontSize).toFixed(3) + ';' +
+              (st.labelStyle === 'box'
+                ? 'background:rgba(0,0,0,.5);padding:' + (6 * s).toFixed(2) + 'px;'
+                : '-webkit-text-stroke:' + (4 * s).toFixed(2) + 'px #000;paint-order:stroke fill;text-shadow:0 0 ' + (2 * s).toFixed(2) + 'px #000;');
+            html += '<div class="sk-xc-lblwrap" style="inset:' + (10 * s).toFixed(2) + 'px">' +
+              '<div class="sk-xc-chip" data-chip style="' + chipStyle + '">' + safeMap(lines, esc).join('<br>') + '</div></div>';
+          }
+        }
+        html += '</div>';
+      }
+      canvasEl.innerHTML = html;
+      renderFilm();
+      applyChipPos();
+      hlRow(st.expanded);
+    }
+    // 3x3 position picker: the nine snap points as buttons. Highlights the
+    // one in use; a dragged-to custom position leaves all nine unlit.
+    (function buildPosPicker() {
+      var box = $('#xc-pos'), h = '';
+      [0, 0.5, 1].forEach(function (fy) {
+        [0, 0.5, 1].forEach(function (fx) {
+          h += '<button type="button" data-fx="' + fx + '" data-fy="' + fy + '" title="' +
+            (fy === 0 ? 'top' : fy === 1 ? 'bottom' : 'middle') + ' ' + (fx === 0 ? 'left' : fx === 1 ? 'right' : 'centre') + '"></button>';
+        });
+      });
+      box.innerHTML = h;
+      box.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('button') : null;
+        if (!b) return;
+        st.labelPos = { fx: parseFloat(b.getAttribute('data-fx')), fy: parseFloat(b.getAttribute('data-fy')) };
+        applyChipPos();
+      });
+    })();
+    function syncPosPicker() {
+      var btns = $('#xc-pos').querySelectorAll('button');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle('on', parseFloat(btns[i].getAttribute('data-fx')) === st.labelPos.fx && parseFloat(btns[i].getAttribute('data-fy')) === st.labelPos.fy);
+      }
+    }
+    function applyChipPos() {
+      var chips = canvasEl.querySelectorAll('.sk-xc-chip');
+      var fx = st.labelPos.fx, fy = st.labelPos.fy;
+      for (var i = 0; i < chips.length; i++) {
+        chips[i].style.left = pct(fx);
+        chips[i].style.top = pct(fy);
+        chips[i].style.transform = 'translate(' + pct(-fx) + ',' + pct(-fy) + ')';
+      }
+      syncPosPicker();
+      renderHint();
+    }
+    function renderHint() {
+      var h = $('#xc-hint');
+      var parts = [];
+      if (st.format === 'serial') {
+        parts.push('Clip ' + (liveIds().indexOf(focusInst().instId) + 1) + ' of ' + st.clips.length + ' &middot; drag the strip to reorder');
+      } else if (st.clips.length > 1) {
+        parts.push('Drag a clip to rearrange');
+      }
+      if (st.labelsOn) {
+        var any = canvasEl.querySelector('.sk-xc-chip');
+        var moved = st.labelPos.fx !== 0 || st.labelPos.fy !== 1;
+        parts.push(any
+          ? 'label: ' + esc(posName()) + ' on every clip' + (moved ? ' <a href="#" id="xc-resetpos">reset</a>' : '')
+          : 'no animator tag on this clip: open it and type a label');
+      }
+      h.innerHTML = parts.join(' &middot; ');
+      var r = $('#xc-resetpos');
+      if (r) r.onclick = function (e) { e.preventDefault(); st.labelPos = { fx: 0, fy: 1 }; applyChipPos(); };
+    }
+
+    // Dragging a chip: movement is measured against the free room inside its
+    // own clip (the same maths the export uses), applied to every clip at once.
+    var chipDrag = null;
+    function snap(v) {
+      var t = [0, 0.5, 1];
+      for (var i = 0; i < t.length; i++) if (Math.abs(v - t[i]) < 0.06) return t[i];
+      return v;
+    }
+    canvasEl.addEventListener('pointerdown', function (e) {
+      var chip = e.target.closest ? e.target.closest('.sk-xc-chip') : null;
+      if (!chip) return;
+      var wrap = chip.parentNode;
+      chipDrag = {
+        x: e.clientX, y: e.clientY, fx: st.labelPos.fx, fy: st.labelPos.fy,
+        freeW: wrap.clientWidth - chip.offsetWidth, freeH: wrap.clientHeight - chip.offsetHeight, moved: false
+      };
+      try { canvasEl.setPointerCapture(e.pointerId); } catch (err) { /* non-fatal */ }
+      e.preventDefault();
+    });
+    canvasEl.addEventListener('pointermove', function (e) {
+      if (!chipDrag) return;
+      var d = chipDrag;
+      var fx = d.freeW > 1 ? d.fx + (e.clientX - d.x) / d.freeW : d.fx;
+      var fy = d.freeH > 1 ? d.fy + (e.clientY - d.y) / d.freeH : d.fy;
+      d.moved = d.moved || Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) > 2;
+      st.labelPos = { fx: snap(Math.max(0, Math.min(1, fx))), fy: snap(Math.max(0, Math.min(1, fy))) };
+      applyChipPos();
+    });
+    function endChipDrag() { chipDrag = null; }
+    canvasEl.addEventListener('pointerup', endChipDrag);
+    canvasEl.addEventListener('pointercancel', endChipDrag);
+    canvasEl.addEventListener('mouseover', function (e) {
+      var cell = e.target.closest ? e.target.closest('.sk-xc-cell') : null;
+      var cid = cell ? cell.getAttribute('data-inst') : null;
+      hlCell(cid);
+      if (!drag) hlListRow(cid);
+    });
+    canvasEl.addEventListener('mouseleave', function () { hlCell(st.expanded); hlListRow(null); });
+
+    function hlCell(id) {
+      var cells = canvasEl.querySelectorAll('.sk-xc-cell');
+      for (var i = 0; i < cells.length; i++) cells[i].classList.toggle('hl', id != null && cells[i].getAttribute('data-inst') === id);
+    }
+    function hlListRow(id) {
+      var rows = listEl.children;
+      for (var i = 0; i < rows.length; i++) rows[i].classList.toggle('hl', id != null && rows[i].getAttribute('data-inst') === id);
+    }
+    function hlRow(id) { hlCell(id); }
+
+    // ---------- clip list ----------
+    function rowName(p) {
+      var names = clipAnimatorNames(p);
+      if (names.length) return names.join(', ');
+      return safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).slice(0, 3).join(' ') || ('post ' + p.id);
+    }
+    // Second line under a clip's name, so clips by the same animator can be
+    // told apart: the show, the episode/OP/ED when the source says so, a
+    // "repeat" marker for a second showing of the same post, and always the
+    // post number (the one thing that is unique).
+    function rowSub(inst) {
+      var p = inst.post, parts = [];
+      var shows = safeMap(
+        safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 3; }),
+        function (t) { return titleCase(t.replace(/_/g, ' ')); }
+      ).slice(0, 2);
+      if (shows.length) parts.push(esc(shows.join(', ')));
+      var ep = parseEpisodeKey(p.source);
+      if (ep.key !== 'unsorted' && ep.key !== 'other') parts.push(esc(ep.key.indexOf('ep:') === 0 ? 'Ep ' + ep.sortNum : ep.label));
+      var seen = 0;
+      for (var i = 0; i < st.clips.length && st.clips[i] !== inst; i++) if (st.clips[i].post.id === p.id) seen++;
+      if (seen) parts.push('repeat');
+      parts.push('<span class="id">#' + esc(String(p.id)) + '</span>');
+      return parts.join(' &middot; ');
+    }
+    function badgeText(inst) {
+      var parts = [];
+      var tr = st.trims[inst.instId];
+      if (tr) parts.push(formatTimeInput(tr.start) + '–' + formatTimeInput(tr.end));
+      if (st.overrides[inst.instId]) parts.push('own label');
+      return parts.join(' · ');
+    }
+    var durCache = {};
+    function clipDuration(p) {
+      if (durCache[p.id] != null) return Promise.resolve(durCache[p.id]);
+      return probeVideoDuration(p.file_url).then(function (d) { durCache[p.id] = d; return d; });
+    }
+
+    function renderList() {
+      listEl.innerHTML = '';
+      st.clips.forEach(function (inst, i) {
+        var p = inst.post, id = inst.instId;
+        var open = st.expanded === id;
+        var row = document.createElement('div');
+        row.className = 'sk-xc-row' + (open ? ' open' : '');
+        row.setAttribute('data-inst', id);
+        row.innerHTML =
+          '<div class="sk-xc-rowhead" data-toggle>' +
+            '<span class="sk-xc-grip" tabindex="0" title="drag to reorder, or focus and press Up / Down. Enter opens the clip">&#8942;&#8942;</span>' +
+            '<span class="sk-xc-n">' + (i + 1) + '</span>' +
+            '<img src="' + esc(p.preview_url || '') + '" alt="" draggable="false">' +
+            '<span class="sk-xc-who"><span class="sk-xc-name">' + esc(rowName(p)) + '</span>' +
+              '<span class="sk-xc-sub">' + rowSub(inst) + '</span></span>' +
+            '<span class="sk-xc-badge" data-badge>' + esc(badgeText(inst)) + '</span>' +
+            '<span class="sk-xc-chev">' + (open ? '&#9662;' : '&#9656;') + '</span>' +
+          '</div>' +
+          (open
+            ? '<div class="sk-xc-edit">' +
+                '<div class="sk-xc-field"><span class="k">Trim</span>' +
+                  '<input class="sk-input" data-s placeholder="0:00" value="' + (st.trims[id] ? esc(formatTimeInput(st.trims[id].start)) : '') + '">' +
+                  '<span class="dash">&ndash;</span>' +
+                  '<input class="sk-input" data-e placeholder="end" value="' + (st.trims[id] ? esc(formatTimeInput(st.trims[id].end)) : '') + '">' +
+                  '<button class="sk-nav-btn" data-pick type="button" title="open the clip, mark a range, send it back here">Pick in video</button>' +
+                  (st.trims[id] ? '<span class="sk-close" data-cleartrim title="clear trim">&times;</span>' : '') +
+                '</div>' +
+                '<div class="sk-xc-field"><span class="k">Label</span>' +
+                  '<input class="sk-input" data-text placeholder="' + esc(clipAnimatorNames(p).join(', ') || 'no animator tag — type a label') + '" value="' + esc(st.overrides[id] || '') + '">' +
+                '</div>' +
+                '<div class="sk-xc-actions">' +
+                  '<button class="sk-nav-btn" data-dup type="button" title="add this clip again right after, e.g. to show a different segment">Duplicate</button>' +
+                  '<button class="sk-nav-btn" data-rm type="button"' + (st.clips.length <= 2 ? ' disabled title="an export needs at least 2 clips"' : '') + '>Remove</button>' +
+                '</div>' +
+              '</div>'
+            : '');
+        listEl.appendChild(row);
+
+        row.onmouseenter = function () { if (!drag) hlCell(id); };
+        row.onmouseleave = function () { if (!drag) hlCell(st.expanded); };
+        var grip = row.querySelector('.sk-xc-grip');
+        grip.onkeydown = function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectClip(id, true); return; }
+          var to = e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowDown' ? i + 1 : -1;
+          if (to < 0 || to >= st.clips.length) return;
+          e.preventDefault();
+          moveClip(i, to);
+          var g = listEl.querySelectorAll('.sk-xc-grip')[to];
+          if (g) g.focus();
+        };
+
+        if (!open) return;
+        var sEl = row.querySelector('[data-s]'), eEl = row.querySelector('[data-e]');
+        if (!st.trims[id]) clipDuration(p).then(function (d) { if (d > 0) eEl.placeholder = 'end (' + formatTimeInput(d) + ')'; });
+        function commitTrim() {
+          var a = parseTimeInput(sEl.value), b = parseTimeInput(eEl.value);
+          if (a == null && b == null) delete st.trims[id];
+          else {
+            a = a || 0;
+            if (b == null || b <= a) delete st.trims[id]; else st.trims[id] = { start: a, end: b };
+          }
+          row.querySelector('[data-badge]').textContent = badgeText(inst);
+        }
+        sEl.onchange = commitTrim;
+        eEl.onchange = commitTrim;
+        row.querySelector('[data-pick]').onclick = function () {
+          openVideoModal(p, function (start, end) {
+            st.trims[id] = { start: start, end: end };
+            renderList();
+          });
+        };
+        var clr = row.querySelector('[data-cleartrim]');
+        if (clr) clr.onclick = function () { delete st.trims[id]; renderList(); };
+        row.querySelector('[data-text]').oninput = function (e) {
+          var v = e.currentTarget.value.trim();
+          if (v) st.overrides[id] = v; else delete st.overrides[id];
+          // Typing a label is a clear sign you want labels shown.
+          if (v && !st.labelsOn) { st.labelsOn = true; renderSettings(); }
+          row.querySelector('[data-badge]').textContent = badgeText(inst);
+          renderPreview();
+        };
+        row.querySelector('[data-dup]').onclick = function () {
+          var copy = mk(p);
+          st.clips.splice(i + 1, 0, copy);
+          st.expanded = copy.instId;
+          renderAll();
+        };
+        row.querySelector('[data-rm]').onclick = function () {
+          if (st.clips.length <= 2) return;
+          st.clips.splice(i, 1);
+          delete st.trims[id]; delete st.overrides[id];
+          st.expanded = null;
+          renderAll();
+        };
+      });
+      renderAddSelect();
+      $('#xc-count').textContent = '(' + st.clips.length + ')';
+    }
+
+    // Only offered when there is something to add: clips beyond the first 9
+    // or ones that were removed.
+    function renderAddSelect() {
+      var sel = $('#xc-add');
+      var used = {};
+      st.clips.forEach(function (c) { used[c.post.id] = true; });
+      var rest = safeFilter(videoPosts, function (p) { return !used[p.id]; });
+      var html = '<option value="">+ Add clip (' + rest.length + ' left)</option>';
+      rest.forEach(function (p) {
+        var showNames = safeMap(safeFilter((p.tags || '').split(/\s+/), function (t) { return t && tagTypeMap && tagTypeMap[t] === 3; }), function (t) { return titleCase(t.replace(/_/g, ' ')); })[0];
+        html += '<option value="' + esc(String(p.id)) + '">' + esc(rowName(p) + (showNames ? ' \u2013 ' + showNames : '') + ' #' + p.id) + '</option>';
+      });
+      sel.innerHTML = html;
+      sel.style.display = rest.length ? '' : 'none';
+    }
+    $('#xc-add').onchange = function (e) {
+      var v = e.currentTarget.value;
+      if (!v) return;
+      var hit = safeFilter(videoPosts, function (p) { return String(p.id) === v; })[0];
+      if (hit) { var inst = mk(hit); st.clips.push(inst); st.expanded = inst.instId; renderAll(); listEl.scrollTop = listEl.scrollHeight; }
+    };
+
+    function moveClip(from, to) {
+      var item = st.clips.splice(from, 1)[0];
+      st.clips.splice(to, 0, item);
+      renderAll();
+    }
+
+    // ---------- drag to reorder ----------
+    // One drag session serves all three views of the order: the preview
+    // (grid cells), the clip list, and the filmstrip shown in Back to back
+    // mode. While you drag, a lifted copy follows the pointer and the
+    // others slide aside live in every view; the order is committed on
+    // release. A press that never moves is a click (select / open the clip).
+    var drag = null;
+    function startPending(e, id, src, el) {
+      if (e.button) return;
+      var r = el.getBoundingClientRect();
+      drag = {
+        id: id, src: src, x: e.clientX, y: e.clientY, started: false, ghost: null, live: null,
+        offX: e.clientX - r.left, offY: e.clientY - r.top, w: r.width, h: r.height,
+        noDrag: e.pointerType === 'touch' && src === 'list' && !(e.target.closest && e.target.closest('.sk-xc-grip'))
+      };
+      document.addEventListener('pointermove', onDragMove, true);
+      document.addEventListener('pointerup', onDragEnd, true);
+      document.addEventListener('pointercancel', onDragEnd, true);
+    }
+    function viewEl(src) { return src === 'stage' ? canvasEl : src === 'list' ? listEl : filmEl; }
+    function elFor(view, id) { return view.querySelector('[data-inst="' + id + '"]'); }
+    function inRect(r, x, y) { return r.width > 0 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }
+
+    function beginDrag() {
+      var d = drag;
+      d.started = true;
+      if (st.expanded) { st.expanded = null; renderList(); } // every row the same height while dragging
+      d.live = safeMap(st.clips, function (c) { return c.instId; });
+      var srcEl = elFor(viewEl(d.src), d.id);
+      var g = document.createElement('div');
+      var inner = srcEl ? (d.src === 'list' ? srcEl.querySelector('.sk-xc-rowhead').innerHTML : srcEl.innerHTML) : '';
+      g.className = 'sk-xc-ghost ' + (d.src === 'stage' ? 'sk-xc-cell' : d.src === 'list' ? 'sk-xc-rowhead' : 'sk-xc-fr');
+      g.innerHTML = inner;
+      g.style.width = d.w + 'px';
+      g.style.height = d.h + 'px';
+      boxEl.appendChild(g);
+      d.ghost = g;
+      [canvasEl, listEl, filmEl].forEach(function (v) {
+        if (v === canvasEl && st.format === 'serial') return; // the frame there is a viewer, not a slot
+        var el = elFor(v, d.id);
+        if (el) el.classList.add('ph');
+      });
+      backdrop.classList.add('xc-dragging');
+    }
+
+    // Index (in the order without the dragged clip's old slot) the pointer
+    // is asking for, or -1 when it is over none of the views.
+    function hitIndex(x, y) {
+      var d = drag, n = d.live.length;
+      if (st.format === 'grid') {
+        var cr = canvasEl.getBoundingClientRect();
+        if (inRect(cr, x, y)) {
+          var f = frameInfo();
+          var fx = (x - cr.left) / cr.width * f.W, fy = (y - cr.top) / cr.height * f.H;
+          var best = -1, bd = Infinity;
+          for (var i = 0; i < n && i < f.positions.length; i++) {
+            var p = f.positions[i];
+            if (fx >= p.x && fx <= p.x + p.w && fy >= p.y && fy <= p.y + p.h) return i;
+            var dd = Math.pow(fx - (p.x + p.w / 2), 2) + Math.pow(fy - (p.y + p.h / 2), 2);
+            if (dd < bd) { bd = dd; best = i; }
+          }
+          return best;
+        }
+      }
+      var lr = listEl.getBoundingClientRect();
+      if (inRect(lr, x, y)) {
+        var rows = Array.prototype.slice.call(listEl.children), idx = 0;
+        for (var j = 0; j < rows.length; j++) {
+          if (rows[j].getAttribute('data-inst') === d.id) continue;
+          var mid = lr.top - listEl.scrollTop + rows[j].offsetTop + rows[j].offsetHeight / 2;
+          if (y > mid) idx++;
+        }
+        return idx;
+      }
+      if (st.format === 'serial') {
+        var fr = filmEl.getBoundingClientRect();
+        if (inRect(fr, x, y)) {
+          var items = safeFilter(Array.prototype.slice.call(filmEl.children), function (c) { return c.getAttribute('data-inst') !== d.id; });
+          var bestI = 0, bestD = Infinity;
+          for (var k = 0; k < items.length; k++) {
+            var r = items[k].getBoundingClientRect();
+            var dist = Math.pow(x - (r.left + r.width / 2), 2) + Math.pow(y - (r.top + r.height / 2), 2);
+            if (dist < bestD) { bestD = dist; bestI = k + (x > r.left + r.width / 2 ? 1 : 0); }
+          }
+          return bestI;
+        }
+      }
+      return -1;
+    }
+
+    // Re-flow every view to a new order without rebuilding anything:
+    // grid cells slide via CSS transitions, rows and filmstrip frames via FLIP.
+    function flipReorder(container, order, numSel) {
+      var nodes = {}, before = {};
+      Array.prototype.forEach.call(container.children, function (c) { nodes[c.getAttribute('data-inst')] = c; });
+      order.forEach(function (id) { if (nodes[id]) before[id] = nodes[id].getBoundingClientRect(); });
+      order.forEach(function (id) { if (nodes[id]) container.appendChild(nodes[id]); });
+      order.forEach(function (id, j) {
+        var nd = nodes[id];
+        if (!nd) return;
+        var num = nd.querySelector(numSel);
+        if (num) num.textContent = j + 1;
+        if (id === drag.id || !nd.animate) return;
+        var b = nd.getBoundingClientRect();
+        var dx = before[id].left - b.left, dy = before[id].top - b.top;
+        if (dx || dy) nd.animate([{ transform: 'translate(' + dx + 'px,' + dy + 'px)' }, { transform: 'none' }], { duration: 170, easing: 'ease-out' });
+      });
+    }
+    function applyLive(order) {
+      if (st.format === 'grid') {
+        var f = frameInfo();
+        order.forEach(function (id, j) {
+          var c = elFor(canvasEl, id), pz = f.positions[j];
+          if (!c || !pz) return;
+          c.style.left = pct(pz.x / f.W); c.style.top = pct(pz.y / f.H);
+          c.style.width = pct(pz.w / f.W); c.style.height = pct(pz.h / f.H);
+          var num = c.querySelector('.sk-xc-num');
+          if (num) num.textContent = j + 1;
+        });
+      }
+      flipReorder(listEl, order, '.sk-xc-n');
+      if (st.format === 'serial') {
+        flipReorder(filmEl, order, '.sk-xc-frn');
+        var fnum = canvasEl.querySelector('.sk-xc-num');
+        if (fnum) fnum.textContent = (order.indexOf(focusInst().instId) + 1) + ' of ' + order.length;
+        renderHint();
+      }
+      // the lifted copy shows its own new number too
+      if (drag && drag.ghost) {
+        var gn = drag.ghost.querySelector('.sk-xc-num, .sk-xc-n, .sk-xc-frn');
+        if (gn) gn.textContent = order.indexOf(drag.id) + 1;
+      }
+    }
+
+    function onDragMove(e) {
+      var d = drag;
+      if (!d || d.noDrag) return;
+      if (!d.started) {
+        if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) < 6) return;
+        beginDrag();
+      }
+      d.ghost.style.left = (e.clientX - d.offX) + 'px';
+      d.ghost.style.top = (e.clientY - d.offY) + 'px';
+      var to = hitIndex(e.clientX, e.clientY);
+      var from = d.live.indexOf(d.id);
+      if (to < 0 || to === from) return;
+      d.live.splice(from, 1);
+      d.live.splice(to, 0, d.id);
+      applyLive(d.live);
+    }
+
+    function selectClip(id, toggle) {
+      st.expanded = toggle && st.expanded === id ? null : id;
+      st.focus = id;
+      renderList();
+      if (st.format === 'serial') renderPreview();
+      hlRow(st.expanded);
+      var row = elFor(listEl, id);
+      if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    }
+
+    function onDragEnd(e) {
+      var d = drag;
+      drag = null;
+      document.removeEventListener('pointermove', onDragMove, true);
+      document.removeEventListener('pointerup', onDragEnd, true);
+      document.removeEventListener('pointercancel', onDragEnd, true);
+      if (!d) return;
+      if (!d.started) {
+        if (e.type !== 'pointercancel') selectClip(d.id, d.src === 'list');
+        return;
+      }
+      var byId = {};
+      st.clips.forEach(function (c) { byId[c.instId] = c; });
+      st.clips = safeMap(d.live, function (id) { return byId[id]; });
+      backdrop.classList.remove('xc-dragging');
+      renderAll();
+      // The lifted copy settles into its new slot, then goes.
+      var g = d.ghost;
+      var home = st.format === 'grid' ? elFor(canvasEl, d.id) : d.src === 'film' ? elFor(filmEl, d.id) : elFor(listEl, d.id);
+      if (home && d.src === 'list' && st.format !== 'grid') home = home.querySelector('.sk-xc-rowhead');
+      var r = home ? home.getBoundingClientRect() : null;
+      if (g && r && r.width > 0) {
+        g.classList.add('settling');
+        g.style.left = r.left + 'px'; g.style.top = r.top + 'px';
+        g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+        setTimeout(function () { if (g.parentNode) g.parentNode.removeChild(g); }, 200);
+      } else if (g && g.parentNode) {
+        g.parentNode.removeChild(g);
+      }
+    }
+
+    canvasEl.addEventListener('pointerdown', function (e) {
+      if (st.format !== 'grid') return;
+      if (e.target.closest && e.target.closest('.sk-xc-chip')) return;
+      var cell = e.target.closest ? e.target.closest('.sk-xc-cell') : null;
+      if (!cell) return;
+      startPending(e, cell.getAttribute('data-inst'), 'stage', cell);
+      e.preventDefault();
+    });
+    listEl.addEventListener('pointerdown', function (e) {
+      var head = e.target.closest ? e.target.closest('.sk-xc-rowhead') : null;
+      if (!head || e.target.closest('input,button,select,textarea')) return;
+      startPending(e, head.parentNode.getAttribute('data-inst'), 'list', head);
+      if (e.pointerType !== 'touch') e.preventDefault();
+    });
+    filmEl.addEventListener('pointerdown', function (e) {
+      var fr = e.target.closest ? e.target.closest('.sk-xc-fr') : null;
+      if (!fr) return;
+      startPending(e, fr.getAttribute('data-inst'), 'film', fr);
+      e.preventDefault();
+    });
+
+    // ---------- settings ----------
+    function segValue(key) {
+      if (key === 'format') return st.format;
+      if (key === 'orientation') return st.orientation;
+      if (key === 'featured') return st.featured && st.clips.length >= 3 ? 'yes' : 'no';
+      if (key === 'loopMode') return st.loopMode;
+      if (key === 'labels') return st.labelsOn ? 'on' : 'off';
+      if (key === 'labelStyle') return st.labelStyle;
+      if (key === 'musicLoop') return st.musicLoop ? 'loop' : 'once';
+      return '';
+    }
+    function setSeg(key, v) {
+      if (key === 'format') st.format = v === 'serial' ? 'serial' : 'grid';
+      else if (key === 'orientation') st.orientation = v === 'portrait' ? 'portrait' : 'landscape';
+      else if (key === 'featured') st.featured = v === 'yes';
+      else if (key === 'loopMode') st.loopMode = v === 'stop' ? 'stop' : 'replay';
+      else if (key === 'labels') st.labelsOn = v === 'on';
+      else if (key === 'labelStyle') st.labelStyle = v === 'box' ? 'box' : 'outline';
+      else if (key === 'musicLoop') st.musicLoop = v === 'loop';
+    }
+    backdrop.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.sk-seg button') : null;
+      if (!b) return;
+      setSeg(b.parentNode.getAttribute('data-seg'), b.getAttribute('data-v'));
+      renderSettings();
+      renderPreview();
+      renderSummary();
+    });
+
+    function renderSettings() {
+      var segs = backdrop.querySelectorAll('.sk-seg');
+      for (var i = 0; i < segs.length; i++) {
+        var key = segs[i].getAttribute('data-seg');
+        var val = segValue(key);
+        var btns = segs[i].querySelectorAll('button');
+        for (var j = 0; j < btns.length; j++) btns[j].classList.toggle('on', btns[j].getAttribute('data-v') === val);
+        if (key === 'featured') segs[i].classList.toggle('dis', st.clips.length < 3);
+      }
+      var gridOnly = backdrop.querySelectorAll('[data-gridonly]');
+      for (var g = 0; g < gridOnly.length; g++) gridOnly[g].style.display = st.format === 'serial' ? 'none' : 'flex';
+      $('#xc-style-wrap').style.display = st.labelsOn ? '' : 'none';
+      $('#xc-posline').style.display = st.labelsOn ? 'flex' : 'none';
+      $('#xc-musicloop-wrap').style.display = st.musicFiles.length ? '' : 'none';
+      $('#xc-addaudio').style.display = st.musicFiles.length >= COMPOSER_MAX_MUSIC ? 'none' : '';
+      $('#xc-music-cap').textContent = st.musicFiles.length
+        ? 'Played back to back from the start, cut to the length of the video' + (st.musicFiles.length >= COMPOSER_MAX_MUSIC ? ' (5 tracks max)' : '') + '.'
+        : '';
+      renderTracks();
+    }
+
+    function renderTracks() {
+      var box = $('#xc-tracks');
+      box.innerHTML = '';
+      st.musicFiles.forEach(function (f, i) {
+        var chip = document.createElement('span');
+        chip.className = 'sk-xc-track';
+        chip.innerHTML = '<span class="nm">' + (i + 1) + '. ' + esc(f.name) + '</span><span class="sk-close" title="remove this track">&times;</span>';
+        chip.querySelector('.sk-close').onclick = function () {
+          st.musicFiles.splice(i, 1);
+          if (!st.musicFiles.length) st.musicLoop = false;
+          renderSettings();
+        };
+        box.appendChild(chip);
+      });
+    }
+    function addAudio(fileList) {
+      var files = fileList || [];
+      for (var i = 0; i < files.length; i++) {
+        if (st.musicFiles.length >= COMPOSER_MAX_MUSIC) break;
+        var f = files[i];
+        if (f.type && f.type.indexOf('audio/') !== 0) continue;
+        st.musicFiles.push(f);
+      }
+      renderSettings();
+    }
+    var audioInput = $('#xc-audiofile');
+    $('#xc-addaudio').onclick = function () { audioInput.click(); };
+    audioInput.onchange = function (e) { addAudio(e.currentTarget.files); audioInput.value = ''; };
+    var musicLine = $('#xc-music-line');
+    musicLine.ondragover = function (e) { e.preventDefault(); musicLine.classList.add('is-dragover'); };
+    musicLine.ondragleave = function () { musicLine.classList.remove('is-dragover'); };
+    musicLine.ondrop = function (e) { e.preventDefault(); musicLine.classList.remove('is-dragover'); addAudio(e.dataTransfer.files); };
+
+    // ---------- summary + export ----------
+    function renderSummary() {
+      var n = st.clips.length;
+      var f = frameInfo();
+      var text;
+      if (st.format === 'serial') {
+        text = n + ' clips back to back';
+      } else if (effectiveMode() === 'stretch') {
+        var rl = computeGridLayout(n - 1, st.orientation);
+        text = n + ' clips: 1 featured + ' + rl.cols + '×' + rl.rows;
+      } else {
+        var l = computeGridLayout(Math.max(n, 1), st.orientation);
+        text = n + ' clips in a ' + l.cols + '×' + l.rows + ' grid';
+      }
+      text += ' · ' + f.W + '×' + f.H;
+      if (n > MAX_GRID_CLIPS) text += ' · more than ' + MAX_GRID_CLIPS + ' clips gets slow and memory-heavy';
+      $('#xc-sum').textContent = text;
+      $('#xc-go').disabled = n < 2;
+    }
+
+    function renderAll() {
+      renderSettings();
+      renderList();
+      renderPreview();
+      renderSummary();
+    }
+
+    function close() {
+      document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('pointermove', onDragMove, true);
+      document.removeEventListener('pointerup', onDragEnd, true);
+      document.removeEventListener('pointercancel', onDragEnd, true);
+      if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+    }
+    function onKey(e) {
+      if (e.key !== 'Escape') return;
+      var all = document.querySelectorAll('.sk-media-backdrop');
+      if (all[all.length - 1] !== backdrop) return; // a clip viewer is open on top; let it handle Esc
+      close();
+    }
+    var resizeTimer = null;
+    function onResize() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(renderPreview, 80);
+    }
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('resize', onResize);
+
+    var closers = backdrop.querySelectorAll('[data-close]');
+    for (var ci = 0; ci < closers.length; ci++) closers[ci].onclick = close;
+
+    $('#xc-go').onclick = function () {
+      if (st.clips.length < 2) return;
+      var cfg = {
+        clips: st.clips.slice(),
+        orientation: st.orientation,
+        mode: effectiveMode(),
+        trims: JSON.parse(JSON.stringify(st.trims)),
+        loopMode: st.loopMode,
+        labelMode: st.labelsOn ? 'on' : 'off',
+        format: st.format,
+        labelStyle: st.labelStyle,
+        labelOverrides: JSON.parse(JSON.stringify(st.overrides)),
+        musicFiles: st.musicFiles.slice(),
+        musicLoop: st.musicLoop,
+        labelPos: { fx: st.labelPos.fx, fy: st.labelPos.fy }
+      };
+      close();
+      onStart(cfg);
+    };
+
+    document.body.appendChild(backdrop);
+    renderAll();
+    renderPreview(); // second pass: the first measured the stage before it was in the page
+    // Animator names come from the site's tag types; once they arrive the
+    // list names and label previews fill in.
+    ensureTagTypes().then(function () { tagsReady = true; if (backdrop.parentNode) renderAll(); });
+  }
+
   function renderLocalPoolDetail(view, poolId) {
     var pool = getLocalPool(poolId);
     if (!pool) { renderLocalPoolsList(view); return; }
+    var videoCount = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).length;
     view.innerHTML =
-      '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
-        '<button class="sk-nav-btn" id="sk-lp-back">‹ back</button>' +
-        '<span class="sk-caption" style="margin:0">' + esc(pool.name) + '</span>' +
-        '<button class="sk-nav-btn" id="sk-lp-delete">Delete</button>' +
+      '<div class="sk-head">' +
+        '<button type="button" class="sk-back-btn" id="sk-lp-back" title="All pools">&#8249;</button>' +
+        '<div class="ttl" title="' + esc(pool.name) + '">' + esc(pool.name) +
+          '<small>' + pool.posts.length + (pool.posts.length === 1 ? ' clip' : ' clips') + '</small></div>' +
+        '<button type="button" class="sk-link" id="sk-lp-delete">Delete pool</button>' +
       '</div>' +
-      '<div class="sk-row" style="margin-bottom:8px">' +
-        '<button class="sk-btn" id="sk-lp-export" style="flex:1">Export Clips</button>' +
-      '</div>' +
-      '<div id="sk-lp-export-panel" style="display:none;border:1px solid ' + C.line + ';border-radius:6px;padding:10px;margin-bottom:8px">' +
-        '<div class="sk-caption" id="sk-lp-export-info" style="margin:0 0 8px"></div>' +
-
-        '<div class="sk-section-label">Layout</div>' +
-        '<div class="sk-mode-row" style="margin-bottom:8px">' +
-          '<button class="sk-mode-btn active" id="sk-lp-format-grid" type="button">Grid</button>' +
-          '<button class="sk-mode-btn" id="sk-lp-format-serial" type="button">Serial</button>' +
-        '</div>' +
-        '<div class="sk-mode-row">' +
-          '<button class="sk-mode-btn active" id="sk-lp-orient-landscape" type="button">Landscape</button>' +
-          '<button class="sk-mode-btn" id="sk-lp-orient-portrait" type="button">Portrait</button>' +
-        '</div>' +
-
-        '<div class="sk-section-label">Clips</div>' +
-        '<div class="sk-toggle-row">' +
-          '<span class="sk-toggle-label" id="sk-lp-custom-label">Custom order</span>' +
-          '<span class="sk-toggle-switch" id="sk-lp-custom-toggle"><span class="sk-toggle-knob"></span></span>' +
-        '</div>' +
-        '<div id="sk-lp-custom-section" class="sk-subpanel" style="display:none">' +
-          '<div class="sk-mode-row" id="sk-lp-stretch-row" style="margin-bottom:6px">' +
-            '<button class="sk-mode-btn active" id="sk-lp-mode-center" type="button">Center leftover</button>' +
-            '<button class="sk-mode-btn" id="sk-lp-mode-stretch" type="button">Stretch first clip</button>' +
-          '</div>' +
-        '</div>' +
-        '<div class="sk-toggle-row">' +
-          '<span class="sk-toggle-label">Advanced options</span>' +
-          '<span class="sk-toggle-switch" id="sk-lp-advanced-toggle"><span class="sk-toggle-knob"></span></span>' +
-        '</div>' +
-        '<div id="sk-lp-advanced-section" class="sk-subpanel" style="display:none">' +
-          '<div class="sk-caption" style="margin:0 0 6px">' +
-            'each trimmed clip costs an extra encode pass before compositing — slower with more of them. ' +
-            'The exported grid\'s own length can be trimmed afterward, once you can see it.' +
-          '</div>' +
-          '<div id="sk-lp-loop-wrap">' +
-            '<div class="sk-caption" style="margin:0 0 4px">Shorter clips than the target length:</div>' +
-            '<div class="sk-mode-row">' +
-              '<button class="sk-mode-btn active" id="sk-lp-loop-replay" type="button">Replay</button>' +
-              '<button class="sk-mode-btn" id="sk-lp-loop-stop" type="button">Stop</button>' +
-            '</div>' +
-          '</div>' +
-          '<div id="sk-lp-labels-block" class="sk-subdivider">' +
-            '<div class="sk-toggle-row">' +
-              '<span class="sk-toggle-label">Show animator name(s) on each clip</span>' +
-              '<span class="sk-toggle-switch" id="sk-lp-labels-toggle"><span class="sk-toggle-knob"></span></span>' +
-            '</div>' +
-            '<div class="sk-mode-row" id="sk-lp-labels-side-row" style="display:none;margin-bottom:6px">' +
-              '<button class="sk-mode-btn active" id="sk-lp-labels-left" type="button">Bottom Left</button>' +
-              '<button class="sk-mode-btn" id="sk-lp-labels-right" type="button">Bottom Right</button>' +
-            '</div>' +
-            '<div class="sk-mode-row" id="sk-lp-labels-style-row" style="display:none">' +
-              '<button class="sk-mode-btn active" id="sk-lp-labels-style-outline" type="button">Outline</button>' +
-              '<button class="sk-mode-btn" id="sk-lp-labels-style-box" type="button">Box</button>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div id="sk-lp-clip-list-wrap" style="display:none">' +
-          '<div class="sk-caption" style="margin:0 0 4px" id="sk-lp-clip-list-label"></div>' +
-          '<div id="sk-lp-export-order" style="max-height:220px;overflow-y:auto;margin-bottom:8px"></div>' +
-        '</div>' +
-
-        '<div class="sk-section-label">Audio</div>' +
-        '<div class="sk-toggle-row">' +
-          '<span class="sk-toggle-label">Add music <span class="sk-mad-tag">Sakuga MAD</span></span>' +
-          '<span class="sk-toggle-switch" id="sk-lp-music-toggle"><span class="sk-toggle-knob"></span></span>' +
-        '</div>' +
-        '<div id="sk-lp-music-section" class="sk-subpanel" style="display:none">' +
-          '<div id="sk-lp-music-list" style="margin-bottom:6px"></div>' +
-          '<div class="sk-dropzone" id="sk-lp-music-dropzone">drop audio files here, or click to browse</div>' +
-          '<input type="file" id="sk-lp-music-file" accept="audio/*" multiple style="display:none">' +
-          '<div class="sk-caption" id="sk-lp-music-hint" style="margin:4px 0 0"></div>' +
-          '<div class="sk-caption" style="margin:6px 0 4px">Multiple tracks play back-to-back, combined into one. Plays from the start, trimmed to fit if longer. If shorter than the export:</div>' +
-          '<div class="sk-mode-row">' +
-            '<button class="sk-mode-btn active" id="sk-lp-music-once" type="button">Once (silence after)</button>' +
-            '<button class="sk-mode-btn" id="sk-lp-music-loop" type="button">Loop</button>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="sk-caption" id="sk-lp-export-preview" style="margin:12px 0 8px"></div>' +
-        '<div class="sk-row">' +
-          '<button class="sk-btn" id="sk-lp-export-start" style="flex:1">Start Export</button>' +
-          '<button class="sk-nav-btn" id="sk-lp-export-cancel">Cancel</button>' +
-        '</div>' +
-      '</div>' +
-      '<div id="sk-lp-export-status" class="sk-caption" style="display:none"></div>' +
+      '<button class="sk-btn" id="sk-lp-export" type="button" style="width:100%">Export clips</button>' +
+      '<div class="sk-note" style="margin:6px 2px 10px">' +
+        (videoCount < 2 ? 'Add at least 2 video clips to export a grid or a sequence.' : 'Combine ' + videoCount + ' clips into a grid or a sequence.') + '</div>' +
+      '<div id="sk-lp-export-status" class="sk-note" style="display:none"></div>' +
       '<div class="sk-grid" id="sk-lp-grid"></div>';
 
     view.querySelector('#sk-lp-back').onclick = function () { renderLocalPoolsList(view); };
@@ -4514,546 +5606,36 @@
       renderLocalPoolsList(view);
     };
 
-    var exportFormat = 'grid';
-    var exportOrientation = 'landscape';
-    var exportMode = 'center';
-    var exportLoopMode = 'replay';
-    var exportLabelMode = 'off';
-    var exportLabelStyle = 'outline';
-    var exportLabelOverrides = {}; // postId -> custom text, replaces the auto-detected staff names for that clip
-    var exportClipOrder = [];
-    var exportTrims = {}; // postId -> {start, end}, seconds
-    var exportPanel = view.querySelector('#sk-lp-export-panel');
-    var formatGridBtn = view.querySelector('#sk-lp-format-grid');
-    var formatSerialBtn = view.querySelector('#sk-lp-format-serial');
-    var landscapeBtn = view.querySelector('#sk-lp-orient-landscape');
-    var portraitBtn = view.querySelector('#sk-lp-orient-portrait');
-    var centerBtn = view.querySelector('#sk-lp-mode-center');
-    var stretchBtn = view.querySelector('#sk-lp-mode-stretch');
-    var stretchRow = view.querySelector('#sk-lp-stretch-row');
-    var loopWrap = view.querySelector('#sk-lp-loop-wrap');
-    var loopReplayBtn = view.querySelector('#sk-lp-loop-replay');
-    var loopStopBtn = view.querySelector('#sk-lp-loop-stop');
-    var labelsToggle = view.querySelector('#sk-lp-labels-toggle');
-    var labelsSideRow = view.querySelector('#sk-lp-labels-side-row');
-    var labelsLeftBtn = view.querySelector('#sk-lp-labels-left');
-    var labelsRightBtn = view.querySelector('#sk-lp-labels-right');
-    var labelsStyleRow = view.querySelector('#sk-lp-labels-style-row');
-    var labelsStyleOutlineBtn = view.querySelector('#sk-lp-labels-style-outline');
-    var labelsStyleBoxBtn = view.querySelector('#sk-lp-labels-style-box');
-    var customToggle = view.querySelector('#sk-lp-custom-toggle');
-    var customSection = view.querySelector('#sk-lp-custom-section');
-    var advancedToggle = view.querySelector('#sk-lp-advanced-toggle');
-    var advancedSection = view.querySelector('#sk-lp-advanced-section');
-    var musicToggle = view.querySelector('#sk-lp-music-toggle');
-    var musicSection = view.querySelector('#sk-lp-music-section');
-    var musicFileInput = view.querySelector('#sk-lp-music-file');
-    var musicDropzone = view.querySelector('#sk-lp-music-dropzone');
-    var musicHintEl = view.querySelector('#sk-lp-music-hint');
-    var musicOnceBtn = view.querySelector('#sk-lp-music-once');
-    var musicLoopBtn = view.querySelector('#sk-lp-music-loop');
-    var MAX_MUSIC_TRACKS = 5;
-    var exportMusicFiles = [];
-    var exportMusicLoop = false;
-    var clipListWrap = view.querySelector('#sk-lp-clip-list-wrap');
-
-    // Each entry in exportClipOrder is an independent "occurrence" of a
-    // clip, not the clip itself — this is what makes duplicating a clip
-    // (see the 'duplicate' button below) actually useful rather than just
-    // showing the same segment twice: two occurrences of the SAME
-    // underlying post get their own trim range and label override, keyed
-    // by instId rather than the post's own id, so the second showing can
-    // be a different segment credited to a different animator.
-    var nextInstId = 0;
-    function makeClipInstance(post) {
-      return { post: post, instId: 'inst' + (nextInstId++) };
-    }
-    function defaultClipOrder() {
-      return safeMap(
-        safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); }).slice(0, MAX_GRID_CLIPS),
-        makeClipInstance
-      );
-    }
-    function isOn(toggleEl) { return toggleEl.classList.contains('active'); }
-    function setOn(toggleEl, on) { toggleEl.classList.toggle('active', on); }
-
-    function updateFormatVisibility() {
-      var isSerial = exportFormat === 'serial';
-      stretchRow.style.display = isSerial ? 'none' : 'flex';
-      loopWrap.style.display = isSerial ? 'none' : 'block';
-      if (isSerial) {
-        // Stretch/featured-clip only makes sense when there's a grid to
-        // feature above — reset the (now hidden) button back to its own
-        // default so it isn't left in a stale state if the person switches
-        // back to Grid format later.
-        exportMode = 'center';
-        centerBtn.classList.add('active');
-        stretchBtn.classList.remove('active');
-      }
-    }
-
-    function updateClipListVisibility() {
-      var show = isOn(customToggle) || isOn(advancedToggle);
-      clipListWrap.style.display = show ? 'block' : 'none';
-      var label;
-      if (isOn(customToggle)) {
-        label = exportFormat === 'serial'
-          ? 'Order — clips play in this order, one after another. Use +Duplicate to show a clip again later with a different segment:'
-          : 'Order — first clip is featured above the rest if that mode is on. Use +Duplicate to show a clip again elsewhere in the grid:';
-      } else {
-        label = 'Per-clip trim range:';
-      }
-      view.querySelector('#sk-lp-clip-list-label').textContent = label;
-    }
-
-    formatGridBtn.onclick = function () {
-      exportFormat = 'grid';
-      formatGridBtn.classList.add('active');
-      formatSerialBtn.classList.remove('active');
-      updateFormatVisibility();
-      updateClipListVisibility();
-      updateExportPreview();
-    };
-    formatSerialBtn.onclick = function () {
-      exportFormat = 'serial';
-      formatSerialBtn.classList.add('active');
-      formatGridBtn.classList.remove('active');
-      updateFormatVisibility();
-      updateClipListVisibility();
-      updateExportPreview();
-    };
-
-    customToggle.onclick = function () {
-      setOn(customToggle, !isOn(customToggle));
-      if (isOn(customToggle)) {
-        customSection.style.display = 'block';
-      } else {
-        // Back to the plain default: centered leftover row, pool's own
-        // order — not whatever was left over from fiddling with custom
-        // settings a moment ago.
-        customSection.style.display = 'none';
-        exportMode = 'center';
-        centerBtn.classList.add('active');
-        stretchBtn.classList.remove('active');
-        exportClipOrder = defaultClipOrder();
-      }
-      updateClipListVisibility();
-      renderExportOrderList();
-      updateExportPreview();
-    };
-
-    advancedToggle.onclick = function () {
-      setOn(advancedToggle, !isOn(advancedToggle));
-      if (isOn(advancedToggle)) {
-        advancedSection.style.display = 'block';
-      } else {
-        advancedSection.style.display = 'none';
-        exportTrims = {};
-        exportLoopMode = 'replay';
-        loopReplayBtn.classList.add('active');
-        loopStopBtn.classList.remove('active');
-        // Reset the label toggle and its (now-hidden) side-choice back to
-        // their own defaults — order matters here: exportLabelMode must end
-        // up 'off' overall, not 'left' (the side-row's own default value).
-        setOn(labelsToggle, false);
-        labelsSideRow.style.display = 'none';
-        labelsStyleRow.style.display = 'none';
-        labelsLeftBtn.classList.add('active');
-        labelsRightBtn.classList.remove('active');
-        labelsStyleOutlineBtn.classList.add('active');
-        labelsStyleBoxBtn.classList.remove('active');
-        exportLabelMode = 'off';
-        exportLabelStyle = 'outline';
-        exportLabelOverrides = {};
-      }
-      updateClipListVisibility();
-      renderExportOrderList();
-      updateExportPreview();
-    };
-
-    // Shared by both the click-to-browse file input and the drag-and-drop
-    // target below — accepts a FileList from either source. Additive
-    // rather than a fresh replace each time: adding more (by either route)
-    // extends the existing list instead of losing what was already chosen.
-    // Non-audio files are silently skipped (a stray image or video dragged
-    // in alongside real tracks shouldn't produce a confusing ffmpeg
-    // failure later), and anything beyond the 5-track cap is dropped too,
-    // since the hint text already explains the limit and hides the picker
-    // once it's reached.
-    function addMusicFiles(fileList) {
-      var files = fileList || [];
-      for (var i = 0; i < files.length; i++) {
-        if (exportMusicFiles.length >= MAX_MUSIC_TRACKS) break;
-        var f = files[i];
-        if (f.type && f.type.indexOf('audio/') !== 0) continue;
-        exportMusicFiles.push(f);
-      }
-      renderMusicList();
-    }
-
-    function renderMusicList() {
-      var container = view.querySelector('#sk-lp-music-list');
-      container.innerHTML = '';
-      exportMusicFiles.forEach(function (file, i) {
-        var row = document.createElement('div');
-        row.className = 'sk-show-pick';
-        row.style.cursor = 'default';
-        row.innerHTML =
-          '<span class="name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(file.name) + '</span>' +
-          '<span class="sk-close" data-remove-music style="font-size:14px;flex-shrink:0" title="remove this track">&times;</span>';
-        row.querySelector('[data-remove-music]').onclick = function () {
-          exportMusicFiles.splice(i, 1);
-          renderMusicList();
-        };
-        container.appendChild(row);
-      });
-      if (exportMusicFiles.length >= MAX_MUSIC_TRACKS) {
-        musicHintEl.textContent = 'maximum of ' + MAX_MUSIC_TRACKS + ' tracks reached';
-        musicDropzone.style.display = 'none';
-      } else {
-        musicHintEl.textContent = '';
-        musicDropzone.style.display = '';
-      }
-    }
-
-    musicToggle.onclick = function () {
-      setOn(musicToggle, !isOn(musicToggle));
-      var on = isOn(musicToggle);
-      musicSection.style.display = on ? 'block' : 'none';
-      if (!on) {
-        exportMusicFiles = [];
-        musicFileInput.value = '';
-        renderMusicList();
-        exportMusicLoop = false;
-        musicOnceBtn.classList.add('active');
-        musicLoopBtn.classList.remove('active');
-      }
-    };
-    musicFileInput.onchange = function (e) {
-      addMusicFiles(e.currentTarget.files);
-      musicFileInput.value = ''; // lets picking the exact same file again still fire onchange
-    };
-    // A visibly-styled drop target that also acts as the click trigger for
-    // the (hidden) native input — chosen over trying to style the native
-    // "Choose File" button directly, since ::file-selector-button rendering
-    // turned out to be unreliable in practice rather than just unstyled.
-    musicDropzone.onclick = function () { musicFileInput.click(); };
-    musicDropzone.ondragover = function (e) {
-      e.preventDefault();
-      musicDropzone.classList.add('is-dragover');
-    };
-    musicDropzone.ondragleave = function () {
-      musicDropzone.classList.remove('is-dragover');
-    };
-    musicDropzone.ondrop = function (e) {
-      e.preventDefault();
-      musicDropzone.classList.remove('is-dragover');
-      addMusicFiles(e.dataTransfer.files);
-    };
-    musicOnceBtn.onclick = function () {
-      exportMusicLoop = false;
-      musicOnceBtn.classList.add('active');
-      musicLoopBtn.classList.remove('active');
-    };
-    musicLoopBtn.onclick = function () {
-      exportMusicLoop = true;
-      musicLoopBtn.classList.add('active');
-      musicOnceBtn.classList.remove('active');
-    };
-
-    function updateExportPreview() {
-      var n = exportClipOrder.length;
-      var text;
-      if (exportFormat === 'serial') {
-        text = n + ' clips → played back-to-back, one after another';
-      } else if (exportMode === 'stretch' && n >= 3) {
-        var restLayout = computeGridLayout(n - 1, exportOrientation);
-        text = n + ' clips → featured clip above a ' + restLayout.cols + ' × ' + restLayout.rows + ' grid';
-      } else {
-        var layout = computeGridLayout(n, exportOrientation);
-        text = n + ' clips → ' + layout.cols + ' × ' + layout.rows + ' grid';
-      }
-      view.querySelector('#sk-lp-export-preview').textContent = text;
-    }
-
-    var clipDurationCache = {}; // postId -> seconds, probed lazily so opening the panel doesn't stall on every clip up front
-    function getClipDuration(p) {
-      if (clipDurationCache[p.id] != null) return Promise.resolve(clipDurationCache[p.id]);
-      return probeVideoDuration(p.file_url).then(function (d) {
-        clipDurationCache[p.id] = d;
-        return d;
-      });
-    }
-
-    function renderExportOrderList() {
-      var container = view.querySelector('#sk-lp-export-order');
-      container.innerHTML = '';
-      exportClipOrder.forEach(function (inst, i) {
-        var p = inst.post;
-        var instId = inst.instId;
-        var row = document.createElement('div');
-        row.className = 'sk-show-pick';
-        row.style.cursor = 'default';
-        // Deliberately NOT a single flex row for everything (the class's
-        // own default) — confirmed this fragile in practice: a flex:1
-        // sibling (min-width:0, so its own hypothetical basis is ~0) can
-        // get judged as "fitting" on the same line as a flex-basis:100%
-        // item, since 0% + 100% doesn't exceed the container width, so no
-        // wrap happens — the 100% item then claims all the space, leaving
-        // the flex:1 item nothing to grow into and rendering it invisible.
-        // Each logical line below is its own independent flex container
-        // instead, so nothing can interact across them this way.
-        row.style.display = 'block';
-        var label = safeFilter((p.tags || '').split(/\s+/), function (t) { return !!t; }).slice(0, 3).join(' ');
-        var trim = exportTrims[instId];
-        var html = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
-          '<span style="display:flex;align-items:center;gap:6px;overflow:hidden;flex:1;min-width:0">' +
-            '<img src="' + esc(p.preview_url || '') + '" style="width:36px;height:20px;object-fit:cover;border-radius:2px;flex-shrink:0">' +
-            '<span class="name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(label) + '</span>' +
-          '</span>';
-        if (isOn(advancedToggle)) {
-          html +=
-            '<span class="sk-media-viewpost" data-preview style="cursor:pointer;font-size:11px;margin:0;flex-shrink:0" title="open this clip, mark a range, and send it back here">set range</span>' +
-            '<input class="sk-input" data-trim-start placeholder="0:00" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.start)) : '') + '">' +
-            '<span style="color:' + C.dim + ';flex-shrink:0">–</span>' +
-            '<input class="sk-input" data-trim-end placeholder="…" style="width:44px;font-size:11px;padding:3px 4px;flex-shrink:0" value="' + (trim ? esc(formatTimeInput(trim.end)) : '') + '">' +
-            (trim ? '<span class="sk-close" data-clear-trim style="font-size:13px;flex-shrink:0" title="clear this clip\'s trim range">&times;</span>' : '');
-        }
-        html += '</div>';
-        if (isOn(customToggle)) {
-          html +=
-            '<div style="display:flex;gap:4px;justify-content:flex-end;margin-top:4px">' +
-              '<button class="sk-nav-btn" data-duplicate style="padding:2px 8px;color:' + C.amber + ';border-color:' + C.amber + '" title="add this clip again right after — useful for showing a different segment, or the same segment again, later in the sequence">+ Duplicate</button>' +
-              '<button class="sk-nav-btn" data-dir="up" style="padding:2px 6px"' + (i === 0 ? ' disabled' : '') + '>&#8593;</button>' +
-              '<button class="sk-nav-btn" data-dir="down" style="padding:2px 6px"' + (i === exportClipOrder.length - 1 ? ' disabled' : '') + '>&#8595;</button>' +
-            '</div>';
-        }
-        if (isOn(labelsToggle)) {
-          var override = exportLabelOverrides[instId] || '';
-          html +=
-            '<input class="sk-input" data-label-override placeholder="custom label text (replaces staff names)" ' +
-            'style="display:block;width:100%;box-sizing:border-box;font-size:11px;padding:3px 6px;margin-top:4px" value="' + esc(override) + '">';
-        }
-        row.innerHTML = html;
-
-        if (isOn(labelsToggle)) {
-          row.querySelector('[data-label-override]').onchange = function (e) {
-            var text = e.currentTarget.value.trim();
-            if (text) exportLabelOverrides[instId] = text;
-            else delete exportLabelOverrides[instId];
-          };
-        }
-
-        if (isOn(advancedToggle)) {
-          var startEl = row.querySelector('[data-trim-start]');
-          var endEl = row.querySelector('[data-trim-end]');
-          // Leaving both blank already means "full clip, no trim" — nothing
-          // more to select. This just makes that visible: the end field's
-          // placeholder becomes the clip's real length once known, instead
-          // of a bare "…", so it's clear at a glance without ever writing an
-          // actual value into the field (which would risk quietly turning
-          // into a real trim, and the extra encode pass that comes with one,
-          // for a clip nobody meant to touch).
-          if (!trim) {
-            getClipDuration(p).then(function (duration) {
-              if (duration > 0) endEl.placeholder = 'end (' + formatTimeInput(duration) + ')';
-            });
-          }
-          function commitTrim() {
-            var start = parseTimeInput(startEl.value);
-            var end = parseTimeInput(endEl.value);
-            if (start == null && end == null) { delete exportTrims[instId]; return; }
-            start = start || 0;
-            if (end == null || end <= start) { delete exportTrims[instId]; return; }
-            exportTrims[instId] = { start: start, end: end };
-          }
-          startEl.onchange = commitTrim;
-          endEl.onchange = commitTrim;
-          // The manual fields above still work for a quick direct edit, but
-          // scrubbing to an exact point and typing what you saw is a lot of
-          // friction — this opens the same Mark In/Out controls the regular
-          // single-clip trim already uses, and feeds the result straight
-          // back into the two fields instead.
-          row.querySelector('[data-preview]').onclick = function () {
-            openVideoModal(p, function (start, end) {
-              startEl.value = formatTimeInput(start);
-              endEl.value = formatTimeInput(end);
-              exportTrims[instId] = { start: start, end: end };
-            });
-          };
-          var clearBtn = row.querySelector('[data-clear-trim]');
-          if (clearBtn) {
-            clearBtn.onclick = function () {
-              delete exportTrims[instId];
-              renderExportOrderList();
-            };
-          }
-        }
-        if (isOn(customToggle)) {
-          row.querySelector('[data-duplicate]').onclick = function () {
-            // A fresh instance id — deliberately starts with its own blank
-            // trim/label rather than copying the original's, since the
-            // whole point is usually to show a DIFFERENT segment (or credit
-            // a different animator) the second time around, not repeat the
-            // first occurrence verbatim.
-            exportClipOrder.splice(i + 1, 0, makeClipInstance(p));
-            renderExportOrderList();
-            updateExportPreview();
-          };
-          row.querySelector('[data-dir="up"]').onclick = function () {
-            if (i === 0) return;
-            var tmp = exportClipOrder[i - 1]; exportClipOrder[i - 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
-            renderExportOrderList();
-            updateExportPreview();
-          };
-          row.querySelector('[data-dir="down"]').onclick = function () {
-            if (i === exportClipOrder.length - 1) return;
-            var tmp = exportClipOrder[i + 1]; exportClipOrder[i + 1] = exportClipOrder[i]; exportClipOrder[i] = tmp;
-            renderExportOrderList();
-            updateExportPreview();
-          };
-        }
-        container.appendChild(row);
-      });
-    }
-
     view.querySelector('#sk-lp-export').onclick = function () {
       var videoPosts = safeFilter(pool.posts, function (p) { return isVideoFile(p.file_url); });
       if (videoPosts.length < 2) { alert('need at least 2 video clips in this pool to export.'); return; }
-      exportClipOrder = safeMap(videoPosts.slice(0, MAX_GRID_CLIPS), makeClipInstance);
-      exportFormat = 'grid';
-      exportMode = 'center';
-      exportTrims = {};
-      exportLoopMode = 'replay';
-      exportLabelMode = 'off';
-      exportLabelStyle = 'outline';
-      exportLabelOverrides = {};
-      exportMusicFiles = [];
-      musicFileInput.value = '';
-      renderMusicList();
-      exportMusicLoop = false;
-      musicOnceBtn.classList.add('active');
-      musicLoopBtn.classList.remove('active');
-      setOn(customToggle, false);
-      setOn(advancedToggle, false);
-      setOn(labelsToggle, false);
-      setOn(musicToggle, false);
-      musicSection.style.display = 'none';
-      customSection.style.display = 'none';
-      advancedSection.style.display = 'none';
-      labelsSideRow.style.display = 'none';
-      labelsStyleRow.style.display = 'none';
-      formatGridBtn.classList.add('active');
-      formatSerialBtn.classList.remove('active');
-      centerBtn.classList.add('active');
-      stretchBtn.classList.remove('active');
-      loopReplayBtn.classList.add('active');
-      loopStopBtn.classList.remove('active');
-      labelsLeftBtn.classList.add('active');
-      labelsRightBtn.classList.remove('active');
-      labelsStyleOutlineBtn.classList.add('active');
-      labelsStyleBoxBtn.classList.remove('active');
-      updateFormatVisibility();
-      view.querySelector('#sk-lp-export-info').textContent = videoPosts.length > MAX_GRID_CLIPS
-        ? exportClipOrder.length + ' of ' + videoPosts.length + ' video clips will be used (most recently added) — more gets slow/heavy in-browser'
-        : exportClipOrder.length + ' video clips will be used';
-      updateClipListVisibility();
-      renderExportOrderList();
-      updateExportPreview();
-      exportPanel.style.display = 'block';
-    };
+      openExportComposer(pool, videoPosts, function (cfg) {
+        var statusEl = view.querySelector('#sk-lp-export-status');
+        statusEl.style.display = 'block';
+        setBusyStatus(statusEl, 'starting…');
+        var exportBtn = view.querySelector('#sk-lp-export');
+        exportBtn.disabled = true;
 
-    landscapeBtn.onclick = function () {
-      exportOrientation = 'landscape';
-      landscapeBtn.classList.add('active');
-      portraitBtn.classList.remove('active');
-      updateExportPreview();
-    };
-    portraitBtn.onclick = function () {
-      exportOrientation = 'portrait';
-      portraitBtn.classList.add('active');
-      landscapeBtn.classList.remove('active');
-      updateExportPreview();
-    };
-    centerBtn.onclick = function () {
-      exportMode = 'center';
-      centerBtn.classList.add('active');
-      stretchBtn.classList.remove('active');
-      updateExportPreview();
-    };
-    stretchBtn.onclick = function () {
-      exportMode = 'stretch';
-      stretchBtn.classList.add('active');
-      centerBtn.classList.remove('active');
-      updateExportPreview();
-    };
-    loopReplayBtn.onclick = function () {
-      exportLoopMode = 'replay';
-      loopReplayBtn.classList.add('active');
-      loopStopBtn.classList.remove('active');
-    };
-    loopStopBtn.onclick = function () {
-      exportLoopMode = 'stop';
-      loopStopBtn.classList.add('active');
-      loopReplayBtn.classList.remove('active');
-    };
-    labelsToggle.onclick = function () {
-      setOn(labelsToggle, !isOn(labelsToggle));
-      var on = isOn(labelsToggle);
-      labelsSideRow.style.display = on ? 'flex' : 'none';
-      labelsStyleRow.style.display = on ? 'flex' : 'none';
-      exportLabelMode = on ? 'left' : 'off';
-      renderExportOrderList();
-    };
-    labelsStyleOutlineBtn.onclick = function () {
-      exportLabelStyle = 'outline';
-      labelsStyleOutlineBtn.classList.add('active');
-      labelsStyleBoxBtn.classList.remove('active');
-    };
-    labelsStyleBoxBtn.onclick = function () {
-      exportLabelStyle = 'box';
-      labelsStyleBoxBtn.classList.add('active');
-      labelsStyleOutlineBtn.classList.remove('active');
-    };
-    labelsLeftBtn.onclick = function () {
-      exportLabelMode = 'left';
-      labelsLeftBtn.classList.add('active');
-      labelsRightBtn.classList.remove('active');
-    };
-    labelsRightBtn.onclick = function () {
-      exportLabelMode = 'right';
-      labelsRightBtn.classList.add('active');
-      labelsLeftBtn.classList.remove('active');
-    };
-    view.querySelector('#sk-lp-export-cancel').onclick = function () { exportPanel.style.display = 'none'; };
-
-    view.querySelector('#sk-lp-export-start').onclick = function () {
-      exportPanel.style.display = 'none';
-      var statusEl = view.querySelector('#sk-lp-export-status');
-      statusEl.style.display = 'block';
-      setBusyStatus(statusEl, 'starting…');
-      var exportBtn = view.querySelector('#sk-lp-export');
-      exportBtn.disabled = true;
-
-      performGridExport(exportClipOrder, statusEl, exportOrientation, exportMode, exportTrims, exportLoopMode, exportLabelMode, exportFormat, exportLabelStyle, exportLabelOverrides, exportMusicFiles, exportMusicLoop).then(function (result) {
-        statusEl.textContent = 'done — ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
-        openGridResultModal(result.blob, pool.name, result.hasAudio);
-      }).catch(function (err) {
-        statusEl.textContent = err.message === 'cancelled' ? '' : 'export failed: ' + err.message;
-        if (err.message === 'cancelled') statusEl.style.display = 'none';
-      }).then(function () { exportBtn.disabled = false; });
+        performGridExport(cfg.clips, statusEl, cfg.orientation, cfg.mode, cfg.trims, cfg.loopMode, cfg.labelMode, cfg.format, cfg.labelStyle, cfg.labelOverrides, cfg.musicFiles, cfg.musicLoop, cfg.labelPos).then(function (result) {
+          statusEl.textContent = 'Done: ' + result.width + '×' + result.height + 'px, ' + result.count + ' clips.';
+          openGridResultModal(result.blob, pool.name, result.hasAudio);
+        }).catch(function (err) {
+          statusEl.textContent = err.message === 'cancelled' ? '' : 'Export failed: ' + err.message;
+          if (err.message === 'cancelled') statusEl.style.display = 'none';
+        }).then(function () { exportBtn.disabled = false; });
+      });
     };
 
     var grid = view.querySelector('#sk-lp-grid');
     if (!pool.posts.length) {
-      grid.innerHTML = '<div class="sk-empty">no clips yet</div>';
+      grid.innerHTML = '<div class="sk-empty" style="grid-column:1/-1"><b>Nothing here yet</b><br>Open any clip and use its pool button to add it.</div>';
       return;
     }
     pool.posts.forEach(function (p) {
       var card = buildCard(p);
       var removeBadge = document.createElement('div');
       removeBadge.className = 'remove-badge';
-      removeBadge.title = 'remove from this pool';
+      removeBadge.title = 'Remove from this pool';
       removeBadge.innerHTML = '&times;';
       removeBadge.onclick = function (e) {
         e.stopPropagation(); // don't also open the clip
@@ -5067,50 +5649,65 @@
 
   function renderPublicPoolsBrowse(view) {
     view.innerHTML =
-      '<div class="sk-row">' +
-        '<input class="sk-input" id="sk-pp-query" placeholder="search pools">' +
-        '<button class="sk-btn" id="sk-pp-go">Search</button>' +
+      '<div class="sk-qrow" style="margin-bottom:8px">' +
+        '<div class="sk-field"><input id="sk-pp-query" placeholder="Search public pools" autocomplete="off" spellcheck="false"></div>' +
       '</div>' +
-      '<div id="sk-pp-list"><div class="sk-loading">loading pools…</div></div>';
+      '<div id="sk-pp-list"><div class="sk-loading">Loading pools…</div></div>';
 
+    var seq = 0;
     function load(query) {
+      var mine = ++seq;
       var listEl = view.querySelector('#sk-pp-list');
-      listEl.innerHTML = '<div class="sk-loading">loading pools…</div>';
+      listEl.className = '';
+      listEl.innerHTML = '<div class="sk-loading">Loading pools…</div>';
       var path = query ? '/pool.json?query=' + encodeURIComponent(query) : '/pool.json';
       getJSON(path).then(function (pools) {
+        if (mine !== seq || !document.body.contains(listEl)) return;
         if (!pools || !pools.length) {
-          listEl.innerHTML = '<div class="sk-empty">no pools found</div>';
+          listEl.innerHTML = '<div class="sk-empty"><b>No pools found</b><br>' + (query ? 'Try a different word.' : '') + '</div>';
           return;
         }
         listEl.innerHTML = '';
+        listEl.className = 'sk-list';
         pools.forEach(function (pl) {
+          var n = pl.post_count || 0;
           var item = document.createElement('div');
-          item.className = 'sk-show-pick';
-          item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + (pl.post_count || 0) + ' posts</span>';
+          item.className = 'sk-item';
+          item.innerHTML = '<div class="main"><div class="t">' + esc(pl.name) + '</div>' +
+            '<div class="s">' + n + (n === 1 ? ' clip' : ' clips') + '</div></div><span class="chev">&#8250;</span>';
           item.onclick = function () { renderPublicPoolDetail(view, pl.id, pl.name); };
           listEl.appendChild(item);
         });
       }).catch(function (err) {
-        listEl.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+        if (mine !== seq || !document.body.contains(listEl)) return;
+        listEl.innerHTML = '<div class="sk-empty"><b>Couldn\'t load pools</b><br>' + esc(err.message) + '</div>';
       });
     }
 
-    view.querySelector('#sk-pp-go').onclick = function () { load(view.querySelector('#sk-pp-query').value.trim()); };
+    var qEl = view.querySelector('#sk-pp-query');
+    var timer = null;
+    qEl.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { load(qEl.value.trim()); }, 350);
+    });
+    qEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { clearTimeout(timer); load(qEl.value.trim()); }
+    });
     load('');
   }
 
   function renderPublicPoolDetail(view, poolId, poolName) {
     view.innerHTML =
-      '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
-        '<button class="sk-nav-btn" id="sk-pp-back">‹ back</button>' +
-        '<span class="sk-caption" style="margin:0">' + esc(poolName) + '</span>' +
-        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-media-viewpost">view on site ↗</a>' +
+      '<div class="sk-head">' +
+        '<button type="button" class="sk-back-btn" id="sk-pp-back" title="All public pools">&#8249;</button>' +
+        '<div class="ttl" title="' + esc(poolName) + '">' + esc(poolName) + '</div>' +
+        '<a class="sk-link amber" href="/pool/show/' + poolId + '" target="_blank" rel="noopener">View on site ↗</a>' +
       '</div>' +
       '<div id="sk-pp-grid" class="sk-grid"></div>';
     view.querySelector('#sk-pp-back').onclick = function () { renderPoolsView(); };
 
     var grid = view.querySelector('#sk-pp-grid');
-    grid.innerHTML = '<div class="sk-loading">loading posts…</div>';
+    grid.innerHTML = '<div class="sk-loading" style="grid-column:1/-1">Loading clips…</div>';
 
     // pool:ID search on the standard post-search endpoint — reuses proven,
     // already-working infrastructure rather than a separate, untested one
@@ -5119,13 +5716,13 @@
     getJSON('/post.json?limit=100&tags=' + encodeURIComponent('pool:' + poolId + ' order:id'))
       .then(function (posts) {
         if (!posts || !posts.length) {
-          grid.innerHTML = '<div class="sk-empty">no posts in this pool.</div>';
+          grid.innerHTML = '<div class="sk-empty" style="grid-column:1/-1"><b>No clips in this pool</b></div>';
           return;
         }
         grid.innerHTML = '';
         posts.forEach(function (p) { grid.appendChild(buildCard(p)); });
       }).catch(function (err) {
-        grid.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
+        grid.innerHTML = '<div class="sk-empty" style="grid-column:1/-1"><b>Couldn\'t load clips</b><br>' + esc(err.message) + '</div>';
       });
   }
 
@@ -5168,9 +5765,8 @@
   })();
   if (pageSearchTags) searchState.tags = pageSearchTags.slice();
 
-  renderTab('search');
+  renderTab('search');   // a carried-over listing search runs itself from here
   panel.style.display = 'flex';
-  if (pageSearchTags) runSearch();
   if (pagePostId) {
     // Not auto-searched: a query made of every one of a post's tags only
     // matches that same post. They're loaded as chips (artists, shows, then
@@ -5190,7 +5786,8 @@
         buckets[ty === 1 ? 0 : ty === 3 ? 1 : ty === 4 ? 2 : 3].push(t);
       });
       searchState.tags = buckets[0].concat(buckets[1], buckets[2], buckets[3]);
-      renderChips();
+      manualPending = true;
+      if (body.querySelector('#sk-search-view')) { renderChips(); renderSearchView(); }
     }).catch(function () { /* convenience only — fail silently */ });
   }
   // Warms the tag-dictionary cache in the background so chip colors are
