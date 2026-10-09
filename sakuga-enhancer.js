@@ -524,17 +524,11 @@
   root.innerHTML =
     '<div id="sk-enh-panel" style="display:none">' +
       '<div id="sk-enh-head"><div class="brand"><i>##</i>Sakuga Enhancer</div>' +
-        '<div id="sk-enh-head-actions" style="display:flex;align-items:center;gap:2px">' +
-          '<button type="button" class="sk-icon-btn" id="sk-enh-gear" title="Panel settings" style="border-color:transparent">' +
-            '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="display:block"><circle cx="2.5" cy="7" r="1.2"/><circle cx="7" cy="7" r="1.2"/><circle cx="11.5" cy="7" r="1.2"/></svg>' +
-          '</button>' +
+        '<div id="sk-enh-head-actions" style="display:flex;align-items:center;gap:6px">' +
+          '<button type="button" class="sk-icon-btn" id="sk-enh-lock-size" title="Lock clip size: resizing the panel adds or removes clips per row instead of resizing them">&#9638;</button>' +
+          '<button type="button" class="sk-icon-btn" id="sk-enh-reset" title="Reset size and position">&#8634;</button>' +
           '<div class="sk-close" id="sk-enh-x">&times;</div>' +
         '</div></div>' +
-      '<div class="sk-menu" id="sk-enh-menu" style="display:none">' +
-        '<button type="button" class="sk-menu-row" id="sk-enh-lock-size"><span>Lock clip size<small>Resizing adds columns instead of enlarging clips</small></span>' +
-          '<span class="sk-toggle-switch"><span class="sk-toggle-knob"></span></span></button>' +
-        '<button type="button" class="sk-menu-row" id="sk-enh-reset"><span>Reset size and position</span></button>' +
-      '</div>' +
       '<div id="sk-enh-tabs">' +
         '<div class="sk-tab active" data-tab="search">Search</div>' +
         '<div class="sk-tab" data-tab="shows">Shows</div>' +
@@ -704,18 +698,10 @@
     panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
   };
   root.querySelector('#sk-enh-x').onclick = function () { panel.style.display = 'none'; };
-  var menuEl = root.querySelector('#sk-enh-menu');
-  var gearBtn = root.querySelector('#sk-enh-gear');
-  function closeMenu() { menuEl.style.display = 'none'; }
-  gearBtn.onclick = function () { menuEl.style.display = menuEl.style.display === 'none' ? 'block' : 'none'; };
-  document.addEventListener('mousedown', function (e) {
-    if (menuEl.style.display !== 'none' && !menuEl.contains(e.target) && !gearBtn.contains(e.target)) closeMenu();
-  }, true);
   root.querySelector('#sk-enh-reset').onclick = function () {
     geom = clampFull(defaultGeometry());
     applyGeometry(geom);
     saveGeometry(geom);
-    closeMenu();
   };
 
   // ===================== LOCK SIZE (fixed clip size vs. fixed column count) =====================
