@@ -6,7 +6,16 @@ const path = require('path');
 // This stitches them into the single sakuga-enhancer.js that the install
 // bookmarklet loads, then derives the self-contained bookmarklet from it.
 const srcDir = path.join(__dirname, 'src');
-const parts = fs.readdirSync(srcDir).filter(f => /\.js$/.test(f)).sort();
+// A directory (src/02-css/) stands for its own .js files, in order.
+const parts = [];
+fs.readdirSync(srcDir).sort().forEach(entry => {
+  const full = path.join(srcDir, entry);
+  if (fs.statSync(full).isDirectory()) {
+    fs.readdirSync(full).filter(f => /\.js$/.test(f)).sort().forEach(f => parts.push(path.join(entry, f)));
+  } else if (/\.js$/.test(entry)) {
+    parts.push(entry);
+  }
+});
 const src = parts.map(f => fs.readFileSync(path.join(srcDir, f), 'utf8')).join('');
 fs.writeFileSync(path.join(__dirname, 'sakuga-enhancer.js'), src);
 console.log('sakuga-enhancer.js built from', parts.length, 'modules,', src.split('\n').length, 'lines');

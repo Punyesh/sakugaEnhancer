@@ -1,0 +1,23 @@
+  // ---------- styles: Animator stats, tag lists, filmstrip, empty and loading states ----------
+  var cssStats = [
+    '.sk-stat-big{font-size:34px;color:' + C.amber + ';font-family:"Courier New",monospace;font-weight:bold;line-height:1;}',
+    '.sk-stat-label{font-size:11px;color:' + C.dim + ';text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}',
+    '.sk-stat-block{display:flex;gap:22px;margin:6px 0 14px;}',
+    '.sk-taglist{display:flex;flex-direction:column;gap:5px;}',
+    '.sk-tagrow{display:flex;align-items:center;gap:8px;font-size:12px;}',
+    '.sk-tagrow .name{width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + C.text + ';}',
+    '.sk-tagrow .bar{flex:1;height:6px;background:' + C.bg + ';border-radius:3px;overflow:hidden;}',
+    '.sk-tagrow .bar i{display:block;height:100%;background:' + C.amber + ';}',
+    '.sk-tagrow .n{width:28px;text-align:right;color:' + C.dim + ';font-family:"Courier New",monospace;font-size:11px;}',
+    '.sk-filmstrip{display:flex;align-items:flex-end;gap:2px;height:70px;margin:10px 0 4px;',
+    'border-bottom:1px solid ' + C.line + ';padding-bottom:2px;}',
+    '.sk-frame{flex:1;background:' + C.amberDim + ';border-radius:1px 1px 0 0;min-height:2px;position:relative;}',
+    '.sk-frame:hover{background:' + C.amber + ';}',
+    '.sk-frame .yr{position:absolute;bottom:-16px;left:0;right:0;text-align:center;font-size:9px;color:' + C.dim + ';',
+    'font-family:"Courier New",monospace;}',
+    '.sk-frame .ct{position:absolute;top:-15px;left:0;right:0;text-align:center;font-size:9px;color:' + C.amber + ';',
+    'font-family:"Courier New",monospace;opacity:0;}',
+    '.sk-frame:hover .ct{opacity:1;}',
+    '.sk-empty{color:' + C.dim + ';font-size:12px;text-align:center;padding:20px 0;}',
+    '.sk-loading{color:' + C.amber + ';font-size:12px;text-align:center;padding:20px 0;font-family:"Courier New",monospace;}',
+  ];

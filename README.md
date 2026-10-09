@@ -61,8 +61,9 @@ Open `install.html` directly from this repository. Note: viewing it on github.co
 
 ## Files
 
-- `sakuga-enhancer.js` — application source.
-- `build.js` — produces the bookmarklet URI (`bookmarklet.txt`).
+- `src/` — the source, as ordered modules (see below). **Edit these.**
+- `sakuga-enhancer.js` — generated: `src/` stitched into the single script the install bookmarklet loads. Committed so the hosted install keeps working; don't edit it by hand.
+- `build.js` — builds `sakuga-enhancer.js` from `src/`, then the bookmarklet URI (`bookmarklet.txt`).
 - `build-install.js` — generates `install.html`.
 - `install.html` — the installable page.
 
@@ -70,6 +71,26 @@ Rebuild after editing:
 ```
 node build.js && node build-install.js
 ```
+
+### Source layout
+
+All modules are parts of **one closure** (they share scope, no imports), joined in filename order, so the numeric prefix is the load order.
+
+| Module | What's in it |
+|---|---|
+| `00-head` … `01-tokens` | entry guards, colors and the shape/size scale (`R_CTL`, `R_BOX`, `R_INNER`, `H_CTL`, `H_SM`) |
+| `02-css/` | the stylesheet, one file per area (panel, forms, results, tags, shows, stats, composer, viewer…); `10-shape` is the single place the shared control radii, heights and paddings live |
+| `03-dom` … `05-lock-tabs` | panel markup, drag/resize geometry, lock-size, tab switching |
+| `06-api-auth-votes`, `07-util` | API helper, login/comment/vote calls, small safe array helpers |
+| `08-modal` | `mountModal` — backdrop, Esc and click-outside close, shared by every window |
+| `09`–`12` | local pools, search tab UI, tag dictionary and chips, info popup |
+| `13`–`16` | downloads, ffmpeg.wasm loading and trimming, export options, grid layout maths, frame-stepping bar |
+| `17-trim-download-panel` | the Mark In/Out + download panel shared by the clip viewer and the export result |
+| `18-grid-export` | `performGridExport`, split into `computeFrame`, `loadGridInputs`, `buildGridFilterGraph` (pure), `prepareMusicTrack`, `cleanupGridFiles` |
+| `19`–`22` | export result window, comments, clip viewer, cards and search results |
+| `23`–`25` | stats, shows, pools tabs |
+| `26`–`28` | composer markup/helpers, composer, pool detail |
+| `29-boot`, `99-tail` | start-up from the current booru page, closing `})();` |
 
 ## Notes
 
@@ -88,6 +109,7 @@ node build.js && node build-install.js
 
 ## Changelog
 
+- **Source split into modules.** The 5,600-line single file is now `src/` (42 small files, stitched into the same `sakuga-enhancer.js`). Duplicated code was merged: one shared window helper, one trim/download panel, one frame-layout function used by both the composer preview and the export. `performGridExport` and the search-results painter were broken into named steps, and 84 CSS declarations that a later rule overrode were deleted. No behaviour change: the old and new builds produce identical page markup, identical computed styles on 22 screens, and identical ffmpeg arguments across 16 export configurations.
 - **Clip viewer credits moved to a left-hand panel.** The animator and tags used to be tiny chips at the very bottom of the clip window; they now have their own panel beside it, with larger chips. The viewer's own layout is unchanged.
 - **Consistent shapes and spacing** across every screen and window: one corner radius for all controls (buttons, inputs, selects, icon buttons, chips), one for containers (panels, cards, popups, modals), regular controls 28px and small ones 24px tall, and a 4px spacing grid. The Search button now sits in the same row as the tag field and sort, and empty rows no longer leave gaps. The radii and heights are variables at the top of the style list in `sakuga-enhancer.js`.
 
