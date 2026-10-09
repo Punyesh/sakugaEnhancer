@@ -40,7 +40,7 @@ Open `install.html` directly from this repository. Note: viewing it on github.co
   - **Download Trim** — client-side cut of a marked range via ffmpeg.wasm: a fast stream copy by default, or a frame-accurate re-encode when the "frame-accurate" box is ticked. **Download Full** retrieves the original file. Both offer MP4 / GIF / APNG, a size, and quality options under "more options".
   - Comments, loaded on demand.
   - Add to Pool, Copy Link.
-  - **Credits panel** — the animator and tags sit in their own panel to the left of the viewer (stacked above it on narrow screens), at a larger readable size. Every chip is clickable and jumps to a fresh search.
+  - **Credits panel** — the animator and tags sit in their own panel to the left of the viewer (stacked above it on narrow screens), at a larger readable size; the panel and its chips size to their content and long tag names wrap instead of scrolling. Every chip is clickable and jumps to a fresh search.
 - **Info popup** — a per-card badge shows tags, score, rating, and links without leaving the results view.
 - **Panel** — draggable and resizable from any edge or corner, with position/size persisted, a Reset control, and a Lock Size toggle (fixed card size vs. fixed column count).
 - Search and Stats remain synchronized on the active animator.
