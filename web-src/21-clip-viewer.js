@@ -24,12 +24,13 @@
     var row = document.createElement('div');
     row.className = 'sk-comments-row';
     row.innerHTML = '<button class="sk-frame-btn" id="sk-comments-toggle">Comments</button>';
-    box.appendChild(row);
+    var host = box._commentsHost || box; // the left-hand comments panel; falls back to the viewer itself
+    host.appendChild(row);
 
     var panel = document.createElement('div');
     panel.className = 'sk-comments-panel';
     panel.style.display = 'none';
-    box.appendChild(panel);
+    host.appendChild(panel);
 
     var composerDiv = document.createElement('div');
     panel.appendChild(composerDiv);
@@ -50,6 +51,7 @@
     row.querySelector('#sk-comments-toggle').onclick = function () {
       var showing = panel.style.display !== 'none';
       panel.style.display = showing ? 'none' : 'block';
+      if (box._left) box._left.classList.toggle('comments-open', !showing); // widen the column while comments are open
       if (showing) return;
       renderCommentComposer(composerDiv, p, loadComments); // cheap to re-render each open; keeps login state current
       if (loaded) return;
@@ -127,13 +129,21 @@
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
     var modal = mountModal(box);
-    // Credits (animator + tags) get their own panel to the left of the viewer,
-    // so they're visible without scrolling and not tucked under the controls.
+    // Credits (animator + tags) and comments get their own panels in a column
+    // to the left of the viewer, so neither is tucked under the controls.
+    var left = document.createElement('div');
+    left.className = 'sk-clip-left';
     var side = document.createElement('div');
     side.className = 'sk-clip-side';
+    var commentsHost = document.createElement('div');
+    commentsHost.className = 'sk-clip-comments';
+    left.appendChild(side);
+    left.appendChild(commentsHost);
     modal.backdrop.className += ' sk-clip-split';
-    modal.backdrop.insertBefore(side, box);
+    modal.backdrop.insertBefore(left, box);
     box._side = side;
+    box._left = left;
+    box._commentsHost = commentsHost;
 
     var scoreEl = box.querySelector('#sk-vote-score');
     var starsWrap = box.querySelector('#sk-stars');

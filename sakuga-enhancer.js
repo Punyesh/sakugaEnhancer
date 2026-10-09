@@ -554,9 +554,19 @@
     // clip viewer: credits (animator + tags) live in their own panel to the left of the viewer
     '.sk-media-backdrop.sk-clip-split{gap:12px;align-items:flex-start;}',
     '.sk-clip-split .sk-media-box{flex:1 1 760px;min-width:0;width:auto;max-width:760px;}',
-    '.sk-clip-side{flex:0 0 auto;width:max-content;min-width:180px;max-width:min(320px,32vw);max-height:90vh;',
-    'overflow-x:hidden;overflow-y:auto;box-sizing:border-box;padding:12px;background:' + C.panel + ';',
+    // the left column stacks the credits and comments panels; it is as wide as its content (widening while comments are open)
+    '.sk-clip-left{flex:0 0 auto;width:max-content;min-width:180px;max-width:min(320px,32vw);max-height:90vh;',
+    'display:flex;flex-direction:column;gap:12px;}',
+    '.sk-clip-left.comments-open{width:min(320px,32vw);}',
+    '.sk-clip-side,.sk-clip-comments{box-sizing:border-box;padding:12px;background:' + C.panel + ';',
     'border:1px solid ' + C.line + ';border-radius:' + R_BOX + ';box-shadow:0 20px 60px rgba(0,0,0,.6);}',
+    '.sk-clip-side{flex:0 0 auto;max-height:60vh;overflow-x:hidden;overflow-y:auto;}',
+    '.sk-clip-comments{flex:0 1 auto;min-height:0;display:flex;flex-direction:column;}',
+    '.sk-clip-comments:empty{display:none;}',
+    '.sk-clip-comments .sk-comments-row{padding:0;border:0;flex:0 0 auto;}',
+    '.sk-clip-comments .sk-comments-row .sk-frame-btn{width:100%;}',
+    '.sk-clip-comments .sk-comments-panel{flex:1 1 auto;min-height:0;max-height:none;overflow-x:hidden;overflow-y:auto;padding:12px 0 0;}',
+    '.sk-clip-comments .sk-comment-body,.sk-clip-comments .sk-comment-head{overflow-wrap:anywhere;}',
     '.sk-clip-side .sk-dock-section + .sk-dock-section{margin-top:16px;}',
     '.sk-clip-side .sk-tagblock-label{font-size:11px;margin-bottom:8px;}',
     '.sk-clip-side .sk-chipwrap{max-height:none;overflow:visible;gap:6px;min-width:0;}',
@@ -568,8 +578,13 @@
     '@media (max-width:900px){',
       '.sk-media-backdrop.sk-clip-split{flex-direction:column;align-items:center;justify-content:flex-start;',
       'overflow-y:auto;}',
-      '.sk-clip-side{flex:0 0 auto;width:100%;min-width:0;max-width:760px;max-height:none;}',
-      '.sk-clip-split .sk-media-box{flex:0 0 auto;width:100%;max-height:none;}',
+      // stacked: credits, then the viewer, then comments (the left column dissolves into the stack)
+      '.sk-clip-left{display:contents;}',
+      '.sk-clip-side,.sk-clip-comments{flex:0 0 auto;width:100%;min-width:0;max-width:760px;max-height:none;}',
+      '.sk-clip-side{order:1;}',
+      '.sk-clip-split .sk-media-box{order:2;flex:0 0 auto;width:100%;max-height:none;}',
+      '.sk-clip-comments{order:3;}',
+      '.sk-clip-comments .sk-comments-panel{max-height:60vh;}',
     '}',
   ];
   var css = [].concat(
@@ -3192,12 +3207,13 @@
     var row = document.createElement('div');
     row.className = 'sk-comments-row';
     row.innerHTML = '<button class="sk-frame-btn" id="sk-comments-toggle">Comments</button>';
-    box.appendChild(row);
+    var host = box._commentsHost || box; // the left-hand comments panel; falls back to the viewer itself
+    host.appendChild(row);
 
     var panel = document.createElement('div');
     panel.className = 'sk-comments-panel';
     panel.style.display = 'none';
-    box.appendChild(panel);
+    host.appendChild(panel);
 
     var composerDiv = document.createElement('div');
     panel.appendChild(composerDiv);
@@ -3218,6 +3234,7 @@
     row.querySelector('#sk-comments-toggle').onclick = function () {
       var showing = panel.style.display !== 'none';
       panel.style.display = showing ? 'none' : 'block';
+      if (box._left) box._left.classList.toggle('comments-open', !showing); // widen the column while comments are open
       if (showing) return;
       renderCommentComposer(composerDiv, p, loadComments); // cheap to re-render each open; keeps login state current
       if (loaded) return;
@@ -3295,13 +3312,21 @@
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
     var modal = mountModal(box);
-    // Credits (animator + tags) get their own panel to the left of the viewer,
-    // so they're visible without scrolling and not tucked under the controls.
+    // Credits (animator + tags) and comments get their own panels in a column
+    // to the left of the viewer, so neither is tucked under the controls.
+    var left = document.createElement('div');
+    left.className = 'sk-clip-left';
     var side = document.createElement('div');
     side.className = 'sk-clip-side';
+    var commentsHost = document.createElement('div');
+    commentsHost.className = 'sk-clip-comments';
+    left.appendChild(side);
+    left.appendChild(commentsHost);
     modal.backdrop.className += ' sk-clip-split';
-    modal.backdrop.insertBefore(side, box);
+    modal.backdrop.insertBefore(left, box);
     box._side = side;
+    box._left = left;
+    box._commentsHost = commentsHost;
 
     var scoreEl = box.querySelector('#sk-vote-score');
     var starsWrap = box.querySelector('#sk-stars');

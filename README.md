@@ -38,7 +38,7 @@ Open `install.html` directly from this repository. Note: viewing it on github.co
   - Frame-by-frame navigation for video (frame count, timecode, step controls, keyboard shortcuts).
   - **Voting** — genuine 1–3 star ratings. Ratings may be changed or cleared, and your current rating is read from the post page itself.
   - **Download Trim** — client-side cut of a marked range via ffmpeg.wasm: a fast stream copy by default, or a frame-accurate re-encode when the "frame-accurate" box is ticked. **Download Full** retrieves the original file. Both offer MP4 / GIF / APNG, a size, and quality options under "more options".
-  - Comments, loaded on demand.
+  - **Comments panel** — comments sit in their own panel in the left column, under the credits panel (and below the viewer on narrow screens). Loaded on demand; long threads scroll inside the panel, so the three panels never overlap.
   - Add to Pool, Copy Link.
   - **Credits panel** — the animator and tags sit in their own panel to the left of the viewer (stacked above it on narrow screens), at a larger readable size; the panel and its chips size to their content and long tag names wrap instead of scrolling. Every chip is clickable and jumps to a fresh search.
 - **Info popup** — a per-card badge shows tags, score, rating, and links without leaving the results view.
@@ -110,6 +110,7 @@ All modules are parts of **one closure** (they share scope, no imports), joined 
 ## Changelog
 
 - **Source split into modules.** The 5,600-line single file is now `web-src/` (42 small files, stitched into the same `sakuga-enhancer.js`). Duplicated code was merged: one shared window helper, one trim/download panel, one frame-layout function used by both the composer preview and the export. `performGridExport` and the search-results painter were broken into named steps, and 84 CSS declarations that a later rule overrode were deleted. No behaviour change: the old and new builds produce identical page markup, identical computed styles on 22 screens, and identical ffmpeg arguments across 16 export configurations.
+- **Clip viewer comments moved out of the way**, into a panel under the credits on the left, so the viewer itself is just the clip and its controls.
 - **Clip viewer credits moved to a left-hand panel.** The animator and tags used to be tiny chips at the very bottom of the clip window; they now have their own panel beside it, with larger chips. The viewer's own layout is unchanged.
 - **Consistent shapes and spacing** across every screen and window: one corner radius for all controls (buttons, inputs, selects, icon buttons, chips), one for containers (panels, cards, popups, modals), regular controls 28px and small ones 24px tall, and a 4px spacing grid. The Search button now sits in the same row as the tag field and sort, and empty rows no longer leave gaps. The radii and heights are variables at the top of the style list in `sakuga-enhancer.js`.
 
