@@ -502,7 +502,17 @@
     '.sk-back-btn:disabled{opacity:.35;cursor:default;}',
     '.sk-stats-head .ttl.show{color:' + C.link + ';}',
     '.sk-hero .sk-btn{padding:7px 18px;}',
-    '.sk-load-more-wrap .sk-pill{margin:0 auto;}'
+    '.sk-load-more-wrap .sk-pill{margin:0 auto;}',
+    '.sk-hero .h{font-size:12px;font-weight:normal;color:' + C.dim + ';}',
+    '.sk-hero{padding:22px 8px 6px;}',
+    '.sk-show-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;}',
+    '.sk-nav-crumb{flex:1;min-width:0;text-align:center;font-size:11px;color:' + C.dim + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+    '.sk-show-head{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;}',
+    '.sk-show-head .title{flex:1 1 100%;font-size:15px;font-weight:600;color:' + C.text + ';}',
+    '.sk-mini-toggle{background:transparent;border:1px solid ' + C.line + ';color:' + C.dim + ';padding:3px 10px;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit;}',
+    '.sk-mini-toggle:hover{border-color:' + C.amber + ';color:' + C.amber + ';}',
+    '.sk-related-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}',
+    '.sk-show-pick .name{font-family:inherit;font-size:13px;}'
   ].join('');
 
   var styleTag = document.createElement('style');
@@ -1152,6 +1162,11 @@
           '<button type="button" data-v="stats">Stats</button>' +
         '</div>' +
         '<span class="sk-count" id="sk-count"></span><span class="sp"></span>' +
+        '<button type="button" class="sk-icon-btn" id="sk-solo-toggle" style="display:none">&#9312;</button>' +
+        '<button type="button" class="sk-icon-btn" id="sk-unknown-toggle" style="display:none">' +
+          '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block">' +
+          '<path d="M5 5.2a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.3"/><circle cx="7" cy="10.7" r=".4" fill="currentColor"/><path d="M2 12.5 12 1.5"/></svg>' +
+        '</button>' +
         '<button type="button" class="sk-pill" id="sk-filter-pill" style="display:none">Filter' +
           '<span class="n" style="display:none"></span><span class="chev">&#9660;</span></button>' +
       '</div>' +
@@ -1334,7 +1349,7 @@
   function ensureResultsMarkup() {
     var view = $b('#sk-search-view');
     statsToken++; // a late stats response must not overwrite clips
-    if (view) view.innerHTML = '<div id="sk-results"></div>';
+    if (view) view.innerHTML = '<div id="sk-show-animators-wrap" style="margin-bottom:8px"></div><div id="sk-results"></div>';
   }
 
   // Segmented control, count and filter pill: what's visible depends on
@@ -1347,7 +1362,10 @@
     for (var i = 0; i < segs.length; i++) segs[i].classList.toggle('on', segs[i].getAttribute('data-v') === searchViewMode);
     var live = searchViewMode === 'results' && cacheMatches();
     $b('#sk-count').style.display = live ? '' : 'none';
-    $b('#sk-filter-pill').style.display = live && searchCache.posts.length ? '' : 'none';
+    var hasPosts = live && searchCache.posts.length > 0;
+    $b('#sk-filter-pill').style.display = hasPosts && searchCache.facetTags.length ? '' : 'none';
+    $b('#sk-solo-toggle').style.display = hasPosts ? '' : 'none';
+    $b('#sk-unknown-toggle').style.display = hasPosts ? '' : 'none';
     if (!live) $b('#sk-filter-panel').style.display = 'none';
   }
 
@@ -1389,29 +1407,9 @@
   function renderHero(view) {
     view.innerHTML =
       '<div class="sk-hero">' +
-        '<div class="h">Find a clip</div>' +
-        '<div class="p">Add an animator, a show or a character.<br>Results update as you go.</div>' +
-        '<div id="sk-hero-chips"></div>' +
-        '<button type="button" class="sk-link amber" id="sk-hero-newest">Or browse the newest clips</button>' +
+        '<button type="button" class="sk-link" id="sk-hero-newest">Browse the newest clips</button>' +
       '</div>';
     view.querySelector('#sk-hero-newest').onclick = function () { runSearch(); };
-    ensureAllTags().then(function (list) {
-      var host = view.querySelector('#sk-hero-chips');
-      if (!host || !list.length) return;
-      function top(type, n) {
-        return safeSort(safeFilter(list, function (t) { return t.type === type && t.name !== UNKNOWN_ARTIST_TAG; }),
-          function (a, b) { return b.count - a.count; }).slice(0, n);
-      }
-      var picks = top(1, 5).concat(top(3, 3));
-      host.innerHTML = '<div class="p" style="margin:0 0 8px">Most tagged on the site</div>' +
-        safeMap(picks, function (t) {
-          return '<span class="sk-chip clickable' + (t.type === 1 ? ' is-artist' : ' is-copyright') + '" data-name="' + esc(t.name) + '">' + esc(tagLabel(t.name)) + '</span>';
-        }).join('');
-      var chips = host.querySelectorAll('.sk-chip');
-      for (var i = 0; i < chips.length; i++) {
-        chips[i].onclick = function (e) { setQuery([e.currentTarget.getAttribute('data-name')]); };
-      }
-    }).catch(function () { /* suggestions are a nicety */ });
   }
 
   // Chips were preloaded from the post the bookmarklet was opened on. A query
@@ -1419,8 +1417,7 @@
   function renderPending(view) {
     view.innerHTML =
       '<div class="sk-hero">' +
-        '<div class="h">' + searchState.tags.length + ' tags from this post</div>' +
-        '<div class="p">Remove the ones you don\'t need, then search.<br>Animators and shows are usually enough.</div>' +
+        '<div class="p">Remove the tags you don\'t need, then search.</div>' +
         '<button type="button" class="sk-btn" id="sk-pending-go">Search</button>' +
       '</div>';
     view.querySelector('#sk-pending-go').onclick = function () { commitQuery(true); };
@@ -3783,12 +3780,6 @@
       safeFilter(Object.keys(cache.excluded), function (t) { return cache.excluded[t]; }).length;
   }
 
-  function optRowHtml(key, title, desc, on, disabled) {
-    return '<div class="sk-opt' + (disabled ? ' dis' : '') + '" data-opt="' + key + '" style="cursor:' + (disabled ? 'default' : 'pointer') + '">' +
-      '<div><div class="t">' + title + '</div><div class="d">' + desc + '</div></div>' +
-      '<span class="sk-toggle-switch' + (on ? ' active' : '') + '"><span class="sk-toggle-knob"></span></span></div>';
-  }
-
   // Count, filter pill and the panel itself — everything except the grid.
   function paintSearchChrome(cache) {
     var visible = getVisible(cache);
@@ -3797,46 +3788,57 @@
     $b('#sk-count').textContent = (filtered ? visible.length + ' of ' + cache.posts.length : cache.posts.length + (cache.hasMore ? '+' : '')) +
       (cache.posts.length === 1 ? ' clip' : ' clips');
 
+    var soloBtn = $b('#sk-solo-toggle');
+    var unknownBtn = $b('#sk-unknown-toggle');
+    // Contradicts a search that already requires 2+ animators to all be
+    // credited together (every result would have 2+ animator tags, so
+    // "exactly 1" could never match) — disabled rather than silently empty.
+    soloBtn.disabled = avail.soloDisabled;
+    soloBtn.classList.toggle('active', !!cache.soloOnly);
+    soloBtn.title = avail.soloDisabled
+      ? 'solo cuts only — disabled, this search already requires 2+ animators'
+      : (cache.soloOnly ? 'showing solo cuts only (exactly one animator) — click to show all' : 'solo cuts only — exactly one animator credited');
+    soloBtn.onclick = function () {
+      if (soloBtn.disabled) return;
+      cache.soloOnly = !cache.soloOnly;
+      paintSearchResults(cache);
+    };
+    // Hides cuts with no real credit: tagged only artist_unknown or with no
+    // animator tag at all. A cut with artist_unknown AND a real animator is
+    // kept. Pointless while searching for artist_unknown itself.
+    unknownBtn.disabled = avail.unknownDisabled;
+    unknownBtn.classList.toggle('active', !!cache.hideUnknown);
+    unknownBtn.title = avail.unknownDisabled
+      ? 'hide uncredited cuts — disabled, this search is for artist_unknown'
+      : (cache.hideUnknown ? 'hiding cuts with no known animator — click to show all' : 'hide cuts with no known animator (only artist_unknown, or no animator tag)');
+    unknownBtn.onclick = function () {
+      if (unknownBtn.disabled) return;
+      cache.hideUnknown = !cache.hideUnknown;
+      paintSearchResults(cache);
+    };
+
     var pill = $b('#sk-filter-pill');
-    var n = activeFilterCount(cache);
+    var nEx = safeFilter(Object.keys(cache.excluded), function (t) { return cache.excluded[t]; }).length;
     pill.classList.toggle('open', filterOpen);
     var badge = pill.querySelector('.n');
-    badge.style.display = n ? '' : 'none';
-    badge.textContent = n;
+    badge.style.display = nEx ? '' : 'none';
+    badge.textContent = nEx;
 
     var panelEl = $b('#sk-filter-panel');
-    if (!filterOpen || !cache.posts.length) { panelEl.style.display = 'none'; return; }
+    if (!filterOpen || !cache.facetTags.length) { panelEl.style.display = 'none'; return; }
     var prevGrid = panelEl.querySelector('.sk-facet-grid');
     var prevScroll = prevGrid ? prevGrid.scrollTop : 0;
     panelEl.style.display = 'block';
     panelEl.innerHTML =
-      optRowHtml('solo', 'Solo cuts only',
-        avail.soloDisabled ? 'This search already needs 2+ animators' : 'Exactly one animator credited', cache.soloOnly, avail.soloDisabled) +
-      optRowHtml('unknown', 'Hide uncredited',
-        avail.unknownDisabled ? 'This search is for artist_unknown' : 'Cuts with no known animator', cache.hideUnknown, avail.unknownDisabled) +
-      (cache.facetTags.length
-        ? '<div class="sk-panel-sec"><span>Hide clips tagged</span>' +
-            (n && safeFilter(Object.keys(cache.excluded), function (t) { return cache.excluded[t]; }).length
-              ? '<a href="#" id="sk-facet-all">Reset</a>' : '') +
-          '</div><div class="sk-facet-grid" id="sk-facet-grid"></div>'
-        : '');
-
-    var optEls = panelEl.querySelectorAll('.sk-opt');
-    for (var i = 0; i < optEls.length; i++) {
-      optEls[i].onclick = function (e) {
-        var el = e.currentTarget;
-        if (el.classList.contains('dis')) return;
-        if (el.getAttribute('data-opt') === 'solo') cache.soloOnly = !cache.soloOnly;
-        else cache.hideUnknown = !cache.hideUnknown;
-        paintSearchResults(cache);
-      };
-    }
+      '<div class="sk-panel-sec" style="margin-top:2px;padding-top:0;border-top:0"><span>Hide clips tagged</span>' +
+        (nEx ? '<a href="#" id="sk-facet-all">Reset</a>' : '') + '</div>' +
+      '<div class="sk-note" style="margin:0 0 6px">Clips carrying an unchecked tag are hidden. Most clips carry several, so unchecking one tag may not change much.</div>' +
+      '<div class="sk-facet-grid" id="sk-facet-grid"></div>';
     var resetEl = panelEl.querySelector('#sk-facet-all');
     if (resetEl) resetEl.onclick = function (e) { e.preventDefault(); cache.excluded = {}; paintSearchResults(cache); };
 
     var facetGrid = panelEl.querySelector('#sk-facet-grid');
-    if (!facetGrid) return;
-    facetGrid.innerHTML = '<div class="sk-loading" style="grid-column:1/-1;padding:4px 0">Loading tag info…</div>';
+    facetGrid.innerHTML = '<div class="sk-loading" style="grid-column:1/-1;padding:4px 0">Loading tag info\u2026</div>';
     ensureTagTypes().then(function (map) {
       if (!document.body.contains(facetGrid)) return;
       var sorted = safeSort(cache.facetTags, function (a, b) {
@@ -3877,6 +3879,7 @@
 
     var visible = getVisible(cache);
     paintSearchChrome(cache);
+    maybeRenderShowAnimatorsInSearch($b('#sk-show-animators-wrap'), cache);
 
     if (!visible.length) {
       results.innerHTML = cache.posts.length
@@ -4087,9 +4090,7 @@
       if (token !== statsToken || searchViewMode !== 'stats' || !document.body.contains(view)) return;
       var target = statsTarget();
       if (!target) {
-        view.innerHTML = '<div class="sk-hero"><div class="h">Nothing to summarise yet</div>' +
-          '<div class="p">Stats appear when the search includes an animator or a show.<br>' +
-          (searchState.tags.length ? 'None of these tags is one.' : 'Add one above.') + '</div></div>';
+        view.innerHTML = '<div class="sk-hero"><div class="p">Stats need an animator or a show in the search.</div></div>';
         return;
       }
       view.innerHTML = '<div id="sk-stats-out"></div>';
@@ -4322,20 +4323,20 @@
 
   function renderShows() {
     body.innerHTML =
-      '<div class="sk-qrow">' +
-        '<button type="button" class="sk-back-btn" id="sk-nav-back" style="display:none" title="Back">&#8249;</button>' +
-        '<div class="sk-field"><input id="sk-show-input" placeholder="Search a show or movie" autocomplete="off" spellcheck="false"></div>' +
-        '<button type="button" class="sk-back-btn" id="sk-nav-forward" style="display:none" title="Forward">&#8250;</button>' +
+      '<div class="sk-row"><input class="sk-input" id="sk-show-input" placeholder="search a show or movie title"></div>' +
+      '<div class="sk-show-nav" id="sk-show-nav" style="display:none">' +
+        '<button class="sk-nav-btn" id="sk-nav-back" type="button">\u2190 Back</button>' +
+        '<span class="sk-nav-crumb" id="sk-nav-crumb"></span>' +
+        '<button class="sk-nav-btn" id="sk-nav-forward" type="button">Forward \u2192</button>' +
       '</div>' +
-      '<div id="sk-show-content" style="margin-top:10px"></div>';
+      '<div id="sk-show-content"></div>';
 
     var input = body.querySelector('#sk-show-input');
-    var content = body.querySelector('#sk-show-content');
     var debounceTimer = null;
     input.addEventListener('input', function () {
       clearTimeout(debounceTimer);
       var q = input.value.trim();
-      if (!q) { showsPaintToken++; paintShowsHome(content); return; }
+      if (!q) return;
       debounceTimer = setTimeout(function () { searchShowTags(q); }, 300);
     });
 
@@ -4344,14 +4345,12 @@
 
     // Restore wherever we left off if this tab was visited before this session.
     if (navStack.length) renderNavCurrent();
-    else paintShowsHome(content);
   }
 
   function showItem(name, count, content) {
     var item = document.createElement('div');
-    item.className = 'sk-item';
-    item.innerHTML = '<div class="main"><div class="t">' + esc(tagLabel(name)) + '</div>' +
-      '<div class="s">' + count + (count === 1 ? ' clip' : ' clips') + '</div></div><span class="chev">&#8250;</span>';
+    item.className = 'sk-show-pick';
+    item.innerHTML = '<span class="name">' + esc(name) + '</span><span class="cnt">' + count + ' posts</span>';
     item.onclick = function () { openShow(name, content); };
     return item;
   }
@@ -4368,35 +4367,18 @@
     });
   }
 
-  // Before anything is searched: the most-tagged shows on the site.
-  function paintShowsHome(content) {
-    var t = ++showsPaintToken;
-    content.innerHTML = '<div class="sk-loading">Loading shows…</div>';
-    updateNavChrome();
-    ensureAllTags(function (n) {
-      if (t === showsPaintToken && !allTagsList) content.innerHTML = '<div class="sk-loading">Loading the tag dictionary… (' + n + ' so far)</div>';
-    }).then(function (list) {
-      if (t !== showsPaintToken) return;
-      var shows = safeSort(safeFilter(list, function (x) { return x.type === 3; }), function (a, b) { return b.count - a.count; }).slice(0, 10);
-      if (!shows.length) {
-        content.innerHTML = '<div class="sk-hero"><div class="h">Find a show</div><div class="p">Type a title above. Search matches parts of a name, not nicknames.</div></div>';
-        return;
-      }
-      content.innerHTML = '<div class="sk-sec"><span>Most tagged shows</span></div><div class="sk-list" id="sk-show-list"></div>';
-      var listEl = content.querySelector('#sk-show-list');
-      shows.forEach(function (s) { listEl.appendChild(showItem(s.name, s.count, content)); });
-    }).catch(function () {
-      if (t !== showsPaintToken) return;
-      content.innerHTML = '<div class="sk-hero"><div class="h">Find a show</div><div class="p">Type a title above to search shows and movies.</div></div>';
-    });
-  }
-
   function updateNavChrome() {
+    var navBar = body.querySelector('#sk-show-nav');
     var backBtn = body.querySelector('#sk-nav-back');
     var fwdBtn = body.querySelector('#sk-nav-forward');
-    if (!backBtn) return;
-    backBtn.style.display = navIndex > 0 ? '' : 'none';
-    fwdBtn.style.display = navIndex < navStack.length - 1 ? '' : 'none';
+    var crumb = body.querySelector('#sk-nav-crumb');
+    if (!navBar) return;
+    if (!navStack.length) { navBar.style.display = 'none'; return; }
+    navBar.style.display = 'flex';
+    backBtn.disabled = navIndex <= 0;
+    fwdBtn.disabled = navIndex >= navStack.length - 1;
+    var cur = navStack[navIndex];
+    crumb.textContent = cur.type === 'episodes' ? cur.showTag : ('"' + cur.query + '"');
   }
 
   function renderNavCurrent() {
@@ -4406,7 +4388,7 @@
     var cur = navStack[navIndex];
     var input = body.querySelector('#sk-show-input');
     if (!cur) { content.innerHTML = ''; return; }
-    input.value = cur.type === 'episodes' ? tagLabel(cur.showTag) : cur.query;
+    input.value = cur.type === 'episodes' ? cur.showTag : cur.query;
     if (cur.type === 'results') paintShowResults(content, cur.showsList, cur.query);
     else paintShowDetail(content, cur.showTag, cur.entry);
   }
@@ -4443,8 +4425,9 @@
       showsList = safeSort(showsList, function (a, b) { return b.count - a.count; }).slice(0, 15);
 
       if (!showsList.length) {
-        content.innerHTML = '<div class="sk-empty"><b>No shows match "' + esc(q) + '"</b><br>' +
-          'Search matches parts of a name, not nicknames. Try the full romanized title.</div>';
+        content.innerHTML = '<div class="sk-empty">no tags contain "' + esc(q) +
+          '" \u2014 sakugabooru search is substring-based, not fuzzy, so try the full ' +
+          'romanized title rather than a nickname or abbreviation</div>';
         return;
       }
       pushNav({ type: 'results', query: q, showsList: showsList });
@@ -4454,11 +4437,9 @@
     });
   }
 
-  function paintShowResults(content, showsList, query) {
-    content.innerHTML = '<div class="sk-sec"><span>' + showsList.length + (showsList.length === 1 ? ' show' : ' shows') +
-      ' matching "' + esc(query || '') + '"</span></div><div class="sk-list" id="sk-show-list"></div>';
-    var listEl = content.querySelector('#sk-show-list');
-    showsList.forEach(function (x) { listEl.appendChild(showItem(x.name, x.count, content)); });
+  function paintShowResults(content, showsList) {
+    content.innerHTML = '';
+    showsList.forEach(function (t) { content.appendChild(showItem(t.name, t.count, content)); });
   }
 
   function getShowEntry(showTag, targetPages) {
@@ -4506,6 +4487,46 @@
       showsCache[showTag] = entry;
       return entry;
     });
+  }
+
+  // Ranks animator-type tags by how often they appear across a show's
+  // sampled posts. Collapsed by default wherever it's used: it's a
+  // nice-to-have alongside the main content (episodes, or search results),
+  // not something that should push that content down before it's asked for.
+  function renderTopAnimatorsPanel(wrap, showTag, posts) {
+    wrap.innerHTML = '<button class="sk-pill" id="sk-top-animators-toggle" type="button">Most frequently tagged <span class="chev">&#9660;</span></button>' +
+      '<div id="sk-top-animators-body" style="display:none;margin-top:8px"></div>';
+    var toggleBtn = wrap.querySelector('#sk-top-animators-toggle');
+    var bodyEl = wrap.querySelector('#sk-top-animators-body');
+    var loaded = false;
+    toggleBtn.onclick = function () {
+      var open = bodyEl.style.display !== 'none';
+      bodyEl.style.display = open ? 'none' : 'block';
+      toggleBtn.classList.toggle('open', !open);
+      if (!open && !loaded) {
+        loaded = true;
+        renderTopAnimatorsContent(bodyEl, showTag, posts, 8);
+      }
+    };
+  }
+
+  // Only for a search that's just a single show/copyright-type tag and
+  // nothing else — anything more specific isn't "browsing a show" anymore.
+  function maybeRenderShowAnimatorsInSearch(wrap, cache) {
+    if (!wrap) return;
+    var key = cache.tags.join(' ');
+    if (wrap.getAttribute('data-for') === key) return; // already built for this search; keep its open state
+    wrap.setAttribute('data-for', key);
+    wrap.innerHTML = '';
+    if (!cache.tags || cache.tags.length !== 1) return;
+    var tag = cache.tags[0];
+    ensureTagTypes().then(function (map) {
+      if (!map || map[tag] !== 3) return;
+      return getShowEntry(tag).then(function (entry) {
+        if (!entry.totalSampled || wrap.getAttribute('data-for') !== key || !document.body.contains(wrap)) return;
+        renderTopAnimatorsPanel(wrap, tag, entry.posts);
+      });
+    }).catch(function () { /* nice-to-have alongside search — fail silently */ });
   }
 
   function renderTopAnimatorsContent(bodyEl, showTag, posts, limit) {
@@ -4556,35 +4577,43 @@
       return;
     }
     content.innerHTML =
-      '<div class="sk-head">' +
-        '<div class="ttl" title="' + esc(showTag) + '">' + esc(tagLabel(showTag)) +
-          '<small>' + entry.totalSampled + ' recent clips sampled</small></div>' +
-        '<button type="button" class="sk-pill" id="sk-show-all">All clips</button>' +
+      '<div class="sk-show-head">' +
+        '<span class="title">' + esc(showTag) + '</span>' +
+        '<button class="sk-mini-toggle" id="sk-show-all" type="button">all clips</button>' +
+        (entry.related.length ? '<button class="sk-mini-toggle" id="sk-related-toggle" type="button">related (' + entry.related.length + ') \u25BE</button>' : '') +
+        '<button class="sk-mini-toggle" id="sk-info-toggle" type="button">\u24D8 how this works</button>' +
       '</div>' +
-      (entry.related.length ? '<div class="sk-sec"><span>Related shows</span></div><div class="sk-chips-row" id="sk-related-row"></div>' : '') +
-      '<div class="sk-sec"><span>Most credited animators</span></div>' +
-      '<div id="sk-top-animators-wrap"></div>' +
-      '<div class="sk-sec"><span>Episodes</span><a href="#" id="sk-info-toggle">How this works</a></div>' +
-      '<div class="sk-note" id="sk-show-info" style="display:none;margin:0 2px 8px">Episodes are read from each clip\'s source text (the "Title #12" ' +
-        'convention) across the ' + entry.totalSampled + ' most <b>recently tagged</b> clips, so which numbers appear depends on tagging ' +
-        'activity, not air order. That\'s why the list can jump from Episode 357 to 1056. Anything that isn\'t an episode, OP, ED or movie ' +
-        'marker, like individual social-media credit links, is grouped under "Other". For a specific episode, use the jump box: it ' +
-        'searches directly instead of relying on this sample.</div>' +
-      '<div class="sk-addrow">' +
-        '<input class="sk-input" id="sk-ep-jump" type="number" min="1" placeholder="Jump to episode number">' +
+      (entry.related.length ? '<div class="sk-related-row" id="sk-related-row" style="display:none"></div>' : '') +
+      '<div id="sk-top-animators-wrap" style="margin-bottom:8px"></div>' +
+      '<div class="sk-caption" id="sk-show-info" style="display:none">episode grouping below is parsed from each post\'s source text (the ' +
+        '"Title #12" convention), sampled from the ' + entry.totalSampled + ' most <b>recently tagged</b> posts \u2014 ' +
+        'not chronological by episode, so which numbers show up is down to tagging activity, not air order ' +
+        '(that\'s why the list might skip straight from Episode 357 to 1056 instead of starting at 1). ' +
+        'Anything that isn\'t a recognizable episode/OP/ED/movie marker (like individual social-media credit ' +
+        'links) gets grouped into one "Other" bucket. For a specific known episode, use the jump box below \u2014 ' +
+        'it searches directly rather than relying on this sample.</div>' +
+      '<div class="sk-row">' +
+        '<input class="sk-input" id="sk-ep-jump" type="number" min="1" placeholder="know the episode number? jump straight to it, e.g. 1000">' +
         '<button class="sk-btn" id="sk-ep-jump-go" type="button">Go</button>' +
       '</div>' +
       '<div class="sk-ep-grid" id="sk-ep-grid"></div>' +
-      '<div class="sk-load-more-wrap" id="sk-scan-more-wrap" style="margin-top:10px"></div>';
+      '<div class="sk-load-more-wrap" id="sk-scan-more-wrap"></div>';
 
     content.querySelector('#sk-show-all').onclick = function () {
       setQuery([showTag], { order: 'date', origin: { type: 'shows', showTag: showTag } });
     };
-    renderTopAnimatorsContent(content.querySelector('#sk-top-animators-wrap'), showTag, entry.posts, 6);
-    content.querySelector('#sk-info-toggle').onclick = function (e) {
-      e.preventDefault();
+    if (entry.related.length) {
+      content.querySelector('#sk-related-toggle').onclick = function () {
+        var row = content.querySelector('#sk-related-row');
+        var open = row.style.display !== 'none';
+        row.style.display = open ? 'none' : 'flex';
+        this.textContent = 'related (' + entry.related.length + ') ' + (open ? '\u25BE' : '\u25B4');
+      };
+    }
+    renderTopAnimatorsPanel(content.querySelector('#sk-top-animators-wrap'), showTag, entry.posts);
+    content.querySelector('#sk-info-toggle').onclick = function () {
       var info = content.querySelector('#sk-show-info');
-      info.style.display = info.style.display === 'none' ? 'block' : 'none';
+      info.style.display = info.style.display !== 'none' ? 'none' : 'block';
     };
 
     content.querySelector('#sk-ep-jump-go').onclick = function () {
@@ -4602,7 +4631,7 @@
       entry.related.forEach(function (r) {
         var chip = document.createElement('span');
         chip.className = 'sk-chip clickable is-copyright';
-        chip.innerHTML = esc(tagLabel(r.name)) + '<span class="n">' + r.count + '</span>';
+        chip.innerHTML = esc(r.name) + '<span class="n">' + r.count + '</span>';
         chip.onclick = function () { openShow(r.name, content); };
         row.appendChild(chip);
       });
@@ -4651,11 +4680,11 @@
     var scanWrap = content.querySelector('#sk-scan-more-wrap');
     function renderScanButton() {
       if (entry.exhausted) {
-        scanWrap.innerHTML = '<div class="sk-note" style="margin-top:0">That\'s the show\'s entire post history. Nothing more to scan.</div>';
+        scanWrap.innerHTML = '<div class="sk-caption">sampled this show\'s entire post history \u2014 nothing more to scan</div>';
         return;
       }
-      scanWrap.innerHTML = '<button class="sk-pill" id="sk-scan-more" type="button">Scan 300 more clips</button>' +
-        '<div class="sk-note">Reads further back to find more episodes. Currently ' + entry.totalSampled + ' sampled.</div>';
+      scanWrap.innerHTML = '<button class="sk-frame-btn" id="sk-scan-more">' +
+        'scan further back (+300 more posts, currently ' + entry.totalSampled + ')</button>';
       scanWrap.querySelector('#sk-scan-more').onclick = function () {
         scanWrap.innerHTML = '<div class="sk-loading" style="padding:8px 0">Scanning further back… (may take a few seconds)</div>';
         getShowEntry(showTag, (entry.pagesFetched || SHOW_SAMPLE_PAGES) + 3).then(function (deeperEntry) {
@@ -4733,8 +4762,7 @@
 
     var listEl = view.querySelector('#sk-lp-list');
     if (!pools.length) {
-      listEl.innerHTML = '<div class="sk-hero"><div class="h">No pools yet</div>' +
-        '<div class="p">Create one above, then add clips to it from the player.<br>Pools live in this browser only.</div></div>';
+      listEl.innerHTML = '<div class="sk-empty">No pools yet</div>';
       return;
     }
     listEl.className = 'sk-list';
@@ -5593,9 +5621,9 @@
           '<small>' + pool.posts.length + (pool.posts.length === 1 ? ' clip' : ' clips') + '</small></div>' +
         '<button type="button" class="sk-link" id="sk-lp-delete">Delete pool</button>' +
       '</div>' +
-      '<button class="sk-btn" id="sk-lp-export" type="button" style="width:100%">Export clips</button>' +
-      '<div class="sk-note" style="margin:6px 2px 10px">' +
-        (videoCount < 2 ? 'Add at least 2 video clips to export a grid or a sequence.' : 'Combine ' + videoCount + ' clips into a grid or a sequence.') + '</div>' +
+      '<button class="sk-btn" id="sk-lp-export" type="button">Export clips</button>' +
+      (videoCount < 2 ? '<div class="sk-note" style="margin:6px 2px 0">Needs at least 2 video clips to export.</div>' : '') +
+      '<div style="height:10px"></div>' +
       '<div id="sk-lp-export-status" class="sk-note" style="display:none"></div>' +
       '<div class="sk-grid" id="sk-lp-grid"></div>';
 
@@ -5628,7 +5656,7 @@
 
     var grid = view.querySelector('#sk-lp-grid');
     if (!pool.posts.length) {
-      grid.innerHTML = '<div class="sk-empty" style="grid-column:1/-1"><b>Nothing here yet</b><br>Open any clip and use its pool button to add it.</div>';
+      grid.innerHTML = '<div class="sk-empty" style="grid-column:1/-1">No clips yet</div>';
       return;
     }
     pool.posts.forEach(function (p) {
