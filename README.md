@@ -40,7 +40,7 @@ Open `install.html` directly from this repository. Note: viewing it on github.co
   - **Download Trim** — client-side cut of a marked range via ffmpeg.wasm: a fast stream copy by default, or a frame-accurate re-encode when the "frame-accurate" box is ticked. **Download Full** retrieves the original file. Both offer MP4 / GIF / APNG, a size, and quality options under "more options".
   - Comments, loaded on demand.
   - Add to Pool, Copy Link.
-  - **Credits block** directly under the top bar: the animator name(s) in large amber chips, then the show and other tags at a readable size. Every chip is clickable and jumps to a fresh search.
+  - **Credit-style header** — the animator is the heading (humanized, e.g. "Hiroyuki Imaishi"; several are joined with &, and posts with no credited animator read "Uncredited"). Under it, the show in blue, then characters and other tags as quiet #text, with "+N more" when there are many. Every name and tag is clickable and runs a fresh search. Rating, View post, Copy Link and Add to Pool sit in a slim bar under the video.
 - **Info popup** — a per-card badge shows tags, score, rating, and links without leaving the results view.
 - **Panel** — draggable and resizable from any edge or corner, with position/size persisted, a Reset control, and a Lock Size toggle (fixed card size vs. fixed column count).
 - Search and Stats remain synchronized on the active animator.
@@ -88,7 +88,7 @@ node build.js && node build-install.js
 
 ## Changelog
 
-- **Clip viewer credits moved to the top.** The animator and tags were small 10px chips at the very bottom of the clip window; they now sit right under the top bar, with the animator at 15px, so they're visible without scrolling. Images use the same layout.
+- **Clip viewer redesigned around the credit.** The animator and tags used to be tiny 10px chips at the very bottom. The viewer now opens with a title block (animator as the heading, show beneath, tags as quiet text), and the rating and link controls moved into a slim bar under the video. Images use the same layout.
 - **Consistent shapes and spacing** across every screen and window: one corner radius for all controls (buttons, inputs, selects, icon buttons, chips), one for containers (panels, cards, popups, modals), regular controls 28px and small ones 24px tall, and a 4px spacing grid. The Search button now sits in the same row as the tag field and sort, and empty rows no longer leave gaps. The radii and heights are variables at the top of the style list in `sakuga-enhancer.js`.
 
 - **Export Composer**: the pool export panel is replaced by a single window with a live preview, drag-to-rearrange in the preview, list and filmstrip, per-clip trim / label / duplicate / remove, and Labels / Music rows.
