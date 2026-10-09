@@ -24,19 +24,16 @@ Open `install.html` directly from this repository. Note: viewing it on github.co
 
 ## Features
 
-- **Search** — one field does the work: tags are chips inside it, sort sits at its right edge, and results follow the chips as you add or remove them (no Search button). Suggestions appear as you type (arrow keys + Enter). Backspace removes the last chip.
-  - **Clips | Stats** switch under the field, with a clip count. Infinite scroll.
-  - **Solo cuts only** (①, exactly one animator credited) and **Hide uncredited** (drops cuts tagged only `artist_unknown`, or with no animator tag; a cut with `artist_unknown` plus a real animator is kept) are icon buttons in that row. **Filter** opens the checklist of co-occurring tags to hide.
-  - Searching a single show also offers **Most frequently tagged**: its most credited animators, one click to see their cuts in that show.
-  - Cards show the credited animators (other than the ones already in your search) and the score.
-  - With nothing typed, you can browse the newest clips.
-- **Back button** — a ‹ beside the search field returns to the previous search, wherever you came from (a tag, a stats row, a show's animator list), or to the episode list after an episode search.
-- **Stats** — follows your search. With an animator in it: clip count, average and highest score, most frequent shows, clips by upload year, and often-tagged-with (click a show or tag to add it to the search). With only a show: its most credited animators (click one to see their cuts in that show).
-- **Shows** — search a title and browse its episodes (parsed from post source text), with back/forward navigation. A show page has related shows, *Most frequently tagged* animators, a jump-to-episode box, and **all clips** to search the whole show.
+- **Search** — tag-chip search, sort by score, newest, oldest, or random; infinite scroll; a collapsible filter grid for co-occurring tags; and two one-click filters:
+  - **Solo cuts only** — exactly one animator credited.
+  - **Hide uncredited** — drops cuts with no real credit (tagged only `artist_unknown`, or no animator tag). A cut with `artist_unknown` plus a real animator is kept.
+- **Back button** — a general "← back" returns to the previous search, wherever you came from (including after clicking an animator or tag).
+- **Animator Stats** (toggle within Search) — cut count, average score, activity-by-year chart, and top co-tags for the animator in focus. Clicking an animator from a show's most-tagged list adds them to the search without replacing the show tag.
+- **Shows** — search a title and browse its episodes, parsed from post source text, with back/forward navigation.
 - **Pools**:
-  - *My pools* — local only (`localStorage`), no login required. Server-side pool creation requires an account tier most accounts lack.
-  - *Public pools* — read-only browsing of pools other users have made public.
-  - *Export clips* — see [Pool export](#pool-export).
+  - *My Pools* — local only (`localStorage`), no login required. Server-side pool creation requires an account tier most accounts lack.
+  - *Browse Public Pools* — read-only browsing of pools other users have made public.
+  - *Export Clips* — see [Pool export](#pool-export).
 - **Media viewer** — opens clips and images in a lightbox:
   - Frame-by-frame navigation for video (frame count, timecode, step controls, keyboard shortcuts).
   - **Voting** — genuine 1–3 star ratings. Ratings may be changed or cleared, and your current rating is read from the post page itself.
@@ -45,7 +42,8 @@ Open `install.html` directly from this repository. Note: viewing it on github.co
   - Add to Pool, Copy Link.
   - Tag chips are clickable throughout, jumping to a fresh search.
 - **Info popup** — a per-card badge shows tags, score, rating, and links without leaving the results view.
-- **Panel** — draggable and resizable from any edge or corner, with position/size persisted. Two header buttons: **Lock clip size** (▦: resizing the panel adds or removes clips per row instead of resizing them) and **Reset size and position** (↺).
+- **Panel** — draggable and resizable from any edge or corner, with position/size persisted, a Reset control, and a Lock Size toggle (fixed card size vs. fixed column count).
+- Search and Stats remain synchronized on the active animator.
 
 ### Pool export
 
@@ -90,7 +88,8 @@ node build.js && node build-install.js
 
 ## Changelog
 
-- **Main screen redesign**: one search field with inline chips and sort, live results, Clips | Stats switch, animator names on cards, Stats that follow the search (animator or show), the solo / hide-uncredited icons, Most frequently tagged and the Shows layout kept as they were, pools with thumbnail previews. Matches the Export Composer's design language.
+- Main screen: Search button and the Results / Animator Stats switch are now compact instead of full-width bars.
+
 - **Export Composer**: the pool export panel is replaced by a single window with a live preview, drag-to-rearrange in the preview, list and filmstrip, per-clip trim / label / duplicate / remove, and Labels / Music rows.
 - **Label placement**: 3×3 position picker plus free drag in the preview.
 - **Per-clip custom label text** (replaces animator names for that clip).
