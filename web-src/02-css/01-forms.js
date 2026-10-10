@@ -4,6 +4,9 @@
     '.sk-tab{flex:1;text-align:center;font-size:12px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;',
     'color:' + C.dim + ';border-bottom:2px solid transparent;}',
     '.sk-tab.active{color:' + C.amber + ';border-bottom-color:' + C.amber + ';}',
+    // The host site styles generic classes like .active (white fill); the tabs set their own look so it can't leak in.
+    '#sk-enh-tabs .sk-tab,#sk-enh-tabs .sk-tab.active{background:transparent !important;box-shadow:none !important;}',
+    '#sk-enh-tabs .sk-tab.active{color:' + C.amber + ' !important;}',
     '.sk-body{overflow-y:auto;flex:1;min-height:0;}',
     '.sk-row{display:flex;}',
     '.sk-input{flex:1;background:' + C.bg + ';border:1px solid ' + C.line + ';color:' + C.text + ';font-size:13px;outline:none;}',

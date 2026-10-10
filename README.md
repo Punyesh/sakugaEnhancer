@@ -109,6 +109,7 @@ All modules are parts of **one closure** (they share scope, no imports), joined 
 
 ## Changelog
 
+- **Active tab on the live site.** The Search / Shows / Pools tab that's selected showed a white fill on sakugabooru.com, because the site's own stylesheet fills anything with an `.active` class. The tabs now set their own background so site styles can't leak in.
 - **Search runs automatically — no Search button.** Press Enter to add the typed tag and search (on an empty box it re-runs the current search); picking a suggestion, changing the sort and removing a chip search too (chip removal waits a moment so several removals become one search). A ↻ button appears beside the sort when it's set to random, for a new random set. Only the newest search paints, so quick changes can't show stale results.
 - **Calmer search controls.** The Results / Animator Stats switch is now one segmented pill (My Pools / Public Pools too). The Filter and Most Frequently Tagged toggles share a single row with the solo and hide-uncredited icons and the reset link, instead of three separate rows, and both toggles use the same style. Nothing was removed or renamed.
 - **One typeface everywhere.** Buttons, inputs and dropdowns in the panel, and the buttons in the clip viewer, used the browser's default control font (Arial) while the rest used the panel's font stack. They now inherit the same font as everything else, and the stack is a single token (`FONT`).

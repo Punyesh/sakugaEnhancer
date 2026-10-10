@@ -9,7 +9,7 @@
     '.sk-stars{display:inline-flex;gap:2px;align-items:center;}',
     '.sk-star{font-size:15px;color:' + C.dim + ';cursor:pointer;line-height:1;}',
     '.sk-star.filled{color:' + C.amber + ';}',
-    '.sk-star-clear{font-size:12px;color:' + C.dim + ';cursor:pointer;margin-left:3px;opacity:.3;}',
+    '.sk-star-clear{background:transparent;font-size:12px;color:' + C.dim + ';cursor:pointer;margin-left:3px;opacity:.3;}',
     '.sk-star-clear.active{opacity:.8;}',
     '.sk-star-clear:hover{color:' + C.red + ';opacity:1;}',
     '.sk-dock-head a{font-size:11px;color:' + C.amber + ';text-decoration:none;border:1px solid ' + C.amberDim + ';padding:2px 8px;}',
