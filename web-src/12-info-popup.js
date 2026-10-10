@@ -8,6 +8,8 @@
     }
     if (currentInfoPopupClose) currentInfoPopupClose();
 
+    // The credits panel for a clip opens beside the Enhancer panel, on its left, and looks like the
+    // credits panel in the clip viewer (same chips, same sizing) — it never covers the results.
     var pop = document.createElement('div');
     pop.id = 'sk-info-popup';
     pop.className = 'sk-info-popup';
@@ -29,21 +31,25 @@
         '<div class="sk-dock-badges">' +
           '<span class="sk-badge score">▲ ' + (p.score || 0) + '</span>' +
           '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
-        '</div>' + linkHtml +
+        '</div>' +
         '<span class="sk-close" id="sk-info-popup-close">&times;</span>' +
-      '</div>';
+      '</div>' +
+      '<div class="sk-info-links">' + linkHtml + '</div>';
 
     function position() {
-      var rect = anchorEl.getBoundingClientRect();
-      var popRect = pop.getBoundingClientRect();
-      var margin = 8;
-      var left = Math.min(Math.max(rect.left, margin), Math.max(margin, window.innerWidth - popRect.width - margin));
-      var top = rect.bottom + 6;
-      if (top + popRect.height > window.innerHeight - margin) {
-        top = rect.top - popRect.height - 6; // flip above the anchor if there's no room below
-        if (top < margin) top = margin; // neither fits — just clamp to the top edge
-      }
-      pop.style.left = left + 'px';
+      var panel = document.getElementById('sk-enh-panel');
+      var pr = panel ? panel.getBoundingClientRect() : { left: window.innerWidth, right: window.innerWidth, top: 8, height: window.innerHeight - 16 };
+      var margin = 8, gap = 12, minW = 200, maxW = 320;
+      var roomL = pr.left - gap - margin;
+      var roomR = window.innerWidth - pr.right - gap - margin;
+      var side = roomL >= minW ? 'left' : (roomR >= minW ? 'right' : 'over');
+      var room = side === 'left' ? roomL : (side === 'right' ? roomR : window.innerWidth - 2 * margin);
+      pop.style.maxWidth = Math.max(160, Math.min(maxW, room)) + 'px';
+      var top = Math.max(margin, pr.top);
+      pop.style.maxHeight = Math.max(160, window.innerHeight - top - margin) + 'px';
+      var w = pop.getBoundingClientRect().width;
+      var left = side === 'left' ? pr.left - gap - w : (side === 'right' ? pr.right + gap : margin);
+      pop.style.left = Math.max(margin, left) + 'px';
       pop.style.top = top + 'px';
     }
 

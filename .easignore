@@ -1,0 +1,33 @@
+# Exclude local/generated files
+node_modules/
+.expo/
+dist/
+web-build/
+ios/
+android/
+
+# Native/local secrets
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Metro/debug
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# Local environment
+.env*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Unrelated local files
+# Add any other unrelated files/folders here if needed.

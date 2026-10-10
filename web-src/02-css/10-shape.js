@@ -11,7 +11,7 @@
     // control classes; the component rules in the files before it deliberately leave them out.
     // Change R_CTL / R_BOX / R_INNER / H_CTL / H_SM in 01-tokens.js to retune everything at once.
     '.sk-input,.sk-select,.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn,.sk-ep-btn,.sk-comment-textarea,.sk-seg,',
-    '.sk-xc-seg,.sk-icon-btn,.sk-filter-toggle,.sk-mini-toggle,.sk-chip,.sk-mini-chip,.sk-xc-track,.sk-dock-head a,',
+    '.sk-xc-seg,.sk-icon-btn,.sk-filter-toggle,.sk-mini-toggle,.sk-chip,.sk-mini-chip,.sk-xc-track,.sk-dock-head a,.sk-info-links a,',
     '.sk-xc-pos button{border-radius:' + R_CTL + ';}',
     '#sk-enh-panel,.sk-media-box,.sk-login-box,.sk-info-popup,.sk-suggest-list,.sk-card,.sk-facet-grid,.sk-freq-list,',
     '.sk-dropzone,.sk-show-pick,.sk-xc-stage,.sk-xc-pos,.sk-comment-composer,#xc-music-line,',

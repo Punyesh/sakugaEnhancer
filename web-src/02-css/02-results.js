@@ -20,8 +20,14 @@
     'font-size:13px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;',
     'z-index:2;cursor:pointer;font-family:"Courier New",monospace;line-height:1;}',
     '.sk-card .remove-badge:hover{background:' + C.red + ';color:#fff;}',
-    '.sk-info-popup{position:fixed;z-index:2147483300;width:280px;max-height:320px;overflow-y:auto;',
-    'background:' + C.bg + ';border:1px solid ' + C.line + ';box-shadow:0 10px 30px rgba(0,0,0,.6);}',
-    '.sk-info-popup .sk-dock-head{padding-right:26px;}',
-    '.sk-info-popup .sk-close{position:absolute;top:6px;right:8px;}',
+    // credits panel opened from a card's ⓘ badge — placed beside the Enhancer panel (see openInfoPopup)
+    '.sk-info-popup{position:fixed;z-index:2147483300;box-sizing:border-box;width:max-content;min-width:200px;',
+    'overflow-x:hidden;overflow-y:auto;padding:12px;background:' + C.panel + ';border:1px solid ' + C.line + ';',
+    'box-shadow:0 20px 60px rgba(0,0,0,.6);scrollbar-width:thin;scrollbar-color:' + C.amberDim + ' ' + C.panel + ';}',
+    '.sk-info-popup .sk-dock-head{background:transparent;border:0;padding:0 0 10px;}',
+    '.sk-info-links{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-bottom:12px;}',
+    '.sk-info-links a{font-size:11px;color:' + C.amber + ';text-decoration:none;border:1px solid ' + C.amberDim + ';',
+    'padding:2px 8px;white-space:nowrap;}',
+    '.sk-info-links a:hover{background:' + C.amberDim + ';}',
+    '.sk-info-popup .sk-dock-body{padding:0;}',
   ];

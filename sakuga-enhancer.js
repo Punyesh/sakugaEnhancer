@@ -159,10 +159,16 @@
     'font-size:13px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;',
     'z-index:2;cursor:pointer;font-family:"Courier New",monospace;line-height:1;}',
     '.sk-card .remove-badge:hover{background:' + C.red + ';color:#fff;}',
-    '.sk-info-popup{position:fixed;z-index:2147483300;width:280px;max-height:320px;overflow-y:auto;',
-    'background:' + C.bg + ';border:1px solid ' + C.line + ';box-shadow:0 10px 30px rgba(0,0,0,.6);}',
-    '.sk-info-popup .sk-dock-head{padding-right:26px;}',
-    '.sk-info-popup .sk-close{position:absolute;top:6px;right:8px;}',
+    // credits panel opened from a card's ⓘ badge — placed beside the Enhancer panel (see openInfoPopup)
+    '.sk-info-popup{position:fixed;z-index:2147483300;box-sizing:border-box;width:max-content;min-width:200px;',
+    'overflow-x:hidden;overflow-y:auto;padding:12px;background:' + C.panel + ';border:1px solid ' + C.line + ';',
+    'box-shadow:0 20px 60px rgba(0,0,0,.6);scrollbar-width:thin;scrollbar-color:' + C.amberDim + ' ' + C.panel + ';}',
+    '.sk-info-popup .sk-dock-head{background:transparent;border:0;padding:0 0 10px;}',
+    '.sk-info-links{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-bottom:12px;}',
+    '.sk-info-links a{font-size:11px;color:' + C.amber + ';text-decoration:none;border:1px solid ' + C.amberDim + ';',
+    'padding:2px 8px;white-space:nowrap;}',
+    '.sk-info-links a:hover{background:' + C.amberDim + ';}',
+    '.sk-info-popup .sk-dock-body{padding:0;}',
   ];
   // ---------- styles: Info badges, stars, tag chips and the exclude-tags filter ----------
   var cssTags = [
@@ -533,7 +539,7 @@
     // control classes; the component rules in the files before it deliberately leave them out.
     // Change R_CTL / R_BOX / R_INNER / H_CTL / H_SM in 01-tokens.js to retune everything at once.
     '.sk-input,.sk-select,.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn,.sk-ep-btn,.sk-comment-textarea,.sk-seg,',
-    '.sk-xc-seg,.sk-icon-btn,.sk-filter-toggle,.sk-mini-toggle,.sk-chip,.sk-mini-chip,.sk-xc-track,.sk-dock-head a,',
+    '.sk-xc-seg,.sk-icon-btn,.sk-filter-toggle,.sk-mini-toggle,.sk-chip,.sk-mini-chip,.sk-xc-track,.sk-dock-head a,.sk-info-links a,',
     '.sk-xc-pos button{border-radius:' + R_CTL + ';}',
     '#sk-enh-panel,.sk-media-box,.sk-login-box,.sk-info-popup,.sk-suggest-list,.sk-card,.sk-facet-grid,.sk-freq-list,',
     '.sk-dropzone,.sk-show-pick,.sk-xc-stage,.sk-xc-pos,.sk-comment-composer,#xc-music-line,',
@@ -612,12 +618,12 @@
     '.sk-clip-comments .sk-comments-row .sk-frame-btn{width:100%;}',
     '.sk-clip-comments .sk-comments-panel{flex:1 1 auto;min-height:0;max-height:none;overflow-x:hidden;overflow-y:auto;padding:12px 0 0;}',
     '.sk-clip-comments .sk-comment-body,.sk-clip-comments .sk-comment-head{overflow-wrap:anywhere;}',
-    '.sk-clip-side .sk-dock-section + .sk-dock-section{margin-top:16px;}',
-    '.sk-clip-side .sk-tagblock-label{font-size:11px;margin-bottom:8px;}',
-    '.sk-clip-side .sk-chipwrap{max-height:none;overflow:visible;gap:6px;min-width:0;}',
-    '.sk-clip-side .sk-mini-chip{font-family:inherit;font-size:13px;line-height:18px;padding:4px 10px;margin:0;',
+    '.sk-clip-side .sk-dock-section + .sk-dock-section,.sk-info-popup .sk-dock-section + .sk-dock-section{margin-top:16px;}',
+    '.sk-clip-side .sk-tagblock-label,.sk-info-popup .sk-tagblock-label{font-size:11px;margin-bottom:8px;}',
+    '.sk-clip-side .sk-chipwrap,.sk-info-popup .sk-chipwrap{max-height:none;overflow:visible;gap:6px;min-width:0;}',
+    '.sk-clip-side .sk-mini-chip,.sk-info-popup .sk-mini-chip{font-family:inherit;font-size:13px;line-height:18px;padding:4px 10px;margin:0;',
     'max-width:100%;box-sizing:border-box;white-space:normal;overflow-wrap:anywhere;}',
-    '.sk-clip-side .sk-mini-chip.artist{font-size:14px;padding:5px 12px;}',
+    '.sk-clip-side .sk-mini-chip.artist,.sk-info-popup .sk-mini-chip.artist{font-size:14px;padding:5px 12px;}',
     '.sk-media-top{flex-wrap:wrap;}',
     '.sk-media-top .sk-media-viewpost{white-space:nowrap;}',
     '@media (max-width:900px){',
@@ -1644,6 +1650,8 @@
     }
     if (currentInfoPopupClose) currentInfoPopupClose();
 
+    // The credits panel for a clip opens beside the Enhancer panel, on its left, and looks like the
+    // credits panel in the clip viewer (same chips, same sizing) — it never covers the results.
     var pop = document.createElement('div');
     pop.id = 'sk-info-popup';
     pop.className = 'sk-info-popup';
@@ -1665,21 +1673,25 @@
         '<div class="sk-dock-badges">' +
           '<span class="sk-badge score">▲ ' + (p.score || 0) + '</span>' +
           '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
-        '</div>' + linkHtml +
+        '</div>' +
         '<span class="sk-close" id="sk-info-popup-close">&times;</span>' +
-      '</div>';
+      '</div>' +
+      '<div class="sk-info-links">' + linkHtml + '</div>';
 
     function position() {
-      var rect = anchorEl.getBoundingClientRect();
-      var popRect = pop.getBoundingClientRect();
-      var margin = 8;
-      var left = Math.min(Math.max(rect.left, margin), Math.max(margin, window.innerWidth - popRect.width - margin));
-      var top = rect.bottom + 6;
-      if (top + popRect.height > window.innerHeight - margin) {
-        top = rect.top - popRect.height - 6; // flip above the anchor if there's no room below
-        if (top < margin) top = margin; // neither fits — just clamp to the top edge
-      }
-      pop.style.left = left + 'px';
+      var panel = document.getElementById('sk-enh-panel');
+      var pr = panel ? panel.getBoundingClientRect() : { left: window.innerWidth, right: window.innerWidth, top: 8, height: window.innerHeight - 16 };
+      var margin = 8, gap = 12, minW = 200, maxW = 320;
+      var roomL = pr.left - gap - margin;
+      var roomR = window.innerWidth - pr.right - gap - margin;
+      var side = roomL >= minW ? 'left' : (roomR >= minW ? 'right' : 'over');
+      var room = side === 'left' ? roomL : (side === 'right' ? roomR : window.innerWidth - 2 * margin);
+      pop.style.maxWidth = Math.max(160, Math.min(maxW, room)) + 'px';
+      var top = Math.max(margin, pr.top);
+      pop.style.maxHeight = Math.max(160, window.innerHeight - top - margin) + 'px';
+      var w = pop.getBoundingClientRect().width;
+      var left = side === 'left' ? pr.left - gap - w : (side === 'right' ? pr.right + gap : margin);
+      pop.style.left = Math.max(margin, left) + 'px';
       pop.style.top = top + 'px';
     }
 
