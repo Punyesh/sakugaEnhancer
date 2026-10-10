@@ -55,4 +55,19 @@
     '.sk-ep-btn .num{display:block;font-family:"Courier New",monospace;color:' + C.amber + ';font-size:13px;',
     'font-weight:bold;}',
     '.sk-ep-btn .cnt{display:block;font-size:10px;color:' + C.dim + ';margin-top:2px;}',
+    // pool detail header: title and clip count on the left, the compact Export Clips button on the right
+    '.sk-show-head .title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-show-head .meta{flex:0 0 auto;font-size:11px;color:' + C.dim + ';}',
+    '.sk-show-head .sk-btn{margin-left:auto;flex:0 0 auto;}',
+    // pools list rows: a three-clip preview strip beside the name and clip count
+    '.sk-show-pick.sk-pool-row{justify-content:flex-start;gap:10px;}',
+    '.sk-pool-row .thumbs{display:flex;gap:4px;flex:0 0 auto;}',
+    '.sk-pool-row .thumbs img,.sk-pool-row .thumbs i{width:32px;height:32px;object-fit:cover;border-radius:' + R_INNER + ';',
+    'background:' + C.panel2 + ';display:block;box-sizing:border-box;}',
+    '.sk-pool-row .thumbs i{background:none;border:1px dashed ' + C.line + ';}',
+    '.sk-pool-row .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}',
+    '.sk-pool-row .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-pool-row .sub{font-size:11px;color:' + C.dim + ';}',
+    '.sk-pool-row .chev{flex:0 0 auto;color:' + C.dim + ';font-size:14px;}',
+    '.sk-pool-row:hover .chev{color:' + C.amber + ';}',
   ];

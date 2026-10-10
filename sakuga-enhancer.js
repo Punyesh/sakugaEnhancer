@@ -34,6 +34,8 @@
     red: '#d9634a',
     link: '#6db3f2'
   };
+  // The one typeface used by the panel and every window; form controls inherit it (see 10-shape).
+  var FONT = '"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif';
 
   // Shape and size scale used by the "Shape and spacing system" rules at the end of the style list.
   var R_CTL = '6px';   // controls: buttons, inputs, selects, icon buttons, chips
@@ -46,7 +48,7 @@
   var cssPanel = [
     '#sk-enh-root *{box-sizing:border-box;}',
     '#sk-enh-root{position:fixed;z-index:2147483000;bottom:20px;right:20px;',
-    'font-family:"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif;color:' + C.text + ';}',
+    'font-family:' + FONT + ';color:' + C.text + ';}',
     '#sk-enh-toggle{position:relative;z-index:2;width:52px;height:52px;border-radius:50%;background:' + C.panel + ';',
     'border:1px solid ' + C.line + ';color:' + C.amber + ';font-size:20px;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.5);',
     'display:flex;align-items:center;justify-content:center;font-family:"Courier New",monospace;letter-spacing:-1px;}',
@@ -263,6 +265,21 @@
     '.sk-ep-btn .num{display:block;font-family:"Courier New",monospace;color:' + C.amber + ';font-size:13px;',
     'font-weight:bold;}',
     '.sk-ep-btn .cnt{display:block;font-size:10px;color:' + C.dim + ';margin-top:2px;}',
+    // pool detail header: title and clip count on the left, the compact Export Clips button on the right
+    '.sk-show-head .title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-show-head .meta{flex:0 0 auto;font-size:11px;color:' + C.dim + ';}',
+    '.sk-show-head .sk-btn{margin-left:auto;flex:0 0 auto;}',
+    // pools list rows: a three-clip preview strip beside the name and clip count
+    '.sk-show-pick.sk-pool-row{justify-content:flex-start;gap:10px;}',
+    '.sk-pool-row .thumbs{display:flex;gap:4px;flex:0 0 auto;}',
+    '.sk-pool-row .thumbs img,.sk-pool-row .thumbs i{width:32px;height:32px;object-fit:cover;border-radius:' + R_INNER + ';',
+    'background:' + C.panel2 + ';display:block;box-sizing:border-box;}',
+    '.sk-pool-row .thumbs i{background:none;border:1px dashed ' + C.line + ';}',
+    '.sk-pool-row .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}',
+    '.sk-pool-row .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.sk-pool-row .sub{font-size:11px;color:' + C.dim + ';}',
+    '.sk-pool-row .chev{flex:0 0 auto;color:' + C.dim + ';font-size:14px;}',
+    '.sk-pool-row:hover .chev{color:' + C.amber + ';}',
   ];
   // ---------- styles: Animator stats, tag lists, filmstrip, empty and loading states ----------
   var cssStats = [
@@ -290,7 +307,7 @@
   // ---------- styles: Export composer ----------
   var cssComposer = [
     '.sk-xc-box{max-width:1120px;height:min(90vh,800px);max-height:none;display:flex;flex-direction:column;',
-    'overflow:hidden;font-family:"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif;color:' + C.text + ';}',
+    'overflow:hidden;font-family:' + FONT + ';color:' + C.text + ';}',
     '.sk-xc-box button,.sk-xc-box input,.sk-xc-box select{font-family:inherit;}',
     '.sk-xc-title{font-size:13px;color:' + C.text + ';}',
     '.sk-xc-title span{color:' + C.dim + ';margin-left:6px;}',
@@ -521,6 +538,9 @@
     '.sk-badge,.sk-filter-badge,.sk-card .score,.sk-card .vidmark,.sk-xc-num,.sk-xc-frn,.sk-xc-fr,.sk-facet-item,',
     '.sk-freq-row,.sk-xc-grip,.sk-xc-box .sk-xc-rowhead img,.sk-media-box::-webkit-scrollbar-thumb{',
     'border-radius:' + R_INNER + ';}',
+    // one typeface: windows and popups carry the panel's font, and controls inherit it instead of the browser's default control font (Arial)
+    '.sk-media-backdrop,.sk-info-popup,.sk-suggest-list{font-family:' + FONT + ';}',
+    '.sk-input,.sk-select,.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn,.sk-comment-textarea{font-family:inherit;}',
     '.sk-input,.sk-select,.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn{box-sizing:border-box;min-height:' + H_CTL + ';}',
     '.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn{display:inline-flex;align-items:center;justify-content:center;}',
     '.sk-input{padding:4px 10px;}',
@@ -4558,6 +4578,17 @@
     else renderPublicPoolsBrowse(view);
   }
 
+  // A three-clip preview strip for a pool row; empty slots stay as outlined boxes so every row lines up.
+  function poolThumbs(posts) {
+    var out = '';
+    for (var i = 0; i < 3; i++) {
+      var post = posts[i];
+      var src = post && (post.preview_url || post.jpeg_url || post.sample_url);
+      out += src ? '<img loading="lazy" src="' + esc(src) + '">' : '<i></i>';
+    }
+    return '<span class="thumbs">' + out + '</span>';
+  }
+
   function renderLocalPoolsList(view) {
     var pools = getLocalPools();
     view.innerHTML =
@@ -4583,8 +4614,11 @@
     listEl.innerHTML = '';
     pools.forEach(function (pl) {
       var item = document.createElement('div');
-      item.className = 'sk-show-pick';
-      item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + pl.posts.length + '</span>';
+      item.className = 'sk-show-pick sk-pool-row';
+      item.innerHTML = poolThumbs(pl.posts) +
+        '<span class="main"><span class="name">' + esc(pl.name) + '</span>' +
+        '<span class="sub">' + pl.posts.length + (pl.posts.length === 1 ? ' clip' : ' clips') + '</span></span>' +
+        '<span class="chev">&#8250;</span>';
       item.onclick = function () { renderLocalPoolDetail(view, pl.id); };
       listEl.appendChild(item);
     });
@@ -5426,13 +5460,15 @@
     var pool = getLocalPool(poolId);
     if (!pool) { renderLocalPoolsList(view); return; }
     view.innerHTML =
-      '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
-        '<button class="sk-nav-btn" id="sk-lp-back">‹ back</button>' +
-        '<span class="sk-caption" style="margin:0">' + esc(pool.name) + '</span>' +
-        '<button class="sk-nav-btn" id="sk-lp-delete">Delete</button>' +
+      '<div class="sk-show-nav">' +
+        '<button class="sk-nav-btn" id="sk-lp-back" type="button">← Back</button>' +
+        '<span class="sk-nav-crumb">My Pools</span>' +
+        '<button class="sk-nav-btn" id="sk-lp-delete" type="button">Delete</button>' +
       '</div>' +
-      '<div class="sk-row" style="margin-bottom:8px">' +
-        '<button class="sk-btn" id="sk-lp-export" style="flex:1">Export Clips</button>' +
+      '<div class="sk-show-head">' +
+        '<span class="title">' + esc(pool.name) + '</span>' +
+        '<span class="meta">' + pool.posts.length + (pool.posts.length === 1 ? ' clip' : ' clips') + '</span>' +
+        '<button class="sk-btn" id="sk-lp-export" type="button">Export Clips</button>' +
       '</div>' +
       '<div id="sk-lp-export-status" class="sk-caption" style="display:none"></div>' +
       '<div class="sk-grid" id="sk-lp-grid"></div>';
@@ -5521,10 +5557,13 @@
 
   function renderPublicPoolDetail(view, poolId, poolName) {
     view.innerHTML =
-      '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
-        '<button class="sk-nav-btn" id="sk-pp-back">‹ back</button>' +
-        '<span class="sk-caption" style="margin:0">' + esc(poolName) + '</span>' +
-        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-media-viewpost">view on site ↗</a>' +
+      '<div class="sk-show-nav">' +
+        '<button class="sk-nav-btn" id="sk-pp-back" type="button">← Back</button>' +
+        '<span class="sk-nav-crumb">Public Pools</span>' +
+        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-nav-btn" style="text-decoration:none">View on site ↗</a>' +
+      '</div>' +
+      '<div class="sk-show-head">' +
+        '<span class="title">' + esc(poolName) + '</span>' +
       '</div>' +
       '<div id="sk-pp-grid" class="sk-grid"></div>';
     view.querySelector('#sk-pp-back').onclick = function () { renderPoolsView(); };

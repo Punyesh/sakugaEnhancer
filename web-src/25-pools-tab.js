@@ -25,6 +25,17 @@
     else renderPublicPoolsBrowse(view);
   }
 
+  // A three-clip preview strip for a pool row; empty slots stay as outlined boxes so every row lines up.
+  function poolThumbs(posts) {
+    var out = '';
+    for (var i = 0; i < 3; i++) {
+      var post = posts[i];
+      var src = post && (post.preview_url || post.jpeg_url || post.sample_url);
+      out += src ? '<img loading="lazy" src="' + esc(src) + '">' : '<i></i>';
+    }
+    return '<span class="thumbs">' + out + '</span>';
+  }
+
   function renderLocalPoolsList(view) {
     var pools = getLocalPools();
     view.innerHTML =
@@ -50,8 +61,11 @@
     listEl.innerHTML = '';
     pools.forEach(function (pl) {
       var item = document.createElement('div');
-      item.className = 'sk-show-pick';
-      item.innerHTML = '<span class="name">' + esc(pl.name) + '</span><span class="cnt">' + pl.posts.length + '</span>';
+      item.className = 'sk-show-pick sk-pool-row';
+      item.innerHTML = poolThumbs(pl.posts) +
+        '<span class="main"><span class="name">' + esc(pl.name) + '</span>' +
+        '<span class="sub">' + pl.posts.length + (pl.posts.length === 1 ? ' clip' : ' clips') + '</span></span>' +
+        '<span class="chev">&#8250;</span>';
       item.onclick = function () { renderLocalPoolDetail(view, pl.id); };
       listEl.appendChild(item);
     });

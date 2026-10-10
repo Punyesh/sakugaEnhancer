@@ -2,13 +2,15 @@
     var pool = getLocalPool(poolId);
     if (!pool) { renderLocalPoolsList(view); return; }
     view.innerHTML =
-      '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
-        '<button class="sk-nav-btn" id="sk-lp-back">‹ back</button>' +
-        '<span class="sk-caption" style="margin:0">' + esc(pool.name) + '</span>' +
-        '<button class="sk-nav-btn" id="sk-lp-delete">Delete</button>' +
+      '<div class="sk-show-nav">' +
+        '<button class="sk-nav-btn" id="sk-lp-back" type="button">← Back</button>' +
+        '<span class="sk-nav-crumb">My Pools</span>' +
+        '<button class="sk-nav-btn" id="sk-lp-delete" type="button">Delete</button>' +
       '</div>' +
-      '<div class="sk-row" style="margin-bottom:8px">' +
-        '<button class="sk-btn" id="sk-lp-export" style="flex:1">Export Clips</button>' +
+      '<div class="sk-show-head">' +
+        '<span class="title">' + esc(pool.name) + '</span>' +
+        '<span class="meta">' + pool.posts.length + (pool.posts.length === 1 ? ' clip' : ' clips') + '</span>' +
+        '<button class="sk-btn" id="sk-lp-export" type="button">Export Clips</button>' +
       '</div>' +
       '<div id="sk-lp-export-status" class="sk-caption" style="display:none"></div>' +
       '<div class="sk-grid" id="sk-lp-grid"></div>';
@@ -97,10 +99,13 @@
 
   function renderPublicPoolDetail(view, poolId, poolName) {
     view.innerHTML =
-      '<div class="sk-row" style="align-items:center;justify-content:space-between">' +
-        '<button class="sk-nav-btn" id="sk-pp-back">‹ back</button>' +
-        '<span class="sk-caption" style="margin:0">' + esc(poolName) + '</span>' +
-        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-media-viewpost">view on site ↗</a>' +
+      '<div class="sk-show-nav">' +
+        '<button class="sk-nav-btn" id="sk-pp-back" type="button">← Back</button>' +
+        '<span class="sk-nav-crumb">Public Pools</span>' +
+        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-nav-btn" style="text-decoration:none">View on site ↗</a>' +
+      '</div>' +
+      '<div class="sk-show-head">' +
+        '<span class="title">' + esc(poolName) + '</span>' +
       '</div>' +
       '<div id="sk-pp-grid" class="sk-grid"></div>';
     view.querySelector('#sk-pp-back').onclick = function () { renderPoolsView(); };

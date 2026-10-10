@@ -1,7 +1,7 @@
   // ---------- styles: Export composer ----------
   var cssComposer = [
     '.sk-xc-box{max-width:1120px;height:min(90vh,800px);max-height:none;display:flex;flex-direction:column;',
-    'overflow:hidden;font-family:"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif;color:' + C.text + ';}',
+    'overflow:hidden;font-family:' + FONT + ';color:' + C.text + ';}',
     '.sk-xc-box button,.sk-xc-box input,.sk-xc-box select{font-family:inherit;}',
     '.sk-xc-title{font-size:13px;color:' + C.text + ';}',
     '.sk-xc-title span{color:' + C.dim + ';margin-left:6px;}',

@@ -19,6 +19,9 @@
     '.sk-badge,.sk-filter-badge,.sk-card .score,.sk-card .vidmark,.sk-xc-num,.sk-xc-frn,.sk-xc-fr,.sk-facet-item,',
     '.sk-freq-row,.sk-xc-grip,.sk-xc-box .sk-xc-rowhead img,.sk-media-box::-webkit-scrollbar-thumb{',
     'border-radius:' + R_INNER + ';}',
+    // one typeface: windows and popups carry the panel's font, and controls inherit it instead of the browser's default control font (Arial)
+    '.sk-media-backdrop,.sk-info-popup,.sk-suggest-list{font-family:' + FONT + ';}',
+    '.sk-input,.sk-select,.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn,.sk-comment-textarea{font-family:inherit;}',
     '.sk-input,.sk-select,.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn{box-sizing:border-box;min-height:' + H_CTL + ';}',
     '.sk-btn,.sk-mode-btn,.sk-frame-btn,.sk-nav-btn{display:inline-flex;align-items:center;justify-content:center;}',
     '.sk-input{padding:4px 10px;}',

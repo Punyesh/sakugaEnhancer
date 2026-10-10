@@ -11,6 +11,8 @@
     red: '#d9634a',
     link: '#6db3f2'
   };
+  // The one typeface used by the panel and every window; form controls inherit it (see 10-shape).
+  var FONT = '"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif';
 
   // Shape and size scale used by the "Shape and spacing system" rules at the end of the style list.
   var R_CTL = '6px';   // controls: buttons, inputs, selects, icon buttons, chips

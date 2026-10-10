@@ -2,7 +2,7 @@
   var cssPanel = [
     '#sk-enh-root *{box-sizing:border-box;}',
     '#sk-enh-root{position:fixed;z-index:2147483000;bottom:20px;right:20px;',
-    'font-family:"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif;color:' + C.text + ';}',
+    'font-family:' + FONT + ';color:' + C.text + ';}',
     '#sk-enh-toggle{position:relative;z-index:2;width:52px;height:52px;border-radius:50%;background:' + C.panel + ';',
     'border:1px solid ' + C.line + ';color:' + C.amber + ';font-size:20px;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.5);',
     'display:flex;align-items:center;justify-content:center;font-family:"Courier New",monospace;letter-spacing:-1px;}',
