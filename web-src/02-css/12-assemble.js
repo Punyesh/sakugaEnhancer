@@ -10,5 +10,6 @@
     cssViewer,
     cssScrollbars,
     cssShape,
+    cssSearchToolbar,
     cssViewerSide
   ).join('');

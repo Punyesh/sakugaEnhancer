@@ -216,11 +216,15 @@
   // default wherever it's used: it's a nice-to-have alongside the main
   // content (episodes, or search results), not something that should push
   // that content down before anyone's asked to see it.
-  function renderTopAnimatorsPanel(wrap, showTag, posts) {
-    wrap.innerHTML = '<button class="sk-mini-toggle" id="sk-top-animators-toggle" type="button">Most Frequently Tagged ▾</button>' +
-      '<div id="sk-top-animators-body" style="display:none;margin-top:8px"></div>';
+  // bodyHost (optional): where the expandable list goes when the toggle sits in a toolbar
+  // rather than directly above its list.
+  function renderTopAnimatorsPanel(wrap, showTag, posts, bodyHost) {
+    wrap.innerHTML = '<button class="sk-mini-toggle" id="sk-top-animators-toggle" type="button">Most Frequently Tagged ▾</button>';
+    var bodyEl = document.createElement('div');
+    bodyEl.id = 'sk-top-animators-body';
+    bodyEl.style.cssText = 'display:none;margin-top:8px';
+    (bodyHost || wrap).appendChild(bodyEl);
     var toggleBtn = wrap.querySelector('#sk-top-animators-toggle');
-    var bodyEl = wrap.querySelector('#sk-top-animators-body');
     var loaded = false;
     toggleBtn.onclick = function () {
       var open = bodyEl.style.display !== 'none';
@@ -310,15 +314,17 @@
   // and nothing else — anything more specific (an episode, an animator
   // combo) isn't really "browsing a show" anymore, so the panel would be
   // answering a question nobody asked at that point.
-  function maybeRenderShowAnimatorsInSearch(wrap, cache) {
+  function maybeRenderShowAnimatorsInSearch(wrap, cache, bodyHost) {
     wrap.innerHTML = '';
+    if (bodyHost) bodyHost.innerHTML = '';
     if (!cache.tags || cache.tags.length !== 1) return;
     var tag = cache.tags[0];
     ensureTagTypes().then(function (map) {
       if (!map || map[tag] !== 3) return;
       return getShowEntry(tag).then(function (entry) {
         if (!entry.totalSampled) return;
-        renderTopAnimatorsPanel(wrap, tag, entry.posts);
+        renderTopAnimatorsPanel(wrap, tag, entry.posts, bodyHost);
+        refreshToolbar();
       });
     }).catch(function () { /* nice-to-have alongside search — fail silently rather than surface an error for it */ });
   }

@@ -569,6 +569,26 @@
     '.sk-tab{padding:8px 0;}',
     '.sk-body{padding:12px;}',
   ];
+  // ---------- styles: segmented view switch and the results tools row ----------
+  var cssSearchToolbar = [
+    // Results / Animator Stats (and My Pools / Public Pools): one segmented pill instead of two loose buttons
+    '.sk-mode-row{display:inline-flex;gap:0;padding:2px;margin-bottom:8px;max-width:100%;',
+    'background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:' + R_CTL + ';}',
+    '.sk-mode-row .sk-mode-btn{min-height:24px;padding:2px 12px;border:0;background:transparent;color:' + C.dim + ';',
+    'border-radius:' + R_INNER + ';font-weight:normal;}',
+    '.sk-mode-row .sk-mode-btn:hover{color:' + C.text + ';}',
+    '.sk-mode-row .sk-mode-btn.active{background:' + C.amberDim + ';color:' + C.amber + ';font-weight:600;}',
+    // tools row: disclosure toggles on the left, result toggles and reset on the right
+    '.sk-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}',
+    '.sk-tb-l,.sk-tb-r{display:flex;align-items:center;gap:8px;min-width:0;}',
+    '.sk-tb-l{flex-wrap:wrap;}',
+    '#sk-solo-row{gap:8px;align-items:center;}',
+    '.sk-toolbar .sk-filter-toggle,.sk-toolbar .sk-mini-toggle{font-family:inherit;font-size:11px;color:' + C.dim + ';}',
+    '.sk-toolbar .sk-filter-toggle:hover,.sk-toolbar .sk-mini-toggle:hover{color:' + C.amber + ';}',
+    '.sk-tb-reset{color:' + C.amber + ';font-size:11px;text-decoration:none;}',
+    '.sk-tb-reset:hover{text-decoration:underline;}',
+    '#sk-show-animators-body #sk-top-animators-body{margin:0 0 8px !important;}',
+  ];
   // ---------- styles: Credits panel beside the clip viewer, narrow-screen layout ----------
   var cssViewerSide = [
     // clip viewer: credits (animator + tags) live in their own panel to the left of the viewer
@@ -619,6 +639,7 @@
     cssViewer,
     cssScrollbars,
     cssShape,
+    cssSearchToolbar,
     cssViewerSide
   ).join('');
   var styleTag = document.createElement('style');
@@ -1382,20 +1403,29 @@
     var view = body.querySelector('#sk-search-view');
     view.innerHTML =
       '<div id="sk-back-to-shows" style="display:none"></div>' +
-      '<div id="sk-show-animators-wrap" style="margin-bottom:8px"></div>' +
-      '<div id="sk-solo-row" style="display:none;gap:8px;margin-bottom:8px">' +
-        '<button type="button" class="sk-icon-btn" id="sk-solo-toggle">&#9312;</button>' +
-        '<button type="button" class="sk-icon-btn" id="sk-unknown-toggle">' +
-          '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block">' +
-            '<path d="M5 5.2a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.3"/><circle cx="7" cy="10.7" r=".4" fill="currentColor"/><path d="M2 12.5 12 1.5"/></svg>' +
-        '</button>' +
+      // One tools row: the disclosure toggles (Filter, Most Frequently Tagged) on the left, the
+      // result toggles (solo, hide uncredited) and reset on the right. Their panels open below it.
+      '<div class="sk-toolbar" id="sk-toolbar" style="display:none">' +
+        '<div class="sk-tb-l">' +
+          '<span id="sk-facet-head" style="display:none">' +
+            '<button class="sk-filter-toggle" id="sk-filter-toggle" type="button">' +
+              'Filter <span class="sk-filter-badge" id="sk-filter-badge" style="display:none"></span>' +
+              '<span class="chev">▾</span></button>' +
+          '</span>' +
+          '<span id="sk-show-animators-wrap"></span>' +
+        '</div>' +
+        '<div class="sk-tb-r">' +
+          '<span id="sk-solo-row" style="display:none">' +
+            '<button type="button" class="sk-icon-btn" id="sk-solo-toggle">&#9312;</button>' +
+            '<button type="button" class="sk-icon-btn" id="sk-unknown-toggle">' +
+              '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block">' +
+                '<path d="M5 5.2a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.3"/><circle cx="7" cy="10.7" r=".4" fill="currentColor"/><path d="M2 12.5 12 1.5"/></svg>' +
+            '</button>' +
+          '</span>' +
+          '<a href="#" id="sk-facet-all" class="sk-tb-reset" style="display:none">reset</a>' +
+        '</div>' +
       '</div>' +
-      '<div class="sk-meta" id="sk-facet-head" style="display:none;justify-content:space-between;align-items:center">' +
-        '<button class="sk-filter-toggle" id="sk-filter-toggle" type="button">' +
-          'Filter <span class="sk-filter-badge" id="sk-filter-badge" style="display:none"></span>' +
-          '<span class="chev">▾</span></button>' +
-        '<span><a href="#" id="sk-facet-all" style="color:' + C.amber + '">reset</a></span>' +
-      '</div>' +
+      '<div id="sk-show-animators-body"></div>' +
       '<div class="sk-facet-grid" id="sk-facet-grid" style="display:none"></div>' +
       '<div id="sk-results"></div>';
   }
@@ -3779,8 +3809,10 @@
       toggle.classList.toggle('open', !open);
     };
 
+    var resetLink = body.querySelector('#sk-facet-all');
     if (cache.facetTags.length) {
-      facetHead.style.display = 'flex';
+      facetHead.style.display = 'inline-flex';
+      resetLink.style.display = 'inline';
       facetGrid.innerHTML = '<div class="sk-loading" style="padding:4px 0">loading tag info…</div>';
       ensureTagTypes().then(function (map) {
         var sorted = safeSort(cache.facetTags, function (a, b) {
@@ -3811,17 +3843,32 @@
       };
     } else {
       facetHead.style.display = 'none';
+      resetLink.style.display = 'none';
       facetGrid.innerHTML = '';
     }
   }
 
+  // The tools row only takes up space while at least one of its controls is showing.
+  function refreshToolbar() {
+    var tb = body.querySelector('#sk-toolbar');
+    if (!tb) return;
+    var facet = tb.querySelector('#sk-facet-head');
+    var solo = tb.querySelector('#sk-solo-row');
+    var freq = tb.querySelector('#sk-show-animators-wrap');
+    var any = (facet && facet.style.display !== 'none') ||
+              (solo && solo.style.display !== 'none') ||
+              (freq && freq.firstChild);
+    tb.style.display = any ? 'flex' : 'none';
+  }
+
   function paintSearchResults(cache) {
     paintSearchBackLink(cache);
-    maybeRenderShowAnimatorsInSearch(body.querySelector('#sk-show-animators-wrap'), cache);
+    maybeRenderShowAnimatorsInSearch(body.querySelector('#sk-show-animators-wrap'), cache, body.querySelector('#sk-show-animators-body'));
     paintSearchToggles(cache);
     var visible = filterVisiblePosts(cache);
     paintResultGrid(cache, visible);
     paintFacetFilter(cache, visible);
+    refreshToolbar();
   }
 
   function runSearch(opts) {
@@ -3840,6 +3887,8 @@
     var results = body.querySelector('#sk-results');
     results.innerHTML = '<div class="sk-loading">fetching…</div>';
     body.querySelector('#sk-facet-head').style.display = 'none';
+    body.querySelector('#sk-facet-all').style.display = 'none';
+    refreshToolbar();
     body.querySelector('#sk-facet-grid').innerHTML = '';
     body.querySelector('#sk-facet-grid').style.display = 'none';
     body.querySelector('#sk-filter-toggle').classList.remove('open');
@@ -4307,11 +4356,15 @@
   // default wherever it's used: it's a nice-to-have alongside the main
   // content (episodes, or search results), not something that should push
   // that content down before anyone's asked to see it.
-  function renderTopAnimatorsPanel(wrap, showTag, posts) {
-    wrap.innerHTML = '<button class="sk-mini-toggle" id="sk-top-animators-toggle" type="button">Most Frequently Tagged ▾</button>' +
-      '<div id="sk-top-animators-body" style="display:none;margin-top:8px"></div>';
+  // bodyHost (optional): where the expandable list goes when the toggle sits in a toolbar
+  // rather than directly above its list.
+  function renderTopAnimatorsPanel(wrap, showTag, posts, bodyHost) {
+    wrap.innerHTML = '<button class="sk-mini-toggle" id="sk-top-animators-toggle" type="button">Most Frequently Tagged ▾</button>';
+    var bodyEl = document.createElement('div');
+    bodyEl.id = 'sk-top-animators-body';
+    bodyEl.style.cssText = 'display:none;margin-top:8px';
+    (bodyHost || wrap).appendChild(bodyEl);
     var toggleBtn = wrap.querySelector('#sk-top-animators-toggle');
-    var bodyEl = wrap.querySelector('#sk-top-animators-body');
     var loaded = false;
     toggleBtn.onclick = function () {
       var open = bodyEl.style.display !== 'none';
@@ -4401,15 +4454,17 @@
   // and nothing else — anything more specific (an episode, an animator
   // combo) isn't really "browsing a show" anymore, so the panel would be
   // answering a question nobody asked at that point.
-  function maybeRenderShowAnimatorsInSearch(wrap, cache) {
+  function maybeRenderShowAnimatorsInSearch(wrap, cache, bodyHost) {
     wrap.innerHTML = '';
+    if (bodyHost) bodyHost.innerHTML = '';
     if (!cache.tags || cache.tags.length !== 1) return;
     var tag = cache.tags[0];
     ensureTagTypes().then(function (map) {
       if (!map || map[tag] !== 3) return;
       return getShowEntry(tag).then(function (entry) {
         if (!entry.totalSampled) return;
-        renderTopAnimatorsPanel(wrap, tag, entry.posts);
+        renderTopAnimatorsPanel(wrap, tag, entry.posts, bodyHost);
+        refreshToolbar();
       });
     }).catch(function () { /* nice-to-have alongside search — fail silently rather than surface an error for it */ });
   }

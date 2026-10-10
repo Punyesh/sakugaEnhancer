@@ -236,8 +236,10 @@
       toggle.classList.toggle('open', !open);
     };
 
+    var resetLink = body.querySelector('#sk-facet-all');
     if (cache.facetTags.length) {
-      facetHead.style.display = 'flex';
+      facetHead.style.display = 'inline-flex';
+      resetLink.style.display = 'inline';
       facetGrid.innerHTML = '<div class="sk-loading" style="padding:4px 0">loading tag info…</div>';
       ensureTagTypes().then(function (map) {
         var sorted = safeSort(cache.facetTags, function (a, b) {
@@ -268,17 +270,32 @@
       };
     } else {
       facetHead.style.display = 'none';
+      resetLink.style.display = 'none';
       facetGrid.innerHTML = '';
     }
   }
 
+  // The tools row only takes up space while at least one of its controls is showing.
+  function refreshToolbar() {
+    var tb = body.querySelector('#sk-toolbar');
+    if (!tb) return;
+    var facet = tb.querySelector('#sk-facet-head');
+    var solo = tb.querySelector('#sk-solo-row');
+    var freq = tb.querySelector('#sk-show-animators-wrap');
+    var any = (facet && facet.style.display !== 'none') ||
+              (solo && solo.style.display !== 'none') ||
+              (freq && freq.firstChild);
+    tb.style.display = any ? 'flex' : 'none';
+  }
+
   function paintSearchResults(cache) {
     paintSearchBackLink(cache);
-    maybeRenderShowAnimatorsInSearch(body.querySelector('#sk-show-animators-wrap'), cache);
+    maybeRenderShowAnimatorsInSearch(body.querySelector('#sk-show-animators-wrap'), cache, body.querySelector('#sk-show-animators-body'));
     paintSearchToggles(cache);
     var visible = filterVisiblePosts(cache);
     paintResultGrid(cache, visible);
     paintFacetFilter(cache, visible);
+    refreshToolbar();
   }
 
   function runSearch(opts) {
@@ -297,6 +314,8 @@
     var results = body.querySelector('#sk-results');
     results.innerHTML = '<div class="sk-loading">fetching…</div>';
     body.querySelector('#sk-facet-head').style.display = 'none';
+    body.querySelector('#sk-facet-all').style.display = 'none';
+    refreshToolbar();
     body.querySelector('#sk-facet-grid').innerHTML = '';
     body.querySelector('#sk-facet-grid').style.display = 'none';
     body.querySelector('#sk-filter-toggle').classList.remove('open');

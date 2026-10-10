@@ -157,20 +157,29 @@
     var view = body.querySelector('#sk-search-view');
     view.innerHTML =
       '<div id="sk-back-to-shows" style="display:none"></div>' +
-      '<div id="sk-show-animators-wrap" style="margin-bottom:8px"></div>' +
-      '<div id="sk-solo-row" style="display:none;gap:8px;margin-bottom:8px">' +
-        '<button type="button" class="sk-icon-btn" id="sk-solo-toggle">&#9312;</button>' +
-        '<button type="button" class="sk-icon-btn" id="sk-unknown-toggle">' +
-          '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block">' +
-            '<path d="M5 5.2a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.3"/><circle cx="7" cy="10.7" r=".4" fill="currentColor"/><path d="M2 12.5 12 1.5"/></svg>' +
-        '</button>' +
+      // One tools row: the disclosure toggles (Filter, Most Frequently Tagged) on the left, the
+      // result toggles (solo, hide uncredited) and reset on the right. Their panels open below it.
+      '<div class="sk-toolbar" id="sk-toolbar" style="display:none">' +
+        '<div class="sk-tb-l">' +
+          '<span id="sk-facet-head" style="display:none">' +
+            '<button class="sk-filter-toggle" id="sk-filter-toggle" type="button">' +
+              'Filter <span class="sk-filter-badge" id="sk-filter-badge" style="display:none"></span>' +
+              '<span class="chev">▾</span></button>' +
+          '</span>' +
+          '<span id="sk-show-animators-wrap"></span>' +
+        '</div>' +
+        '<div class="sk-tb-r">' +
+          '<span id="sk-solo-row" style="display:none">' +
+            '<button type="button" class="sk-icon-btn" id="sk-solo-toggle">&#9312;</button>' +
+            '<button type="button" class="sk-icon-btn" id="sk-unknown-toggle">' +
+              '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block">' +
+                '<path d="M5 5.2a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.3"/><circle cx="7" cy="10.7" r=".4" fill="currentColor"/><path d="M2 12.5 12 1.5"/></svg>' +
+            '</button>' +
+          '</span>' +
+          '<a href="#" id="sk-facet-all" class="sk-tb-reset" style="display:none">reset</a>' +
+        '</div>' +
       '</div>' +
-      '<div class="sk-meta" id="sk-facet-head" style="display:none;justify-content:space-between;align-items:center">' +
-        '<button class="sk-filter-toggle" id="sk-filter-toggle" type="button">' +
-          'Filter <span class="sk-filter-badge" id="sk-filter-badge" style="display:none"></span>' +
-          '<span class="chev">▾</span></button>' +
-        '<span><a href="#" id="sk-facet-all" style="color:' + C.amber + '">reset</a></span>' +
-      '</div>' +
+      '<div id="sk-show-animators-body"></div>' +
       '<div class="sk-facet-grid" id="sk-facet-grid" style="display:none"></div>' +
       '<div id="sk-results"></div>';
   }
