@@ -9,7 +9,10 @@
     amber: '#ffb020',
     amberDim: '#7a5a1e',
     red: '#d9634a',
-    link: '#6db3f2'
+    link: '#6db3f2',
+    // the booru's own link colour (sampled from sakugabooru.com) — used for links that open the booru or other sites
+    booru: '#ee8887',
+    booruHover: '#ffb3b2'
   };
   // The one typeface used by the panel and every window; form controls inherit it (see 10-shape).
   var FONT = '"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif';

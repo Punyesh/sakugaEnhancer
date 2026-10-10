@@ -23,7 +23,6 @@
     'max-width:100%;box-sizing:border-box;white-space:normal;overflow-wrap:anywhere;}',
     '.sk-clip-side .sk-mini-chip.artist,.sk-info-popup .sk-mini-chip.artist{font-size:14px;padding:5px 12px;}',
     '.sk-media-top{flex-wrap:wrap;}',
-    '.sk-media-top .sk-media-viewpost{white-space:nowrap;}',
     '@media (max-width:900px){',
       '.sk-media-backdrop.sk-clip-split{flex-direction:column;align-items:center;justify-content:flex-start;',
       'overflow-y:auto;}',

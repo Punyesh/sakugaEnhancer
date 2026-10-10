@@ -123,9 +123,11 @@
           '<span class="sk-star-clear" id="sk-star-clear" title="clear your rating">&times;</span>' +
         '</span>' +
         '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
-        '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
-        '<span class="sk-media-viewpost" id="sk-copy-link" style="cursor:pointer;margin-left:8px" title="copy a link to this post">Copy Link</span>' +
-        '<span class="sk-media-viewpost" id="sk-add-pool" style="cursor:pointer;margin-left:8px" title="add this clip to a pool">Add to Pool</span>' +
+        '<span class="sk-media-actions">' +
+          '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
+          '<span class="sk-media-act" id="sk-copy-link" title="copy a link to this post">Copy Link</span>' +
+          '<span class="sk-media-act" id="sk-add-pool" title="add this clip to a pool">Add to Pool</span>' +
+        '</span>' +
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
     var modal = mountModal(box);

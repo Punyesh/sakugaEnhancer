@@ -2,11 +2,13 @@
   var cssSearchToolbar = [
     // Links of our own: the host site colours and underlines every <a>, with a rule as specific as a bare
     // class, so ours are repeated here with a little more weight to keep their look.
-    '#sk-enh-root a.sk-tb-reset,#sk-info-popup .sk-info-links a,.sk-media-backdrop a.sk-media-viewpost{color:' + C.amber + ';text-decoration:none;}',
-    '#sk-enh-root a.sk-tb-reset:hover,.sk-media-backdrop a.sk-media-viewpost:hover{text-decoration:underline;}',
-    '#sk-info-popup .sk-info-links a:hover{color:' + C.amber + ';text-decoration:none;}',
-    '#sk-enh-root a.sk-nav-btn{display:inline-flex;align-items:center;line-height:1;text-decoration:none;color:' + C.text + ';}',
-    '#sk-enh-root a.sk-nav-btn:hover{color:' + C.amber + ';text-decoration:none;}',
+    // Internal controls keep the panel's amber; links that open the booru or another site use the booru's own link colour.
+    '#sk-enh-root a.sk-tb-reset{color:' + C.amber + ';text-decoration:none;}',
+    '#sk-enh-root a.sk-tb-reset:hover{text-decoration:underline;}',
+    '.sk-media-backdrop a.sk-media-viewpost,#sk-info-popup .sk-info-links a,#sk-enh-root a.sk-nav-btn.sk-ext{color:' + C.booru + ';text-decoration:none;}',
+    '.sk-media-backdrop a.sk-media-viewpost:hover,#sk-info-popup .sk-info-links a:hover,#sk-enh-root a.sk-nav-btn.sk-ext:hover{color:' + C.booruHover + ';text-decoration:none;}',
+    '.sk-media-backdrop a.sk-media-viewpost:hover{text-decoration:underline;}',
+    '#sk-enh-root a.sk-nav-btn{display:inline-flex;align-items:center;line-height:1;text-decoration:none;}',
     // "← back to …" link: an anchor styled as a small toggle. Set explicitly (with the id) so the host
     // site's own link colour, underline and line height can't change its colour or let the text spill out of the box.
     '#sk-back-to-shows a.sk-mini-toggle{display:inline-flex;align-items:center;box-sizing:border-box;height:' + H_SM + ';',

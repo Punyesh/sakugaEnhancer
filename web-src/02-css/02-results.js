@@ -26,8 +26,8 @@
     'box-shadow:0 20px 60px rgba(0,0,0,.6);scrollbar-width:thin;scrollbar-color:' + C.amberDim + ' ' + C.panel + ';}',
     '.sk-info-popup .sk-dock-head{background:transparent;border:0;padding:0 0 10px;}',
     '.sk-info-links{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-bottom:12px;}',
-    '.sk-info-links a{font-size:11px;color:' + C.amber + ';text-decoration:none;border:1px solid ' + C.amberDim + ';',
+    '.sk-info-links a{font-size:11px;color:' + C.booru + ';text-decoration:none;border:1px solid ' + C.line + ';',
     'padding:2px 8px;white-space:nowrap;}',
-    '.sk-info-links a:hover{background:' + C.amberDim + ';}',
+    '.sk-info-links a:hover{border-color:' + C.booru + ';}',
     '.sk-info-popup .sk-dock-body{padding:0;}',
   ];

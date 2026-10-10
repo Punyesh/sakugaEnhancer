@@ -109,6 +109,7 @@ All modules are parts of **one closure** (they share scope, no imports), joined 
 
 ## Changelog
 
+- **Viewer top bar aligned; booru links in the booru's colour.** "view post", Copy Link and Add to Pool now share one size and baseline (they were mismatched because one was a link and the others weren't). Links that open the booru or another site — view post, source, View on site, links in comments — use the booru's own link red (`#ee8887`, hover lighter); the panel's own actions stay amber.
 - **Links keep their look on the live site.** "← back to previous search" (and "back to episode list") sat in a box its text didn't fit and showed in the site's red link colour; "reset", "view post" and "View on site" had the same problem. They now keep the panel's own colours, size and no underline whatever the site's stylesheet says.
 - **Card info popup is now a side panel.** The ⓘ badge on a result opens the clip's credits (score, rating, source, animator, tags) in a panel to the left of the Enhancer panel, styled like the credits panel in the clip viewer: sized to its content, chips wrap, no horizontal scrollbar, and it never covers the results. If there's no room on the left it opens on the right. Clicking the badge again, Esc, or clicking elsewhere closes it; clicking a tag still searches it.
 - **Active tab on the live site.** The Search / Shows / Pools tab that's selected showed a white fill on sakugabooru.com, because the site's own stylesheet fills anything with an `.active` class. The tabs now set their own background so site styles can't leak in.

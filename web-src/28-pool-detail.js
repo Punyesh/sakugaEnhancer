@@ -102,7 +102,7 @@
       '<div class="sk-show-nav">' +
         '<button class="sk-nav-btn" id="sk-pp-back" type="button">← Back</button>' +
         '<span class="sk-nav-crumb">Public Pools</span>' +
-        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-nav-btn" style="text-decoration:none">View on site ↗</a>' +
+        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-nav-btn sk-ext">View on site ↗</a>' +
       '</div>' +
       '<div class="sk-show-head">' +
         '<span class="title">' + esc(poolName) + '</span>' +

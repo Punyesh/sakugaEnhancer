@@ -32,7 +32,10 @@
     amber: '#ffb020',
     amberDim: '#7a5a1e',
     red: '#d9634a',
-    link: '#6db3f2'
+    link: '#6db3f2',
+    // the booru's own link colour (sampled from sakugabooru.com) — used for links that open the booru or other sites
+    booru: '#ee8887',
+    booruHover: '#ffb3b2'
   };
   // The one typeface used by the panel and every window; form controls inherit it (see 10-shape).
   var FONT = '"Neue Haas Grotesk","Helvetica Neue",Arial,sans-serif';
@@ -165,9 +168,9 @@
     'box-shadow:0 20px 60px rgba(0,0,0,.6);scrollbar-width:thin;scrollbar-color:' + C.amberDim + ' ' + C.panel + ';}',
     '.sk-info-popup .sk-dock-head{background:transparent;border:0;padding:0 0 10px;}',
     '.sk-info-links{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-bottom:12px;}',
-    '.sk-info-links a{font-size:11px;color:' + C.amber + ';text-decoration:none;border:1px solid ' + C.amberDim + ';',
+    '.sk-info-links a{font-size:11px;color:' + C.booru + ';text-decoration:none;border:1px solid ' + C.line + ';',
     'padding:2px 8px;white-space:nowrap;}',
-    '.sk-info-links a:hover{background:' + C.amberDim + ';}',
+    '.sk-info-links a:hover{border-color:' + C.booru + ';}',
     '.sk-info-popup .sk-dock-body{padding:0;}',
   ];
   // ---------- styles: Info badges, stars, tag chips and the exclude-tags filter ----------
@@ -456,9 +459,14 @@
     'object-fit:contain;}',
     '.sk-media-top{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:8px;padding:8px 10px;',
     'background:' + C.panel2 + ';}',
-    '.sk-media-viewpost{margin-left:auto;color:' + C.amber + ';font-size:12px;text-decoration:none;',
-    'font-family:"Courier New",monospace;}',
-    '.sk-media-viewpost:hover{text-decoration:underline;}',
+    // right-hand group of the viewer's top bar: the booru link, then the two actions — one size, one baseline
+    '.sk-media-actions{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:6px 14px;}',
+    '.sk-media-viewpost,.sk-media-act{display:inline-flex;align-items:center;height:24px;margin:0;padding:0;',
+    'font-family:"Courier New",monospace;font-size:12px;line-height:1;text-decoration:none;white-space:nowrap;cursor:pointer;}',
+    '.sk-media-act{color:' + C.amber + ';}',
+    '.sk-media-act:hover{text-decoration:underline;}',
+    '.sk-media-viewpost{color:' + C.booru + ';}',
+    '.sk-media-viewpost:hover{color:' + C.booruHover + ';text-decoration:underline;}',
     '.sk-media-close{cursor:pointer;color:' + C.dim + ';font-size:22px;line-height:1;padding:0 2px 2px;}',
     '.sk-login-box{width:100%;max-width:320px;background:' + C.panel + ';border:1px solid ' + C.line + ';padding:18px;',
     'box-shadow:0 20px 60px rgba(0,0,0,.6);}',
@@ -504,7 +512,7 @@
     '.sk-comment-ts{color:' + C.amber + ';cursor:pointer;font-weight:bold;}',
     '.sk-comment-ts:hover{text-decoration:underline;}',
     '.sk-comment-postlink{color:' + C.link + ';cursor:pointer;text-decoration:underline;}',
-    '.sk-comment-link{color:' + C.link + ';text-decoration:underline;}',
+    '.sk-comment-link{color:' + C.booru + ';text-decoration:underline;}',
     '.sk-close:hover{color:' + C.red + ';}',
   ];
   // ---------- styles: Themed scrollbars ----------
@@ -582,11 +590,13 @@
   var cssSearchToolbar = [
     // Links of our own: the host site colours and underlines every <a>, with a rule as specific as a bare
     // class, so ours are repeated here with a little more weight to keep their look.
-    '#sk-enh-root a.sk-tb-reset,#sk-info-popup .sk-info-links a,.sk-media-backdrop a.sk-media-viewpost{color:' + C.amber + ';text-decoration:none;}',
-    '#sk-enh-root a.sk-tb-reset:hover,.sk-media-backdrop a.sk-media-viewpost:hover{text-decoration:underline;}',
-    '#sk-info-popup .sk-info-links a:hover{color:' + C.amber + ';text-decoration:none;}',
-    '#sk-enh-root a.sk-nav-btn{display:inline-flex;align-items:center;line-height:1;text-decoration:none;color:' + C.text + ';}',
-    '#sk-enh-root a.sk-nav-btn:hover{color:' + C.amber + ';text-decoration:none;}',
+    // Internal controls keep the panel's amber; links that open the booru or another site use the booru's own link colour.
+    '#sk-enh-root a.sk-tb-reset{color:' + C.amber + ';text-decoration:none;}',
+    '#sk-enh-root a.sk-tb-reset:hover{text-decoration:underline;}',
+    '.sk-media-backdrop a.sk-media-viewpost,#sk-info-popup .sk-info-links a,#sk-enh-root a.sk-nav-btn.sk-ext{color:' + C.booru + ';text-decoration:none;}',
+    '.sk-media-backdrop a.sk-media-viewpost:hover,#sk-info-popup .sk-info-links a:hover,#sk-enh-root a.sk-nav-btn.sk-ext:hover{color:' + C.booruHover + ';text-decoration:none;}',
+    '.sk-media-backdrop a.sk-media-viewpost:hover{text-decoration:underline;}',
+    '#sk-enh-root a.sk-nav-btn{display:inline-flex;align-items:center;line-height:1;text-decoration:none;}',
     // "← back to …" link: an anchor styled as a small toggle. Set explicitly (with the id) so the host
     // site's own link colour, underline and line height can't change its colour or let the text spill out of the box.
     '#sk-back-to-shows a.sk-mini-toggle{display:inline-flex;align-items:center;box-sizing:border-box;height:' + H_SM + ';',
@@ -637,7 +647,6 @@
     'max-width:100%;box-sizing:border-box;white-space:normal;overflow-wrap:anywhere;}',
     '.sk-clip-side .sk-mini-chip.artist,.sk-info-popup .sk-mini-chip.artist{font-size:14px;padding:5px 12px;}',
     '.sk-media-top{flex-wrap:wrap;}',
-    '.sk-media-top .sk-media-viewpost{white-space:nowrap;}',
     '@media (max-width:900px){',
       '.sk-media-backdrop.sk-clip-split{flex-direction:column;align-items:center;justify-content:flex-start;',
       'overflow-y:auto;}',
@@ -3415,9 +3424,11 @@
           '<span class="sk-star-clear" id="sk-star-clear" title="clear your rating">&times;</span>' +
         '</span>' +
         '<span class="sk-badge">' + esc(p.rating || '?') + '</span>' +
-        '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
-        '<span class="sk-media-viewpost" id="sk-copy-link" style="cursor:pointer;margin-left:8px" title="copy a link to this post">Copy Link</span>' +
-        '<span class="sk-media-viewpost" id="sk-add-pool" style="cursor:pointer;margin-left:8px" title="add this clip to a pool">Add to Pool</span>' +
+        '<span class="sk-media-actions">' +
+          '<a href="/post/show/' + p.id + '" target="_blank" rel="noopener" class="sk-media-viewpost">view post ↗</a>' +
+          '<span class="sk-media-act" id="sk-copy-link" title="copy a link to this post">Copy Link</span>' +
+          '<span class="sk-media-act" id="sk-add-pool" title="add this clip to a pool">Add to Pool</span>' +
+        '</span>' +
         '<span class="sk-media-close" id="sk-media-close" title="close">&times;</span>' +
       '</div>';
     var modal = mountModal(box);
@@ -5678,7 +5689,7 @@
       '<div class="sk-show-nav">' +
         '<button class="sk-nav-btn" id="sk-pp-back" type="button">← Back</button>' +
         '<span class="sk-nav-crumb">Public Pools</span>' +
-        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-nav-btn" style="text-decoration:none">View on site ↗</a>' +
+        '<a href="/pool/show/' + poolId + '" target="_blank" rel="noopener" class="sk-nav-btn sk-ext">View on site ↗</a>' +
       '</div>' +
       '<div class="sk-show-head">' +
         '<span class="title">' + esc(poolName) + '</span>' +
