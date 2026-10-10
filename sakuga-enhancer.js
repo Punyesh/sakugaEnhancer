@@ -580,6 +580,18 @@
   ];
   // ---------- styles: segmented view switch and the results tools row ----------
   var cssSearchToolbar = [
+    // Links of our own: the host site colours and underlines every <a>, with a rule as specific as a bare
+    // class, so ours are repeated here with a little more weight to keep their look.
+    '#sk-enh-root a.sk-tb-reset,#sk-info-popup .sk-info-links a,.sk-media-backdrop a.sk-media-viewpost{color:' + C.amber + ';text-decoration:none;}',
+    '#sk-enh-root a.sk-tb-reset:hover,.sk-media-backdrop a.sk-media-viewpost:hover{text-decoration:underline;}',
+    '#sk-info-popup .sk-info-links a:hover{color:' + C.amber + ';text-decoration:none;}',
+    '#sk-enh-root a.sk-nav-btn{display:inline-flex;align-items:center;line-height:1;text-decoration:none;color:' + C.text + ';}',
+    '#sk-enh-root a.sk-nav-btn:hover{color:' + C.amber + ';text-decoration:none;}',
+    // "← back to …" link: an anchor styled as a small toggle. Set explicitly (with the id) so the host
+    // site's own link colour, underline and line height can't change its colour or let the text spill out of the box.
+    '#sk-back-to-shows a.sk-mini-toggle{display:inline-flex;align-items:center;box-sizing:border-box;height:' + H_SM + ';',
+    'margin:0 0 8px;padding:0 10px;line-height:1;white-space:nowrap;text-decoration:none;color:' + C.dim + ';}',
+    '#sk-back-to-shows a.sk-mini-toggle:hover{color:' + C.amber + ';border-color:' + C.amber + ';text-decoration:none;}',
     // re-roll button beside the sort (random only)
     '#sk-reroll{width:' + H_CTL + ';height:' + H_CTL + ';align-self:center;font-size:14px;flex:0 0 auto;}',
     // Results / Animator Stats (and My Pools / Public Pools): one segmented pill instead of two loose buttons
@@ -3687,7 +3699,7 @@
       var prevLabel = prev.tags.join(' ');
       if (prevLabel.length > 40) prevLabel = prevLabel.slice(0, 39) + '…';
       backWrap.style.display = 'block';
-      backWrap.innerHTML = '<a href="#" id="sk-back-link" class="sk-mini-toggle" style="display:inline-block;margin-bottom:8px">← back to ' + esc(prevLabel || 'previous search') + '</a>';
+      backWrap.innerHTML = '<a href="#" id="sk-back-link" class="sk-mini-toggle">← back to ' + esc(prevLabel || 'previous search') + '</a>';
       backWrap.querySelector('#sk-back-link').onclick = function (e) {
         e.preventDefault();
         var entry = searchHistory.pop();
@@ -3702,7 +3714,7 @@
       };
     } else if (cache.origin && cache.origin.type === 'shows') {
       backWrap.style.display = 'block';
-      backWrap.innerHTML = '<a href="#" id="sk-back-to-shows-link" class="sk-mini-toggle" style="display:inline-block;margin-bottom:8px">← back to episode list</a>';
+      backWrap.innerHTML = '<a href="#" id="sk-back-to-shows-link" class="sk-mini-toggle">← back to episode list</a>';
       backWrap.querySelector('#sk-back-to-shows-link').onclick = function (e) {
         e.preventDefault();
         switchToTab('shows');

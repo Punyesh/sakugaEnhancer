@@ -67,7 +67,7 @@
       var prevLabel = prev.tags.join(' ');
       if (prevLabel.length > 40) prevLabel = prevLabel.slice(0, 39) + '…';
       backWrap.style.display = 'block';
-      backWrap.innerHTML = '<a href="#" id="sk-back-link" class="sk-mini-toggle" style="display:inline-block;margin-bottom:8px">← back to ' + esc(prevLabel || 'previous search') + '</a>';
+      backWrap.innerHTML = '<a href="#" id="sk-back-link" class="sk-mini-toggle">← back to ' + esc(prevLabel || 'previous search') + '</a>';
       backWrap.querySelector('#sk-back-link').onclick = function (e) {
         e.preventDefault();
         var entry = searchHistory.pop();
@@ -82,7 +82,7 @@
       };
     } else if (cache.origin && cache.origin.type === 'shows') {
       backWrap.style.display = 'block';
-      backWrap.innerHTML = '<a href="#" id="sk-back-to-shows-link" class="sk-mini-toggle" style="display:inline-block;margin-bottom:8px">← back to episode list</a>';
+      backWrap.innerHTML = '<a href="#" id="sk-back-to-shows-link" class="sk-mini-toggle">← back to episode list</a>';
       backWrap.querySelector('#sk-back-to-shows-link').onclick = function (e) {
         e.preventDefault();
         switchToTab('shows');
