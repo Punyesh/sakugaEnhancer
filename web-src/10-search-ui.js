@@ -6,11 +6,42 @@
     return a.length === b.length && safeFilter(a, function (t, i) { return t === b[i]; }).length === a.length;
   }
 
+  // ---- automatic searching ----
+  var autoSearchTimer = null;
+
+  // Run the search for the current tags/sort right now. `commit` first turns whatever is
+  // typed in the box into a tag.
+  function searchNow(commit) {
+    clearTimeout(autoSearchTimer);
+    if (commit) commitPendingTag();
+    searchViewMode = 'results';
+    ensureResultsMarkup();
+    runSearch();
+  }
+
+  // Search after a change (sort, chip removed). `delay` lets several quick changes — taking
+  // out a few chips in a row — collapse into one search. Does nothing before the first
+  // search so that changing the sort on an empty page doesn't fire a request for "everything".
+  function autoSearch(delay) {
+    if (!searchCache && !searchState.tags.length) return;
+    clearTimeout(autoSearchTimer);
+    autoSearchTimer = setTimeout(function () {
+      var tc = body.querySelector('#sk-tag-controls');
+      if (tc && tc.style.display !== 'none') searchNow(false);
+    }, delay);
+  }
+
+  // The re-roll button only makes sense for the random sort.
+  function syncReroll() {
+    var b = body.querySelector('#sk-reroll');
+    if (b) b.style.display = searchState.order === 'random' ? 'flex' : 'none';
+  }
+
   function renderSearch() {
     body.innerHTML =
       '<div id="sk-tag-controls">' +
         '<div class="sk-row">' +
-          '<input class="sk-input" id="sk-tag-input" placeholder="add tag, enter to confirm">' +
+          '<input class="sk-input" id="sk-tag-input" placeholder="add a tag, press enter">' +
           '<select class="sk-select" id="sk-order">' +
             '<option value="score">top score</option>' +
             '<option value="score_asc">lowest score</option>' +
@@ -18,7 +49,7 @@
             '<option value="id">oldest</option>' +
             '<option value="random">random</option>' +
           '</select>' +
-          '<button class="sk-btn" id="sk-go">Search</button>' +
+          '<button class="sk-icon-btn" id="sk-reroll" type="button" title="new random set" style="display:none">&#8635;</button>' +
         '</div>' +
         '<div class="sk-chips" id="sk-chips"></div>' +
         '<div class="sk-suggest-list" id="sk-tag-suggestions" style="display:none"></div>' +
@@ -32,32 +63,38 @@
     renderChips();
 
     body.querySelector('#sk-order').value = searchState.order;
-    body.querySelector('#sk-order').onchange = function (e) { searchState.order = e.target.value; };
+    body.querySelector('#sk-order').onchange = function (e) {
+      searchState.order = e.target.value;
+      syncReroll();
+      autoSearch(0);
+    };
+    body.querySelector('#sk-reroll').onclick = function () { searchNow(false); };
 
+    // Searching is automatic: Enter adds what's typed as a tag and searches (on an empty
+    // box it re-runs the current search, which re-rolls "random"); picking a suggestion,
+    // changing the sort or removing a chip search too. There is no Search button.
     var input = body.querySelector('#sk-tag-input');
+    var suggestWrap = body.querySelector('#sk-tag-suggestions');
+    var suggestDebounce = null;
     input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && input.value.trim()) {
-        commitPendingTag();
-      }
+      if (e.key !== 'Enter') return;
+      clearTimeout(suggestDebounce);
+      suggestWrap.style.display = 'none';
+      suggestWrap.innerHTML = '';
+      searchNow(true);
     });
 
     // Live tag suggestions as you type — reuses the same cached full tag
     // dictionary the Shows tab already builds, just filtered across all tag
     // types instead of only type 3 (shows), no separate fetch mechanism
-    // needed. Selecting a suggestion runs the search immediately rather than
-    // just adding the chip, since picking a suggestion is how someone
-    // finishes specifying what they're looking for — no reason to also
-    // require a separate Search tap after. Manually typing a full tag and
-    // pressing Enter still just adds a chip without searching, since that
-    // path is more often used to string several tags together first.
-    var suggestWrap = body.querySelector('#sk-tag-suggestions');
-    var suggestDebounce = null;
+    // needed. Selecting a suggestion adds the tag and searches.
     input.addEventListener('input', function () {
       clearTimeout(suggestDebounce);
       var q = normalizeForTagMatch(input.value.trim().toLowerCase().replace(/\s+/g, '_'));
       if (!q) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
       suggestDebounce = setTimeout(function () {
         ensureAllTags().then(function (list) {
+          if (!input.value.trim()) return; // box was cleared (Enter / suggestion picked) while loading
           var matches = safeFilter(list, function (t) { return normalizeForTagMatch(t.name).indexOf(q) !== -1; });
           matches = safeSort(matches, function (a, b) { return b.count - a.count; }).slice(0, 8);
           if (!matches.length) { suggestWrap.style.display = 'none'; suggestWrap.innerHTML = ''; return; }
@@ -76,21 +113,12 @@
               suggestWrap.style.display = 'none';
               suggestWrap.innerHTML = '';
               renderChips();
-              searchViewMode = 'results';
-              ensureResultsMarkup();
-              runSearch();
+              searchNow(false);
             };
           }
         }).catch(function () { /* a failed suggestion lookup just shows nothing, not worth an error banner */ });
       }, 150);
     });
-
-    body.querySelector('#sk-go').onclick = function () {
-      commitPendingTag();
-      searchViewMode = 'results';
-      ensureResultsMarkup();
-      runSearch();
-    };
 
     body.querySelector('#sk-mode-results').onclick = function () { searchViewMode = 'results'; renderSearchView(); };
     body.querySelector('#sk-mode-stats').onclick = function () { searchViewMode = 'stats'; renderSearchView(); };
@@ -197,6 +225,7 @@
 
   function renderChips() {
     var wrap = body.querySelector('#sk-chips');
+    syncReroll();
     if (!wrap) return; // search tab isn't the active view right now — nothing to update
     wrap.innerHTML = '';
     searchState.tags.forEach(function (t, i) {
@@ -207,6 +236,7 @@
       chip.querySelector('span').onclick = function () {
         searchState.tags.splice(i, 1);
         renderChips();
+        autoSearch(400);
       };
       wrap.appendChild(chip);
     });

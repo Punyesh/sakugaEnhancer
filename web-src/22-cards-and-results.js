@@ -298,8 +298,10 @@
     refreshToolbar();
   }
 
+  var searchSeq = 0; // only the newest search may paint — quick successive changes can't show stale results
   function runSearch(opts) {
     opts = opts || {};
+    var mySeq = ++searchSeq;
     // Remember where we were so "← back" can return to it. A search launched
     // from the Shows tab (searchOrigin set) starts a fresh trail instead —
     // its way back is the episode list. Going back itself passes noHistory.
@@ -326,6 +328,7 @@
 
     return getJSON('/post.json?limit=' + PAGE_SIZE + '&tags=' + encodeURIComponent(tagQuery.trim()))
       .then(function (posts) {
+        if (mySeq !== searchSeq) return posts.length;
         searchCache = {
           tags: tagsSnapshot, order: orderSnapshot, posts: posts, excluded: {}, soloOnly: false,
           facetTags: computeFacetTags(posts, tagsSnapshot),
@@ -345,6 +348,7 @@
         return posts.length;
       })
       .catch(function (err) {
+        if (mySeq !== searchSeq) return;
         results.innerHTML = '<div class="sk-empty">error: ' + esc(err.message) + '</div>';
       });
   }

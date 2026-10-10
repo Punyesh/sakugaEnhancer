@@ -1,5 +1,7 @@
   // ---------- styles: segmented view switch and the results tools row ----------
   var cssSearchToolbar = [
+    // re-roll button beside the sort (random only)
+    '#sk-reroll{width:' + H_CTL + ';height:' + H_CTL + ';align-self:center;font-size:14px;flex:0 0 auto;}',
     // Results / Animator Stats (and My Pools / Public Pools): one segmented pill instead of two loose buttons
     '.sk-mode-row{display:inline-flex;gap:0;padding:2px;margin-bottom:8px;max-width:100%;',
     'background:' + C.bg + ';border:1px solid ' + C.line + ';border-radius:' + R_CTL + ';}',
